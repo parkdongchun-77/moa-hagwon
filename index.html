@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<!-- 모아학원: 천안/아산 학원 검색·비교·학원비 관리 웹앱 (Supabase 백엔드) -->
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>모아학원 — 우리 동네 학원, 한눈에 비교</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root{--p:#4f46e5;--p2:#6366f1;--bg:#f6f7fb;--card:#fff;--txt:#1e293b;--mut:#64748b;--line:#e2e8f0;--good:#059669;--bad:#dc2626;--warn:#d97706;--ad:#fef3c7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif;background:var(--bg);color:var(--txt);font-size:15px}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit;font-size:14px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;color:var(--txt)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--p2);border-color:transparent}
+a{color:var(--p)}
+/* 헤더 */
+header{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--line);padding:0 16px}
+.nav{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:6px;height:56px}
+.logo{font-size:20px;font-weight:800;color:var(--p);margin-right:10px;cursor:pointer;white-space:nowrap}
+.nav-btn{background:none;border:none;padding:8px 10px;border-radius:8px;font-size:14px;color:var(--mut);position:relative;white-space:nowrap}
+.nav-btn:hover{background:var(--bg)}
+.nav-btn.active{color:var(--p);font-weight:700;background:#eef2ff}
+.badge{position:absolute;top:0;right:-2px;background:var(--bad);color:#fff;font-size:10px;border-radius:9px;padding:1px 5px;font-weight:700}
+.spacer{flex:1}
+/* 레이아웃 */
+main{max-width:1080px;margin:0 auto;padding:20px 16px 80px}
+.view{display:none}.view.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+h2{font-size:19px;margin-bottom:12px}
+h3{font-size:16px;margin:14px 0 8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{background:var(--p);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:600}
+.btn:hover{background:var(--p2)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn.ghost{background:#fff;color:var(--p);border:1px solid var(--p)}
+.btn.gray{background:#fff;color:var(--mut);border:1px solid var(--line)}
+.btn.danger{background:var(--bad)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.chip{border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 12px;font-size:13px;color:var(--mut)}
+.chip.on{background:var(--p);color:#fff;border-color:var(--p);font-weight:600}
+.tag{display:inline-block;background:#eef2ff;color:var(--p);border-radius:6px;padding:2px 7px;font-size:12px;font-weight:600;margin-right:4px}
+.tag.gray{background:#f1f5f9;color:var(--mut)}
+.tag.ad{background:var(--ad);color:#92400e}
+.mut{color:var(--mut);font-size:13px}
+.right{margin-left:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
+.num{text-align:right;white-space:nowrap}
+/* 학원 카드 */
+.aca-card{display:flex;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:#fff;flex-wrap:wrap}
+.aca-card.premium{background:#fffbeb;border-color:#fcd34d}
+.aca-main{flex:1;min-width:220px;cursor:pointer}
+.aca-name{font-size:16px;font-weight:700;margin-bottom:3px}
+.aca-actions{display:flex;flex-direction:column;gap:6px;justify-content:center}
+.fee-line{font-size:14px;margin-top:5px;font-weight:600;color:var(--good)}
+/* 모달 */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:100;overflow-y:auto;padding:30px 12px}
+.modal-bg.on{display:block}
+.modal{background:#fff;border-radius:16px;max-width:760px;margin:0 auto;padding:24px;position:relative}
+.modal .close{position:absolute;top:14px;right:14px;background:none;border:none;font-size:22px;color:var(--mut)}
+.stars{color:#f59e0b;letter-spacing:1px}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px;font-weight:600}
+.field input,.field select,.field textarea{width:100%}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr}.nav{overflow-x:auto}}
+.stat{flex:1;min-width:140px;background:#eef2ff;border-radius:12px;padding:14px;text-align:center}
+.stat b{display:block;font-size:22px;color:var(--p)}
+.stat span{font-size:13px;color:var(--mut)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:11px 22px;border-radius:10px;font-size:14px;z-index:200;display:none;max-width:90vw}
+.tabbar{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:14px;overflow-x:auto}
+.tab{background:none;border:none;padding:9px 14px;font-size:14px;color:var(--mut);border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tab.on{color:var(--p);font-weight:700;border-bottom-color:var(--p)}
+.review{border-bottom:1px solid var(--line);padding:10px 0}
+.empty{text-align:center;color:var(--mut);padding:30px 0}
+.notice{background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:12px}
+@media print{header,.no-print{display:none!important}body{background:#fff}}
+</style>
+</head>
+<body>
+<header><div class="nav">
+  <div class="logo" onclick="go('search')">모아학원</div>
+  <button class="nav-btn" data-v="search" onclick="go('search')">학원 검색</button>
+  <button class="nav-btn" data-v="compare" onclick="go('compare')">비교함<span class="badge" id="cmpBadge" style="display:none"></span></button>
+  <button class="nav-btn" data-v="dash" onclick="go('dash')">학원비 대시보드</button>
+  <button class="nav-btn" data-v="noti" onclick="go('noti')">알림<span class="badge" id="notiBadge" style="display:none"></span></button>
+  <button class="nav-btn" data-v="owner" id="navOwner" onclick="go('owner')" style="display:none">원장센터</button>
+  <button class="nav-btn" data-v="admin" id="navAdmin" onclick="go('admin')" style="display:none">운영</button>
+  <div class="spacer"></div>
+  <span class="mut" id="userInfo"></span>
+  <button class="btn sm ghost" id="authBtn" onclick="onAuthBtn()">로그인</button>
+</div></header>
+<main>
+
+<!-- ===== 검색 ===== -->
+<section class="view" id="v-search">
+  <div class="card no-print" style="padding:0;overflow:hidden;position:relative">
+    <div id="map" style="height:33vh;min-height:240px"></div>
+    <div class="mut" style="position:absolute;bottom:6px;left:8px;z-index:500;background:rgba(255,255,255,.85);border-radius:6px;padding:2px 8px;font-size:12px">
+      검색 결과를 지도에 표시합니다 · 좌표는 주소 기반 자동 변환(일부 부정확 가능)</div>
+  </div>
+  <div class="card">
+    <h2>우리 동네 학원 찾기 <span class="mut" id="totalCnt"></span></h2>
+    <div class="row" style="margin-bottom:8px">
+      <select id="fSido"><option value="">전국</option></select>
+      <select id="fCity"><option value="">전체 시/군/구</option></select>
+      <select id="fDong"><option value="">전체 동/읍/면</option></select>
+      <input id="fKw" placeholder="학원명 검색" style="width:160px">
+      <select id="fSort">
+        <option value="name">이름순</option>
+        <option value="feeAsc">월 학원비 낮은순</option>
+        <option value="feeDesc">월 학원비 높은순</option>
+        <option value="hourly">시간당 단가 낮은순</option>
+      </select>
+    </div>
+    <div class="row" style="margin-bottom:8px" id="fSubjects"></div>
+    <div class="row" style="margin-bottom:8px">
+      <span class="mut">학년:</span><span id="fGrades" class="row"></span>
+      <span class="mut" style="margin-left:8px">월 학원비:</span>
+      <select id="fFee">
+        <option value="">전체</option>
+        <option value="100000">10만원 이하</option>
+        <option value="200000">20만원 이하</option>
+        <option value="300000">30만원 이하</option>
+        <option value="400000">40만원 이하</option>
+        <option value="500000">50만원 이하</option>
+      </select>
+      <select id="fCap">
+        <option value="">정원 전체</option>
+        <option value="small">소수정예 (12명 이하)</option>
+        <option value="large">13명 이상</option>
+      </select>
+      <label class="chip" style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="fFeeOnly" style="width:auto" checked>수강료 공개만</label>
+      <button class="btn sm" onclick="state.page=1;loadAcademies()">검색</button>
+      <button class="btn sm gray" onclick="resetFilters()">초기화</button>
+    </div>
+  </div>
+  <div id="acaList"></div>
+  <div class="row no-print" style="justify-content:center;margin-top:10px">
+    <button class="btn gray sm" id="pgPrev" onclick="page(-1)">이전</button>
+    <span class="mut" id="pgInfo"></span>
+    <button class="btn gray sm" id="pgNext" onclick="page(1)">다음</button>
+  </div>
+</section>
+
+<!-- ===== 비교함 ===== -->
+<section class="view" id="v-compare">
+  <div class="card">
+    <div class="row"><h2>학원 비교함 <span class="mut">(최대 4곳)</span></h2>
+      <button class="btn sm gray right no-print" onclick="window.print()">PDF로 저장/인쇄</button>
+      <button class="btn sm danger no-print" onclick="clearCompare()">비우기</button></div>
+    <div id="cmpTable"></div>
+  </div>
+</section>
+
+<!-- ===== 대시보드 ===== -->
+<section class="view" id="v-dash">
+  <div class="card"><div class="row">
+    <h2>우리 집 학원비 대시보드</h2>
+    <button class="btn sm right" onclick="openChildModal()">+ 자녀 추가</button></div>
+    <div class="row" id="dashStats"></div>
+  </div>
+  <div id="childrenArea"></div>
+  <div class="card"><h3>월별 학원비 추이 (최근 12개월)</h3><canvas id="trendChart" height="90"></canvas></div>
+  <div class="card"><h3>우리 동네 평균 vs 우리 집 (과목별 1곳 기준)</h3>
+    <div class="row" style="margin-bottom:8px"><select id="avgCity"></select><button class="btn sm" onclick="renderAvgChart()">갱신</button></div>
+    <canvas id="avgChart" height="90"></canvas></div>
+</section>
+
+<!-- ===== 알림 ===== -->
+<section class="view" id="v-noti">
+  <div class="card"><div class="row"><h2>알림</h2><button class="btn sm gray right" onclick="markAllRead()">모두 읽음</button></div><div id="notiList"></div></div>
+  <div class="card"><h3>관심 지역/과목 (신규 오픈·가격 변동 알림)</h3>
+    <div class="row" style="margin-bottom:10px">
+      <input id="wCity" placeholder="시/군/구 (예: 천안시, 강남구)" style="width:170px">
+      <input id="wDong" placeholder="동/읍/면 (선택)" style="width:130px">
+      <select id="wSubject"><option value="">과목 전체</option></select>
+      <button class="btn sm" onclick="addWatch()">등록</button>
+    </div>
+    <div id="watchList"></div>
+    <p class="mut" style="margin-top:8px">※ 관심 학원(♥)의 수강료가 바뀌면 자동으로 알림이 옵니다.</p>
+  </div>
+</section>
+
+<!-- ===== 원장센터 ===== -->
+<section class="view" id="v-owner">
+  <div class="card"><h2>원장센터</h2>
+    <div class="notice">학원 소유권을 인증(클레임)하면 학원 소개·수강료·이벤트를 직접 관리하고 상담 신청을 받을 수 있습니다.</div>
+    <div class="row" style="margin-bottom:6px">
+      <input id="claimKw" placeholder="내 학원 이름 검색" style="width:200px">
+      <button class="btn sm" onclick="searchClaim()">검색</button>
+    </div>
+    <div id="claimResults"></div>
+    <div id="myClaims"></div>
+  </div>
+  <div id="myAcademies"></div>
+</section>
+
+<!-- ===== 운영(관리자) ===== -->
+<section class="view" id="v-admin">
+  <div class="card"><div class="row"><h2>플랫폼 운영센터</h2>
+    <select id="syncSido" class="right"></select>
+    <button class="btn sm" id="syncBtn" onclick="runSync()">NEIS 동기화</button></div>
+    <div class="row" style="margin:8px 0">
+      <input id="neisKey" placeholder="NEIS 인증키 (open.neis.go.kr에서 발급)" style="flex:1;min-width:220px">
+      <button class="btn sm gray" onclick="saveNeisKey()">키 저장</button>
+    </div>
+    <div class="row" id="adminStats"></div>
+  </div>
+  <div class="card"><h3>소유권 클레임 승인</h3><div id="adminClaims"></div></div>
+  <div class="card"><h3>신고 관리</h3><div id="adminReports"></div></div>
+  <div class="card"><h3>프리미엄 노출(광고) 주문</h3><div id="adminAds"></div></div>
+</section>
+
+</main>
+
+<!-- 상세 모달 -->
+<div class="modal-bg" id="m-detail"><div class="modal"><button class="close" onclick="closeModal('m-detail')">×</button><div id="detailBody"></div></div></div>
+<!-- 로그인/가입 모달 -->
+<div class="modal-bg" id="m-auth"><div class="modal" style="max-width:400px"><button class="close" onclick="closeModal('m-auth')">×</button>
+  <h2 id="authTitle">로그인</h2>
+  <div class="field"><label>이메일</label><input id="aEmail" type="email" placeholder="email@example.com"></div>
+  <div class="field"><label>비밀번호 (6자 이상)</label><input id="aPw" type="password"></div>
+  <div id="signupExtra" style="display:none">
+    <div class="field"><label>닉네임</label><input id="aNick"></div>
+    <div class="field"><label>역할</label><select id="aRole"><option value="parent">학부모</option><option value="owner">학원 원장/운영자</option></select></div>
+  </div>
+  <button class="btn" style="width:100%" id="authGo" onclick="doAuth()">로그인</button>
+  <p class="mut" style="margin-top:10px;text-align:center"><a href="#" onclick="toggleAuthMode();return false" id="authSwitch">처음이신가요? 회원가입</a></p>
+</div></div>
+<!-- 자녀 모달 -->
+<div class="modal-bg" id="m-child"><div class="modal" style="max-width:400px"><button class="close" onclick="closeModal('m-child')">×</button>
+  <h2>자녀 추가</h2>
+  <div class="field"><label>이름</label><input id="chName"></div>
+  <div class="field"><label>학년</label><select id="chGrade">
+    <option>유아</option><option>초1</option><option>초2</option><option>초3</option><option>초4</option><option>초5</option><option>초6</option>
+    <option>중1</option><option>중2</option><option>중3</option><option>고1</option><option>고2</option><option>고3</option></select></div>
+  <button class="btn" style="width:100%" onclick="saveChild()">저장</button>
+</div></div>
+<!-- 자녀-학원 등록 모달 -->
+<div class="modal-bg" id="m-enroll"><div class="modal" style="max-width:460px"><button class="close" onclick="closeModal('m-enroll')">×</button>
+  <h2>다니는 학원 등록</h2>
+  <div class="field"><label>학원 검색 (또는 직접 입력)</label>
+    <input id="enKw" placeholder="학원명 검색" oninput="enrollSearch()"><div id="enResults"></div></div>
+  <div class="field"><label>학원명</label><input id="enName"></div>
+  <div class="field"><label>과목</label><select id="enSubject"></select></div>
+  <div class="grid2">
+    <div class="field"><label>월 학원비 합계(원)</label><input id="enFee" type="number" placeholder="300000"></div>
+    <div class="field"><label>시작 월</label><input id="enStart" type="month"></div>
+  </div>
+  <div class="field"><label>메모</label><input id="enMemo" placeholder="예: 차량비 포함"></div>
+  <button class="btn" style="width:100%" onclick="saveEnroll()">저장</button>
+</div></div>
+<!-- 리드(상담신청) 모달 -->
+<div class="modal-bg" id="m-lead"><div class="modal" style="max-width:430px"><button class="close" onclick="closeModal('m-lead')">×</button>
+  <h2 id="leadTitle">상담 신청</h2>
+  <div class="grid2">
+    <div class="field"><label>유형</label><select id="ldType"><option>상담</option><option>체험</option><option>방문</option></select></div>
+    <div class="field"><label>학생 이름</label><input id="ldName"></div>
+    <div class="field"><label>학년</label><input id="ldGrade" placeholder="초5"></div>
+    <div class="field"><label>희망 과목</label><input id="ldSubject" placeholder="수학"></div>
+  </div>
+  <div class="field"><label>연락처</label><input id="ldPhone" placeholder="010-0000-0000"></div>
+  <div class="field"><label>문의 내용</label><textarea id="ldMsg" rows="3"></textarea></div>
+  <button class="btn" style="width:100%" onclick="submitLead()">신청하기</button>
+</div></div>
+
+<div class="toast" id="toast"></div>
+<script>
+// ===== 설정 =====
+const SUPABASE_URL = "https://mqoawibfxpcrwhmvzegg.supabase.co";
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xb2F3aWJmeHBjcndobXZ6ZWdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3MzcxMjIsImV4cCI6MjA5NjMxMzEyMn0.z8goCZj95l1sAOHpV2niO-0rw-nwqFotsnYFy-uwUKU";
+const sb = window.supabase.createClient(SUPABASE_URL, ANON_KEY);
+const SUBJECTS = ["수학","영어","국어","과학","사회","코딩","음악","미술","체육","외국어","입시컨설팅","종합보습","기타"];
+const GRADES = ["유아","초등","중등","고등","성인"];
+const won = n => n == null ? "-" : Number(n).toLocaleString("ko-KR") + "원";
+const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let state = { user: null, profile: null, page: 1, total: 0, signupMode: false, detail: null, leadAcademy: null, enrollChild: null, compare: JSON.parse(localStorage.getItem("moa_cmp") || "[]") };
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2600); }
+function go(v) {
+  document.querySelectorAll(".view").forEach(e => e.classList.remove("on"));
+  document.getElementById("v-" + v).classList.add("on");
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.v === v));
+  if (v === "compare") renderCompare();
+  if (v === "dash") loadDash();
+  if (v === "noti") loadNoti();
+  if (v === "owner") loadOwner();
+  if (v === "admin") loadAdmin();
+}
+function closeModal(id) { document.getElementById(id).classList.remove("on"); }
+function openModal(id) { document.getElementById(id).classList.add("on"); }
+function needLogin() { if (!state.user) { toast("로그인이 필요합니다."); openModal("m-auth"); return true; } return false; }
+</script>
+<script id="part2">
+// ===== 인증 =====
+async function initAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) await setUser(session.user);
+  sb.auth.onAuthStateChange((_e, s) => { if (s?.user && !state.user) setUser(s.user); });
+}
+async function setUser(user) {
+  state.user = user;
+  const { data: p } = await sb.from("profiles").select("*").eq("id", user.id).single();
+  state.profile = p;
+  document.getElementById("userInfo").textContent = (p?.nickname || user.email) + (p?.role === "admin" ? " (관리자)" : p?.role === "owner" ? " (원장)" : "");
+  document.getElementById("authBtn").textContent = "로그아웃";
+  document.getElementById("navOwner").style.display = (p?.role === "owner" || p?.role === "admin") ? "" : "none";
+  document.getElementById("navAdmin").style.display = p?.role === "admin" ? "" : "none";
+  refreshNotiBadge();
+}
+function onAuthBtn() {
+  if (state.user) { sb.auth.signOut().then(() => location.reload()); }
+  else openModal("m-auth");
+}
+function toggleAuthMode() {
+  state.signupMode = !state.signupMode;
+  document.getElementById("authTitle").textContent = state.signupMode ? "회원가입" : "로그인";
+  document.getElementById("authGo").textContent = state.signupMode ? "가입하기" : "로그인";
+  document.getElementById("signupExtra").style.display = state.signupMode ? "" : "none";
+  document.getElementById("authSwitch").textContent = state.signupMode ? "이미 계정이 있나요? 로그인" : "처음이신가요? 회원가입";
+}
+async function doAuth() {
+  const email = document.getElementById("aEmail").value.trim(), pw = document.getElementById("aPw").value;
+  if (!email || pw.length < 6) return toast("이메일과 6자 이상 비밀번호를 입력하세요.");
+  const btn = document.getElementById("authGo"); btn.disabled = true;
+  try {
+    if (state.signupMode) {
+      const res = await fetch(SUPABASE_URL + "/functions/v1/signup", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: pw, nickname: document.getElementById("aNick").value.trim(), role: document.getElementById("aRole").value })
+      });
+      const j = await res.json();
+      if (j.error) throw new Error(j.error);
+    }
+    const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if (error) throw new Error(error.message.includes("Invalid") ? "이메일 또는 비밀번호가 올바르지 않습니다." : error.message);
+    closeModal("m-auth"); toast(state.signupMode ? "가입 완료! 환영합니다." : "로그인되었습니다.");
+  } catch (e) { toast(e.message); } finally { btn.disabled = false; }
+}
+
+// ===== 검색 =====
+const PAGE_SIZE = 20;
+let selSubjects = new Set(), selGrades = new Set();
+function renderFilterChips() {
+  document.getElementById("fSubjects").innerHTML = SUBJECTS.map(s =>
+    `<button class="chip ${selSubjects.has(s) ? "on" : ""}" onclick="togSet(selSubjects,'${s}');renderFilterChips();state.page=1;loadAcademies()">${s}</button>`).join("");
+  document.getElementById("fGrades").innerHTML = GRADES.map(g =>
+    `<button class="chip ${selGrades.has(g) ? "on" : ""}" onclick="togSet(selGrades,'${g}');renderFilterChips();state.page=1;loadAcademies()">${g}</button>`).join("");
+}
+function togSet(set, v) { set.has(v) ? set.delete(v) : set.add(v); }
+function resetFilters() {
+  selSubjects.clear(); selGrades.clear();
+  ["fSido","fCity","fDong","fKw","fFee","fCap"].forEach(id => document.getElementById(id).value = "");
+  loadCities();
+  document.getElementById("fFeeOnly").checked = true;
+  document.getElementById("fSort").value = "name";
+  renderFilterChips(); state.page = 1; loadAcademies();
+}
+const SIDOS = ["서울","부산","대구","인천","광주","대전","울산","세종","경기","강원","충북","충남","전북","전남","경북","경남","제주"];
+async function loadCities() {
+  const sido = document.getElementById("fSido").value;
+  const sel = document.getElementById("fCity");
+  sel.innerHTML = `<option value="">전체 시/군/구</option>`;
+  document.getElementById("fDong").innerHTML = `<option value="">전체 동/읍/면</option>`;
+  if (!sido) return;
+  const { data } = await sb.from("region_list").select("region_city").eq("sido", sido).order("region_city");
+  sel.innerHTML += (data || []).map(r => `<option>${esc(r.region_city)}</option>`).join("");
+}
+async function loadDongs() {
+  const sido = document.getElementById("fSido").value, city = document.getElementById("fCity").value;
+  const sel = document.getElementById("fDong");
+  sel.innerHTML = `<option value="">전체 동/읍/면</option>`;
+  if (!city) return;
+  let q = sb.from("dong_list").select("dong").eq("region_city", city).order("dong");
+  if (sido) q = q.eq("sido", sido);
+  const { data } = await q;
+  sel.innerHTML += [...new Set((data || []).map(r => r.dong))].map(d => `<option>${esc(d)}</option>`).join("");
+}
+function buildQuery() {
+  let q = sb.from("academies").select("*", { count: "exact" }).eq("status", "개원");
+  const sido = document.getElementById("fSido").value, city = document.getElementById("fCity").value, dong = document.getElementById("fDong").value;
+  const kw = document.getElementById("fKw").value.trim(), fee = document.getElementById("fFee").value;
+  if (sido) q = q.eq("sido", sido);
+  if (city) q = q.eq("region_city", city);
+  if (dong) q = q.eq("dong", dong);
+  if (kw) q = q.ilike("name", `%${kw}%`);
+  if (selSubjects.size) q = q.overlaps("subjects", [...selSubjects]);
+  if (selGrades.size) q = q.overlaps("grades", [...selGrades]);
+  if (fee) q = q.lte("min_monthly", +fee);
+  const cap = document.getElementById("fCap").value;
+  if (cap === "small") q = q.lte("capacity", 12);
+  if (cap === "large") q = q.gt("capacity", 12);
+  if (document.getElementById("fFeeOnly").checked) q = q.not("min_monthly", "is", null);
+  const sort = document.getElementById("fSort").value;
+  q = q.order("is_premium", { ascending: false });
+  if (sort === "feeAsc") q = q.order("min_monthly", { ascending: true, nullsFirst: false });
+  else if (sort === "feeDesc") q = q.order("max_monthly", { ascending: false, nullsFirst: false });
+  else if (sort === "hourly") q = q.order("min_monthly", { ascending: true, nullsFirst: false });
+  else q = q.order("name");
+  return q.range((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE - 1);
+}
+async function loadAcademies() {
+  const list = document.getElementById("acaList");
+  list.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const { data, count, error } = await buildQuery();
+  if (error) { list.innerHTML = `<div class="empty">오류: ${esc(error.message)}</div>`; return; }
+  state.total = count || 0;
+  document.getElementById("totalCnt").textContent = `· ${state.total.toLocaleString()}곳`;
+  document.getElementById("pgInfo").textContent = `${state.page} / ${Math.max(1, Math.ceil(state.total / PAGE_SIZE))}`;
+  document.getElementById("pgPrev").disabled = state.page <= 1;
+  document.getElementById("pgNext").disabled = state.page * PAGE_SIZE >= state.total;
+  updateMap(data || []);
+  if (!data?.length) {
+    const feeOnly = document.getElementById("fFeeOnly").checked;
+    list.innerHTML = `<div class="empty">조건에 맞는 학원이 없습니다.${feeOnly ? `<br><span class="mut">수강료를 공개하지 않은 학원이 제외되어 있어요 (전국 학원의 약 80%가 미공개).</span><br>
+      <button class="btn sm ghost" style="margin-top:8px" onclick="document.getElementById('fFeeOnly').checked=false;state.page=1;loadAcademies()">수강료 비공개 학원 포함해서 다시 검색</button>` : ""}</div>`;
+    return;
+  }
+  list.innerHTML = data.map(a => acaCard(a)).join("");
+}
+function feeRange(a) {
+  if (a.min_monthly == null) return `<span class="mut">수강료 비공개</span>`;
+  return a.min_monthly === a.max_monthly ? won(a.min_monthly) + "/월" : `${won(a.min_monthly)} ~ ${won(a.max_monthly)}/월`;
+}
+function acaCard(a) {
+  const inCmp = state.compare.includes(a.id);
+  return `<div class="aca-card ${a.is_premium ? "premium" : ""}">
+    <div class="aca-main" onclick="openDetail(${a.id})">
+      <div class="aca-name">${a.is_premium ? `<span class="tag ad">AD</span>` : ""}${esc(a.name)} <span class="tag gray">${esc(a.kind || "")}</span></div>
+      <div class="mut">${esc(a.sido || "")} ${esc(a.region_city || "")} ${esc(a.district || "")} ${esc(a.dong || "")} ${a.capacity ? `· 정원 ${a.capacity}명` : ""} ${a.small_class ? `· <b style="color:var(--good)">소수정예</b>` : ""}</div>
+      <div style="margin-top:5px">${(a.subjects || []).map(s => `<span class="tag">${esc(s)}</span>`).join("")}${(a.grades || []).map(g => `<span class="tag gray">${esc(g)}</span>`).join("")}</div>
+      <div class="fee-line">${feeRange(a)}</div>
+    </div>
+    <div class="aca-actions no-print">
+      <button class="btn sm ghost" onclick="openDetail(${a.id})">상세·비용</button>
+      <button class="btn sm ${inCmp ? "" : "gray"}" onclick="toggleCompare(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">${inCmp ? "비교함 ✓" : "비교 담기"}</button>
+      <button class="btn sm gray" onclick="toggleFav(${a.id})">♥ 관심</button>
+    </div></div>`;
+}
+function page(d) { state.page += d; loadAcademies(); window.scrollTo(0, 0); }
+
+// ===== 지도 (카카오맵 우선, 실패 시 Leaflet+OSM 폴백 / 좌표는 지오코딩 후 DB 캐시) =====
+const KAKAO_JS_KEY = ""; // 카카오 developers JavaScript 키 (호스팅 도메인 등록 필요)
+let mapApi = null, mapReady = null, mapToken = 0, userPos = null;
+function geoLocate() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(p => {
+    userPos = [p.coords.latitude, p.coords.longitude];
+    if (mapApi) { mapApi.addUser(userPos); mapApi.setView(userPos); }
+  }, () => {}, { timeout: 5000 });
+}
+function ensureMap() {
+  if (!mapReady) {
+    mapReady = (KAKAO_JS_KEY && location.protocol.startsWith("http")) ? initKakao() : initLeaflet();
+    mapReady.then(() => geoLocate());
+  }
+  return mapReady;
+}
+async function initKakao() {
+  const ok = await new Promise(res => {
+    const s = document.createElement("script");
+    s.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_JS_KEY}&libraries=services&autoload=false`;
+    s.onload = () => res(true); s.onerror = () => res(false);
+    document.head.appendChild(s);
+  });
+  if (!ok || !window.kakao?.maps) return initLeaflet();
+  await new Promise(r => kakao.maps.load(r));
+  const m = new kakao.maps.Map(document.getElementById("map"), { center: new kakao.maps.LatLng(36.815, 127.114), level: 7 });
+  const geocoder = new kakao.maps.services.Geocoder();
+  let markers = [], infos = [];
+  const search = (q) => new Promise(res => geocoder.addressSearch(q, (r, st) =>
+    res(st === kakao.maps.services.Status.OK && r[0] ? [+r[0].y, +r[0].x] : null)));
+  mapApi = {
+    clear() { markers.forEach(mk => mk.setMap(null)); infos.forEach(i => i.close()); markers = []; infos = []; },
+    add(a) {
+      const mk = new kakao.maps.Marker({ map: m, position: new kakao.maps.LatLng(a.lat, a.lng) });
+      const iw = new kakao.maps.InfoWindow({ removable: true, content: `<div style="padding:6px 10px;font-size:12px;max-width:230px;line-height:1.5"><b>${esc(a.name)}</b><br>${esc(a.region_city || "")} ${esc(a.dong || "")} · ${a.min_monthly ? won(a.min_monthly) + "~/월" : "수강료 비공개"}<br><a href="#" onclick="openDetail(${a.id});return false">상세 보기</a></div>` });
+      kakao.maps.event.addListener(mk, "click", () => { infos.forEach(i => i.close()); iw.open(m, mk); });
+      markers.push(mk); infos.push(iw);
+    },
+    fit(pts) { const b = new kakao.maps.LatLngBounds(); pts.forEach(p => b.extend(new kakao.maps.LatLng(p[0], p[1]))); m.setBounds(b); },
+    setView(p) { m.setCenter(new kakao.maps.LatLng(p[0], p[1])); m.setLevel(5); },
+    addUser(p) { new kakao.maps.CustomOverlay({ map: m, position: new kakao.maps.LatLng(p[0], p[1]),
+      content: '<div title="내 위치" style="width:16px;height:16px;border-radius:50%;background:#4f46e5;border:3px solid #fff;box-shadow:0 0 6px rgba(0,0,0,.4)"></div>' }); },
+    async geocode(a) {
+      await new Promise(r => setTimeout(r, 80));
+      return (a.address && await search(a.address)) || await search(`${a.sido || ""} ${a.region_city || ""} ${a.dong || ""}`);
+    },
+  };
+}
+async function initLeaflet() {
+  if (!window.L) return;
+  const m = L.map("map").setView([36.815, 127.114], 12);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(m);
+  const layer = L.layerGroup().addTo(m);
+  setTimeout(() => m.invalidateSize(), 150);
+  const geoCache = {};
+  mapApi = {
+    clear() { layer.clearLayers(); },
+    add(a) {
+      L.marker([a.lat, a.lng]).addTo(layer).bindPopup(`<b>${esc(a.name)}</b><br><span style="color:#64748b;font-size:12px">${esc(a.region_city || "")} ${esc(a.dong || "")} · ${a.min_monthly ? won(a.min_monthly) + "~/월" : "수강료 비공개"}</span><br><a href="#" onclick="openDetail(${a.id});return false">상세 보기</a>`);
+    },
+    fit(pts) { m.fitBounds(pts, { padding: [30, 30], maxZoom: 15 }); },
+    setView(p) { m.setView(p, 13); },
+    addUser(p) { L.circleMarker(p, { radius: 8, color: "#fff", weight: 2, fillColor: "#4f46e5", fillOpacity: 1 }).addTo(m).bindPopup("내 위치"); },
+    async geocode(a) { // Nominatim: 초당 1회 정책
+      for (const q of [a.address, `${a.sido || ""} ${a.region_city || ""} ${a.dong || ""}`]) {
+        if (!q || !q.trim()) continue;
+        if (q in geoCache) { if (geoCache[q]) return geoCache[q]; continue; }
+        try {
+          await new Promise(r => setTimeout(r, 1100));
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q=${encodeURIComponent(q)}`);
+          const j = await res.json();
+          geoCache[q] = j?.[0] ? [+j[0].lat, +j[0].lon] : null;
+          if (geoCache[q]) return geoCache[q];
+        } catch (e) { return null; }
+      }
+      return null;
+    },
+  };
+}
+async function updateMap(rows) {
+  await ensureMap();
+  if (!mapApi) return;
+  const token = ++mapToken;
+  mapApi.clear();
+  const pts = [];
+  const add = a => { mapApi.add(a); pts.push([a.lat, a.lng]); };
+  rows.filter(a => a.lat && a.lng).forEach(add);
+  if (pts.length) mapApi.fit(pts);
+  else if (userPos) mapApi.setView(userPos);
+  for (const a of rows.filter(a => !a.lat || !a.lng)) {
+    if (token !== mapToken) return; // 새 검색 시작 시 중단
+    const c = await mapApi.geocode(a);
+    if (token !== mapToken) return;
+    if (c) {
+      a.lat = c[0]; a.lng = c[1];
+      add(a);
+      sb.rpc("set_academy_coords", { aid: a.id, p_lat: c[0], p_lng: c[1] });
+      if (pts.length <= 3) mapApi.fit(pts);
+    }
+  }
+}
+async function toggleFav(id) {
+  if (needLogin()) return;
+  const { data } = await sb.from("favorites").select("academy_id").eq("user_id", state.user.id).eq("academy_id", id);
+  if (data?.length) { await sb.from("favorites").delete().eq("user_id", state.user.id).eq("academy_id", id); toast("관심 학원에서 제거했습니다."); }
+  else { await sb.from("favorites").insert({ user_id: state.user.id, academy_id: id }); toast("관심 학원으로 등록! 가격 변동 시 알림을 드려요."); }
+}
+</script>
+<script id="part3">
+// ===== 학원 상세 =====
+async function openDetail(id) {
+  openModal("m-detail");
+  const body = document.getElementById("detailBody");
+  body.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const [{ data: a }, { data: courses }, { data: reviews }, { data: questions }] = await Promise.all([
+    sb.from("academies").select("*").eq("id", id).single(),
+    sb.from("courses").select("*").eq("academy_id", id).order("monthly_fee"),
+    sb.from("reviews").select("*, profiles:user_id(nickname)").eq("academy_id", id).eq("hidden", false).order("created_at", { ascending: false }),
+    sb.from("questions").select("*, profiles:user_id(nickname), answers(*, profiles:user_id(nickname))").eq("academy_id", id).order("created_at", { ascending: false }).limit(20),
+  ]);
+  if (!a) { body.innerHTML = "학원을 찾을 수 없습니다."; return; }
+  state.detail = a;
+  const avg = reviews?.length ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : null;
+  const extra = Array.isArray(a.extra_fees) ? a.extra_fees : [];
+  const extraSum = extra.reduce((s, e) => s + (+e.amount || 0), 0);
+  body.innerHTML = `
+    <h2>${a.is_premium ? `<span class="tag ad">AD</span>` : ""}${esc(a.name)} <span class="tag gray">${esc(a.kind || "")}</span></h2>
+    <div class="mut">${esc(a.address || "")} ${esc(a.address_detail || "")} ${a.tel ? "· ☎ " + esc(a.tel) : ""}</div>
+    <div style="margin:6px 0">${(a.subjects || []).map(s => `<span class="tag">${esc(s)}</span>`).join("")}${(a.grades || []).map(g => `<span class="tag gray">${esc(g)}</span>`).join("")}
+      ${a.capacity ? `<span class="tag gray">정원 ${a.capacity}명</span>` : ""}${avg ? `<span class="stars">★ ${avg}</span> <span class="mut">(${reviews.length})</span>` : ""}</div>
+    ${a.intro ? `<p style="margin:8px 0">${esc(a.intro)}</p>` : ""}
+    ${a.promo ? `<div class="notice">🎉 ${esc(a.promo)}</div>` : ""}
+    <div class="row no-print" style="margin:10px 0">
+      <button class="btn sm" onclick="openLead('상담')">상담 신청</button>
+      <button class="btn sm ghost" onclick="openLead('체험')">체험 수업 신청</button>
+      <button class="btn sm gray" onclick="toggleCompare(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">비교 담기</button>
+      <button class="btn sm gray" onclick="toggleFav(${a.id})">♥ 관심 등록</button>
+    </div>
+    <h3>수강료 (월 기준)</h3>
+    ${courses?.length ? `<table><tr><th>과정</th><th>과목</th><th class="num">월 수강료</th><th class="num">시간당 단가</th><th class="no-print">선택</th></tr>
+      ${courses.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.subject || "")}</td><td class="num">${won(c.monthly_fee)}</td>
+        <td class="num">${c.hourly_rate ? won(c.hourly_rate) : "-"}</td>
+        <td class="no-print"><input type="checkbox" class="calcCourse" data-fee="${c.monthly_fee}" onchange="calcTotal()"></td></tr>`).join("")}</table>` : `<p class="mut">등록된 수강료 정보가 없습니다.</p>`}
+    ${extra.length ? `<h3>추가 비용</h3><table>${extra.map(e => `<tr><td>${esc(e.label)}</td><td class="num">${won(e.amount)}</td></tr>`).join("")}
+      <tr><th>추가 비용 합계</th><th class="num">${won(extraSum)}</th></tr></table>` : ""}
+    <div class="card" style="background:#eef2ff;border:none;margin-top:10px">
+      <b>월 예상 총비용 계산기</b> <span class="mut">— 위에서 과정을 선택하세요${extra.length ? " (추가 비용 자동 포함)" : ""}</span>
+      <div style="font-size:22px;font-weight:800;color:var(--p)" id="calcOut">${won(extraSum)}</div>
+    </div>
+    ${a.discount_note ? `<p class="mut">💡 할인: ${esc(a.discount_note)}</p>` : ""}
+    ${a.teachers ? `<h3>강사진</h3><p>${esc(a.teachers)}</p>` : ""}
+    ${a.timetable ? `<h3>시간표</h3><p style="white-space:pre-wrap">${esc(a.timetable)}</p>` : ""}
+    ${(a.time_slots || []).length ? `<p class="mut">수업 시간대: ${a.time_slots.join(", ")}</p>` : ""}
+    <h3>후기 ${avg ? `<span class="stars">★ ${avg}</span>` : ""}</h3>
+    <div class="no-print" style="margin-bottom:8px">
+      <div class="row"><select id="rvRating"><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select>
+      <input id="rvOne" placeholder="한줄평" style="flex:1;min-width:150px"></div>
+      <div class="grid2" style="margin-top:6px"><input id="rvPros" placeholder="장점"><input id="rvCons" placeholder="단점"></div>
+      <button class="btn sm" style="margin-top:6px" onclick="submitReview()">후기 등록</button>
+      <span class="mut">· 허위/비방 후기는 명예훼손 등 법적 문제가 될 수 있습니다. 경험한 사실 위주로 작성해 주세요.</span>
+    </div>
+    <div id="rvList">${(reviews || []).map(r => `<div class="review">
+      <span class="stars">${"★".repeat(r.rating)}</span> <b>${esc(r.oneline || "")}</b> <span class="mut">— ${esc(r.profiles?.nickname || "익명")}</span>
+      ${r.pros ? `<div class="mut">👍 ${esc(r.pros)}</div>` : ""}${r.cons ? `<div class="mut">👎 ${esc(r.cons)}</div>` : ""}
+      <a href="#" class="mut no-print" onclick="reportTarget('review',${r.id});return false">신고</a></div>`).join("") || `<p class="mut">아직 후기가 없습니다.</p>`}</div>
+    <h3>Q&A</h3>
+    <div class="row no-print" style="margin-bottom:8px"><input id="qContent" placeholder="질문을 남겨보세요 (예: 주차 편한가요?)" style="flex:1"><button class="btn sm" onclick="submitQuestion()">질문</button></div>
+    <div>${(questions || []).filter(q => !q.hidden).map(q => `<div class="review">
+      <b>Q.</b> ${esc(q.content)} <span class="mut">— ${esc(q.profiles?.nickname || "익명")}</span>
+      <a href="#" class="mut no-print" onclick="reportTarget('question',${q.id});return false">신고</a>
+      ${(q.answers || []).filter(an => !an.hidden).map(an => `<div style="margin:4px 0 0 16px"><b style="color:var(--p)">A.</b> ${esc(an.content)} <span class="mut">— ${esc(an.profiles?.nickname || "")}${an.is_owner ? " (원장)" : ""}</span></div>`).join("")}
+      <div class="row no-print" style="margin:4px 0 0 16px"><input id="ans-${q.id}" placeholder="답변 달기" style="flex:1;font-size:13px;padding:5px 8px"><button class="btn sm gray" onclick="submitAnswer(${q.id})">답변</button></div>
+    </div>`).join("") || `<p class="mut">아직 질문이 없습니다.</p>`}</div>`;
+}
+function calcTotal() {
+  const a = state.detail;
+  const extra = (Array.isArray(a.extra_fees) ? a.extra_fees : []).reduce((s, e) => s + (+e.amount || 0), 0);
+  let sum = extra;
+  document.querySelectorAll(".calcCourse:checked").forEach(c => sum += +c.dataset.fee);
+  document.getElementById("calcOut").textContent = won(sum);
+}
+async function submitReview() {
+  if (needLogin()) return;
+  const r = { academy_id: state.detail.id, user_id: state.user.id, rating: +document.getElementById("rvRating").value,
+    oneline: document.getElementById("rvOne").value.trim(), pros: document.getElementById("rvPros").value.trim(), cons: document.getElementById("rvCons").value.trim() };
+  if (!r.oneline) return toast("한줄평을 입력하세요.");
+  const { error } = await sb.from("reviews").upsert(r, { onConflict: "academy_id,user_id" });
+  if (error) return toast("오류: " + error.message);
+  toast("후기가 등록되었습니다."); openDetail(state.detail.id);
+}
+async function submitQuestion() {
+  if (needLogin()) return;
+  const content = document.getElementById("qContent").value.trim();
+  if (!content) return toast("질문 내용을 입력하세요.");
+  const { error } = await sb.from("questions").insert({ academy_id: state.detail.id, user_id: state.user.id, content });
+  if (error) return toast("오류: " + error.message);
+  toast("질문이 등록되었습니다."); openDetail(state.detail.id);
+}
+async function submitAnswer(qid) {
+  if (needLogin()) return;
+  const content = document.getElementById("ans-" + qid).value.trim();
+  if (!content) return toast("답변 내용을 입력하세요.");
+  const isOwner = state.detail.owner_id === state.user.id;
+  const { error } = await sb.from("answers").insert({ question_id: qid, user_id: state.user.id, content, is_owner: isOwner });
+  if (error) return toast("오류: " + error.message);
+  toast("답변이 등록되었습니다."); openDetail(state.detail.id);
+}
+async function reportTarget(type, id) {
+  if (needLogin()) return;
+  const reason = prompt("신고 사유를 입력하세요 (욕설/허위정보/광고 등)");
+  if (!reason) return;
+  const { error } = await sb.from("reports").insert({ target_type: type, target_id: id, reporter_id: state.user.id, reason });
+  toast(error ? "오류: " + error.message : "신고가 접수되었습니다. 운영팀이 검토합니다.");
+}
+// ===== 리드(상담/체험) =====
+function openLead(type) {
+  if (needLogin()) return;
+  state.leadAcademy = state.detail;
+  document.getElementById("ldType").value = type;
+  document.getElementById("leadTitle").textContent = state.detail.name + " — " + type + " 신청";
+  openModal("m-lead");
+}
+async function submitLead() {
+  const l = { academy_id: state.leadAcademy.id, user_id: state.user?.id, lead_type: document.getElementById("ldType").value,
+    student_name: document.getElementById("ldName").value.trim(), grade: document.getElementById("ldGrade").value.trim(),
+    subject: document.getElementById("ldSubject").value.trim(), phone: document.getElementById("ldPhone").value.trim(),
+    message: document.getElementById("ldMsg").value.trim(), source: state.leadAcademy.is_premium ? "프리미엄 노출" : "검색" };
+  if (!l.student_name || !l.phone) return toast("학생 이름과 연락처는 필수입니다.");
+  const { error } = await sb.from("leads").insert(l);
+  if (error) return toast("오류: " + error.message);
+  closeModal("m-lead"); toast("신청 완료! 학원에서 곧 연락드릴 거예요.");
+}
+// ===== 비교함 =====
+function saveCompare() { localStorage.setItem("moa_cmp", JSON.stringify(state.compare)); refreshCmpBadge(); }
+function refreshCmpBadge() {
+  const b = document.getElementById("cmpBadge");
+  b.style.display = state.compare.length ? "" : "none"; b.textContent = state.compare.length;
+}
+function toggleCompare(id, name) {
+  const i = state.compare.indexOf(id);
+  if (i >= 0) { state.compare.splice(i, 1); toast(`'${name}' 비교함에서 제거`); }
+  else if (state.compare.length >= 4) return toast("비교함은 최대 4곳까지 담을 수 있어요.");
+  else { state.compare.push(id); toast(`'${name}' 비교함에 담았습니다.`); }
+  saveCompare(); loadAcademies();
+}
+function clearCompare() { state.compare = []; saveCompare(); renderCompare(); }
+async function renderCompare() {
+  const el = document.getElementById("cmpTable");
+  if (!state.compare.length) { el.innerHTML = `<div class="empty">검색에서 "비교 담기"로 학원을 추가해 보세요.</div>`; return; }
+  const [{ data: acas }, { data: revs }] = await Promise.all([
+    sb.from("academies").select("*").in("id", state.compare),
+    sb.from("reviews").select("academy_id, rating").in("academy_id", state.compare).eq("hidden", false),
+  ]);
+  const rate = id => { const rs = (revs || []).filter(r => r.academy_id === id); return rs.length ? (rs.reduce((s, r) => s + r.rating, 0) / rs.length).toFixed(1) + " ★" : "-"; };
+  const ordered = state.compare.map(id => acas.find(a => a.id === id)).filter(Boolean);
+  const { data: crs } = await sb.from("courses").select("academy_id,hourly_rate").in("academy_id", state.compare).not("hourly_rate", "is", null);
+  const hourly = id => { const h = (crs || []).filter(c => c.academy_id === id).map(c => c.hourly_rate); return h.length ? won(Math.min(...h)) + "~" : "-"; };
+  const rows = [
+    ["위치", a => `${a.sido || ""} ${a.region_city || ""} ${a.district || ""} ${a.dong || ""}`],
+    ["과목", a => (a.subjects || []).join(", ")],
+    ["대상", a => (a.grades || []).join(", ")],
+    ["월 학원비", a => feeRange(a).replace(/<[^>]+>/g, "")],
+    ["시간당 단가(최저)", a => hourly(a.id)],
+    ["정원(일시수용)", a => a.capacity ? a.capacity + "명" + (a.small_class ? " (소수정예)" : "") : "-"],
+    ["추가 비용", a => (Array.isArray(a.extra_fees) && a.extra_fees.length) ? a.extra_fees.map(e => `${e.label} ${won(e.amount)}`).join(", ") : "-"],
+    ["평점", a => rate(a.id)],
+    ["연락처", a => a.tel || "-"],
+  ];
+  el.innerHTML = `<div style="overflow-x:auto"><table><tr><th></th>${ordered.map(a => `<th>${esc(a.name)}<br>
+    <a href="#" class="mut no-print" onclick="toggleCompare(${a.id},'${esc(a.name).replace(/'/g, "\\'")}');renderCompare();return false">제거</a></th>`).join("")}</tr>
+    ${rows.map(([label, fn]) => `<tr><th>${label}</th>${ordered.map(a => `<td>${esc(String(fn(a)))}</td>`).join("")}</tr>`).join("")}</table></div>
+    <p class="mut" style="margin-top:8px">※ "PDF로 저장/인쇄" 버튼으로 저장해 가족과 공유해 보세요.</p>`;
+}
+</script>
+<script id="part4">
+// ===== 대시보드 =====
+let trendChart, avgChart;
+async function loadDash() {
+  const area = document.getElementById("childrenArea"), stats = document.getElementById("dashStats");
+  if (!state.user) { area.innerHTML = `<div class="card empty">로그인하면 자녀별 학원비를 관리할 수 있어요.</div>`; stats.innerHTML = ""; return; }
+  const { data: children } = await sb.from("children").select("*, child_academies(*)").eq("user_id", state.user.id).order("id");
+  const now = new Date(), ym = now.toISOString().slice(0, 7);
+  const activeNow = e => (!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym);
+  let totalNow = 0, cnt = 0;
+  (children || []).forEach(ch => ch.child_academies.filter(activeNow).forEach(e => { totalNow += e.monthly_total; cnt++; }));
+  const lastYm = new Date(now.getFullYear(), now.getMonth() - 1).toISOString().slice(0, 7);
+  let totalLast = 0;
+  (children || []).forEach(ch => ch.child_academies.forEach(e => { if ((!e.started_month || e.started_month <= lastYm) && (!e.ended_month || e.ended_month >= lastYm)) totalLast += e.monthly_total; }));
+  const diff = totalNow - totalLast;
+  stats.innerHTML = `<div class="stat"><b>${won(totalNow)}</b><span>이번 달 총 학원비</span></div>
+    <div class="stat"><b style="color:${diff > 0 ? "var(--bad)" : "var(--good)"}">${diff >= 0 ? "+" : ""}${won(diff)}</b><span>지난달 대비</span></div>
+    <div class="stat"><b>${cnt}곳</b><span>다니는 학원 수</span></div>`;
+  area.innerHTML = (children || []).map(ch => `<div class="card">
+    <div class="row"><h3 style="margin:0">${esc(ch.name)} <span class="tag gray">${esc(ch.grade || "")}</span></h3>
+      <button class="btn sm right" onclick="openEnroll(${ch.id})">+ 학원 등록</button>
+      <button class="btn sm gray" onclick="delChild(${ch.id})">자녀 삭제</button></div>
+    ${ch.child_academies.length ? `<table style="margin-top:8px"><tr><th>학원</th><th>과목</th><th class="num">월 학원비</th><th>기간</th><th>메모</th><th></th></tr>
+      ${ch.child_academies.map(e => `<tr ${activeNow(e) ? "" : 'style="opacity:.45"'}><td>${esc(e.academy_name)}</td><td>${esc(e.subject || "")}</td>
+        <td class="num">${won(e.monthly_total)}</td><td class="mut">${e.started_month || "?"} ~ ${e.ended_month || "현재"}</td><td class="mut">${esc(e.memo || "")}</td>
+        <td><button class="btn sm gray" onclick="delEnroll(${e.id})">삭제</button></td></tr>`).join("")}</table>` : `<p class="mut" style="margin-top:8px">등록된 학원이 없습니다.</p>`}
+  </div>`).join("") || `<div class="card empty">자녀를 추가하고 다니는 학원을 등록해 보세요.</div>`;
+  renderTrend(children || []); renderAvgChart(children || []);
+}
+function renderTrend(children) {
+  const labels = [], vals = [], now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i);
+    const ym = d.toISOString().slice(0, 7);
+    labels.push(`${d.getFullYear() % 100}.${d.getMonth() + 1}`);
+    let s = 0;
+    children.forEach(ch => ch.child_academies.forEach(e => { if ((!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym)) s += e.monthly_total; }));
+    vals.push(s);
+  }
+  trendChart?.destroy();
+  trendChart = new Chart(document.getElementById("trendChart"), {
+    type: "line", data: { labels, datasets: [{ label: "월 학원비 합계", data: vals, borderColor: "#4f46e5", backgroundColor: "rgba(79,70,229,.12)", fill: true, tension: .3 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => (v / 10000) + "만" } } } }
+  });
+}
+async function renderAvgChart(children) {
+  if (!children) { const { data } = await sb.from("children").select("*, child_academies(*)").eq("user_id", state.user.id); children = data || []; }
+  const avgSel = document.getElementById("avgCity");
+  if (!avgSel.options.length) {
+    const { data: regions } = await sb.from("region_list").select("sido,region_city").order("sido").order("region_city");
+    avgSel.innerHTML = (regions || []).map(r => `<option value="${esc(r.sido)}|${esc(r.region_city)}">${esc(r.sido)} ${esc(r.region_city)}</option>`).join("");
+    if ([...avgSel.options].some(o => o.value === "충남|천안시")) avgSel.value = "충남|천안시";
+  }
+  const [sido, city] = (avgSel.value || "|").split("|");
+  const ym = new Date().toISOString().slice(0, 7);
+  const mine = {};
+  children.forEach(ch => ch.child_academies.forEach(e => {
+    if ((!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym) && e.subject) {
+      (mine[e.subject] = mine[e.subject] || []).push(e.monthly_total);
+    }}));
+  const subjects = Object.keys(mine);
+  if (!subjects.length) { avgChart?.destroy(); avgChart = null; return; }
+  let statsQ = sb.from("region_fee_stats").select("*").eq("region_city", city).in("subject", subjects);
+  if (sido) statsQ = statsQ.eq("sido", sido);
+  const { data: stats } = await statsQ;
+  const regionAvg = s => { const rs = (stats || []).filter(r => r.subject === s); if (!rs.length) return 0; return Math.round(rs.reduce((a, r) => a + r.avg_fee * r.n, 0) / rs.reduce((a, r) => a + r.n, 0)); };
+  avgChart?.destroy();
+  avgChart = new Chart(document.getElementById("avgChart"), {
+    type: "bar", data: { labels: subjects, datasets: [
+      { label: "우리 집(학원 1곳 평균)", data: subjects.map(s => Math.round(mine[s].reduce((a, b) => a + b, 0) / mine[s].length)), backgroundColor: "#4f46e5" },
+      { label: city + " 평균", data: subjects.map(regionAvg), backgroundColor: "#cbd5e1" }] },
+    options: { scales: { y: { ticks: { callback: v => (v / 10000) + "만" } } } }
+  });
+}
+function openChildModal() { if (needLogin()) return; openModal("m-child"); }
+async function saveChild() {
+  const name = document.getElementById("chName").value.trim();
+  if (!name) return toast("이름을 입력하세요.");
+  const { error } = await sb.from("children").insert({ user_id: state.user.id, name, grade: document.getElementById("chGrade").value });
+  if (error) return toast("오류: " + error.message);
+  closeModal("m-child"); loadDash();
+}
+async function delChild(id) { if (confirm("자녀와 등록된 학원 정보를 삭제할까요?")) { await sb.from("children").delete().eq("id", id); loadDash(); } }
+function openEnroll(childId) {
+  state.enrollChild = childId; state.enrollAcademyId = null;
+  ["enKw","enName","enFee","enMemo"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("enStart").value = new Date().toISOString().slice(0, 7);
+  document.getElementById("enResults").innerHTML = "";
+  openModal("m-enroll");
+}
+let enrollTimer;
+function enrollSearch() {
+  clearTimeout(enrollTimer);
+  enrollTimer = setTimeout(async () => {
+    const kw = document.getElementById("enKw").value.trim();
+    if (kw.length < 2) return;
+    const { data } = await sb.from("academies").select("id,name,dong,min_monthly,subjects").ilike("name", `%${kw}%`).limit(5);
+    document.getElementById("enResults").innerHTML = (data || []).map(a =>
+      `<div class="chip" style="margin:3px;cursor:pointer" onclick='pickEnroll(${JSON.stringify(JSON.stringify(a))})'>${esc(a.name)} <span class="mut">${esc(a.dong || "")}</span></div>`).join("");
+  }, 300);
+}
+function pickEnroll(json) {
+  const a = JSON.parse(json);
+  state.enrollAcademyId = a.id;
+  document.getElementById("enName").value = a.name;
+  if (a.min_monthly) document.getElementById("enFee").value = a.min_monthly;
+  if (a.subjects?.length) document.getElementById("enSubject").value = a.subjects[0];
+}
+async function saveEnroll() {
+  const e = { child_id: state.enrollChild, academy_id: state.enrollAcademyId, academy_name: document.getElementById("enName").value.trim(),
+    subject: document.getElementById("enSubject").value, monthly_total: +document.getElementById("enFee").value || 0,
+    started_month: document.getElementById("enStart").value, memo: document.getElementById("enMemo").value.trim() };
+  if (!e.academy_name) return toast("학원명을 입력하세요.");
+  const { error } = await sb.from("child_academies").insert(e);
+  if (error) return toast("오류: " + error.message);
+  closeModal("m-enroll"); loadDash();
+}
+async function delEnroll(id) { await sb.from("child_academies").delete().eq("id", id); loadDash(); }
+
+// ===== 알림 =====
+async function refreshNotiBadge() {
+  if (!state.user) return;
+  const { count } = await sb.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", state.user.id).eq("read", false);
+  const b = document.getElementById("notiBadge");
+  b.style.display = count ? "" : "none"; b.textContent = count;
+}
+async function loadNoti() {
+  const el = document.getElementById("notiList");
+  if (!state.user) { el.innerHTML = `<div class="empty">로그인이 필요합니다.</div>`; return; }
+  const { data } = await sb.from("notifications").select("*").eq("user_id", state.user.id).order("created_at", { ascending: false }).limit(50);
+  el.innerHTML = (data || []).map(n => `<div class="review" style="${n.read ? "opacity:.55" : ""}">
+    <span class="tag ${n.ntype === "가격변경" ? "" : "gray"}">${esc(n.ntype)}</span> <b>${esc(n.title)}</b>
+    <div class="mut">${esc(n.body || "")} · ${new Date(n.created_at).toLocaleDateString("ko-KR")}</div></div>`).join("") || `<div class="empty">알림이 없습니다.</div>`;
+  loadWatches();
+}
+async function markAllRead() {
+  if (!state.user) return;
+  await sb.from("notifications").update({ read: true }).eq("user_id", state.user.id).eq("read", false);
+  loadNoti(); refreshNotiBadge();
+}
+async function loadWatches() {
+  const { data } = await sb.from("watches").select("*").eq("user_id", state.user.id);
+  document.getElementById("watchList").innerHTML = (data || []).map(w =>
+    `<span class="chip" style="margin:3px">${esc(w.region_city || "전체")} ${esc(w.dong || "")} · ${esc(w.subject || "전과목")}
+     <a href="#" onclick="delWatch(${w.id});return false">✕</a></span>`).join("") || `<span class="mut">등록된 관심 조건이 없습니다.</span>`;
+}
+async function addWatch() {
+  if (needLogin()) return;
+  const w = { user_id: state.user.id, region_city: document.getElementById("wCity").value || null,
+    dong: document.getElementById("wDong").value.trim() || null, subject: document.getElementById("wSubject").value || null };
+  await sb.from("watches").insert(w); loadWatches(); toast("관심 조건이 등록되었습니다.");
+}
+async function delWatch(id) { await sb.from("watches").delete().eq("id", id); loadWatches(); }
+
+// ===== 원장센터 =====
+async function searchClaim() {
+  const kw = document.getElementById("claimKw").value.trim();
+  if (kw.length < 2) return toast("두 글자 이상 입력하세요.");
+  const { data } = await sb.from("academies").select("id,name,dong,owner_id").ilike("name", `%${kw}%`).limit(8);
+  document.getElementById("claimResults").innerHTML = (data || []).map(a =>
+    `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(a.name)} <span class="mut">${esc(a.dong || "")}</span></span>
+     ${a.owner_id ? `<span class="tag gray right">이미 소유자 있음</span>` : `<button class="btn sm right" onclick="submitClaim(${a.id})">소유권 신청</button>`}</div>`).join("") || `<p class="mut">검색 결과가 없습니다.</p>`;
+}
+async function submitClaim(acaId) {
+  if (needLogin()) return;
+  const biz = prompt("사업자등록번호를 입력하세요 (운영자가 확인 후 승인합니다)");
+  if (!biz) return;
+  const { error } = await sb.from("claims").insert({ academy_id: acaId, user_id: state.user.id, biz_no: biz });
+  toast(error ? "오류: " + error.message : "신청 완료! 운영자 승인 후 관리할 수 있습니다.");
+  loadOwner();
+}
+async function loadOwner() {
+  if (!state.user) { document.getElementById("myAcademies").innerHTML = `<div class="card empty">로그인이 필요합니다.</div>`; return; }
+  const { data: claims } = await sb.from("claims").select("*, academies(name)").eq("user_id", state.user.id).order("created_at", { ascending: false });
+  document.getElementById("myClaims").innerHTML = claims?.length ? `<h3>내 신청 내역</h3>` + claims.map(c =>
+    `<div class="mut">· ${esc(c.academies?.name)} — <b>${c.status}</b></div>`).join("") : "";
+  const { data: acas } = await sb.from("academies").select("*").eq("owner_id", state.user.id);
+  const wrap = document.getElementById("myAcademies");
+  if (!acas?.length) { wrap.innerHTML = ""; return; }
+  wrap.innerHTML = acas.map(a => `<div class="card" id="own-${a.id}">
+    <div class="row"><h3 style="margin:0">${esc(a.name)}</h3><span class="mut">${esc(a.dong || "")}</span>
+      ${a.is_premium ? `<span class="tag ad">프리미엄 노출 중</span>` : `<button class="btn sm ghost right" onclick="orderAd(${a.id})">프리미엄 노출 신청 (월 10만원)</button>`}</div>
+    <div class="tabbar"><button class="tab on" onclick="ownTab(this,${a.id},'info')">학원 정보</button>
+      <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
+      <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
+      <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button></div>
+    <div id="ownBody-${a.id}"></div></div>`).join("");
+  acas.forEach(a => renderOwnInfo(a.id));
+}
+async function ownTab(btn, id, tab) {
+  btn.parentElement.querySelectorAll(".tab").forEach(t => t.classList.remove("on"));
+  btn.classList.add("on");
+  if (tab === "info") renderOwnInfo(id);
+  if (tab === "fee") renderOwnFee(id);
+  if (tab === "lead") renderOwnLeads(id);
+  if (tab === "report") renderOwnReport(id);
+}
+async function renderOwnInfo(id) {
+  const { data: a } = await sb.from("academies").select("*").eq("id", id).single();
+  const extra = Array.isArray(a.extra_fees) ? a.extra_fees : [];
+  document.getElementById("ownBody-" + id).innerHTML = `
+    <div class="field"><label>학원 소개</label><textarea id="oi-intro-${id}" rows="2">${esc(a.intro || "")}</textarea></div>
+    <div class="grid2">
+      <div class="field"><label>강사진 소개</label><textarea id="oi-teachers-${id}" rows="2">${esc(a.teachers || "")}</textarea></div>
+      <div class="field"><label>시간표</label><textarea id="oi-timetable-${id}" rows="2">${esc(a.timetable || "")}</textarea></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>프로모션/이벤트 (예: 첫 달 50% 할인)</label><input id="oi-promo-${id}" value="${esc(a.promo || "")}"></div>
+      <div class="field"><label>할인 안내 (형제/장기등록 등)</label><input id="oi-discount-${id}" value="${esc(a.discount_note || "")}"></div>
+    </div>
+    <div class="field"><label>수업 시간대</label>
+      ${["방과후","저녁","주말"].map(t => `<label class="chip" style="margin-right:4px"><input type="checkbox" class="oi-slot-${id}" value="${t}" ${a.time_slots?.includes(t) ? "checked" : ""} style="width:auto"> ${t}</label>`).join("")}</div>
+    <div class="field"><label>추가 비용 항목 (재료비·차량비·모의고사비 등)</label><div id="oi-extra-${id}">
+      ${extra.map((e, i) => `<div class="row" style="margin-bottom:4px"><input value="${esc(e.label)}" placeholder="항목" style="width:140px" data-x="label"><input value="${e.amount}" type="number" placeholder="금액" style="width:110px" data-x="amount"><button class="btn sm gray" onclick="this.parentElement.remove()">✕</button></div>`).join("")}
+    </div><button class="btn sm gray" onclick="addExtraRow(${id})">+ 항목 추가</button></div>
+    <button class="btn" onclick="saveOwnInfo(${id})">저장</button>`;
+}
+function addExtraRow(id) {
+  document.getElementById("oi-extra-" + id).insertAdjacentHTML("beforeend",
+    `<div class="row" style="margin-bottom:4px"><input placeholder="항목 (예: 차량비)" style="width:140px" data-x="label"><input type="number" placeholder="금액" style="width:110px" data-x="amount"><button class="btn sm gray" onclick="this.parentElement.remove()">✕</button></div>`);
+}
+async function saveOwnInfo(id) {
+  const extra = [...document.querySelectorAll(`#oi-extra-${id} > div`)].map(d => ({
+    label: d.querySelector('[data-x="label"]').value.trim(), amount: +d.querySelector('[data-x="amount"]').value || 0 })).filter(e => e.label);
+  const upd = { intro: document.getElementById(`oi-intro-${id}`).value.trim(), teachers: document.getElementById(`oi-teachers-${id}`).value.trim(),
+    timetable: document.getElementById(`oi-timetable-${id}`).value.trim(), promo: document.getElementById(`oi-promo-${id}`).value.trim(),
+    discount_note: document.getElementById(`oi-discount-${id}`).value.trim(),
+    time_slots: [...document.querySelectorAll(`.oi-slot-${id}:checked`)].map(c => c.value), extra_fees: extra, updated_at: new Date().toISOString() };
+  const { error } = await sb.from("academies").update(upd).eq("id", id);
+  toast(error ? "오류: " + error.message : "저장되었습니다.");
+}
+async function renderOwnFee(id) {
+  const { data: cs } = await sb.from("courses").select("*").eq("academy_id", id).order("id");
+  document.getElementById("ownBody-" + id).innerHTML = `
+    <p class="mut">수강료를 수정하면 관심 등록 학부모에게 자동으로 변경 알림이 발송됩니다.</p>
+    <table><tr><th>과정명</th><th>과목</th><th class="num">월 수강료</th><th></th></tr>
+    ${(cs || []).map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.subject || "")}</td>
+      <td class="num"><input type="number" value="${c.monthly_fee}" style="width:110px" id="fee-${c.id}"></td>
+      <td><button class="btn sm" onclick="saveFee(${c.id},${id})">저장</button> <button class="btn sm gray" onclick="delCourse(${c.id},${id})">삭제</button></td></tr>`).join("")}</table>
+    <h3>과정 추가</h3>
+    <div class="row"><input id="nc-name-${id}" placeholder="과정명 (예: 중등수학 90분*3일*4주)" style="flex:1;min-width:180px">
+      <select id="nc-subject-${id}">${SUBJECTS.map(s => `<option>${s}</option>`).join("")}</select>
+      <input id="nc-fee-${id}" type="number" placeholder="월 수강료" style="width:120px">
+      <button class="btn sm" onclick="addCourse(${id})">추가</button></div>`;
+}
+async function saveFee(cid, aid) {
+  const fee = +document.getElementById("fee-" + cid).value;
+  if (!fee) return toast("금액을 입력하세요.");
+  const { error } = await sb.from("courses").update({ monthly_fee: fee }).eq("id", cid);
+  if (error) return toast("오류: " + error.message);
+  await refreshFeeRange(aid); toast("저장! 관심 학부모에게 알림이 발송됩니다.");
+}
+async function addCourse(aid) {
+  const name = document.getElementById(`nc-name-${aid}`).value.trim(), fee = +document.getElementById(`nc-fee-${aid}`).value;
+  if (!name || !fee) return toast("과정명과 수강료를 입력하세요.");
+  const m = name.match(/(\d+)\s*분\s*\*\s*(\d+)\s*일?회?\s*\*\s*(\d+)\s*주/);
+  const minutes = m ? +m[1] * +m[2] * +m[3] : null;
+  const { error } = await sb.from("courses").insert({ academy_id: aid, name, subject: document.getElementById(`nc-subject-${aid}`).value,
+    monthly_fee: fee, minutes_month: minutes, hourly_rate: minutes ? Math.round(fee / (minutes / 60)) : null, source: "owner" });
+  if (error) return toast("오류: " + error.message);
+  await refreshFeeRange(aid); renderOwnFee(aid);
+}
+async function delCourse(cid, aid) { await sb.from("courses").delete().eq("id", cid); await refreshFeeRange(aid); renderOwnFee(aid); }
+async function refreshFeeRange(aid) {
+  const { data: cs } = await sb.from("courses").select("monthly_fee").eq("academy_id", aid);
+  const fees = (cs || []).map(c => c.monthly_fee).filter(f => f > 0);
+  await sb.from("academies").update({ min_monthly: fees.length ? Math.min(...fees) : null, max_monthly: fees.length ? Math.max(...fees) : null }).eq("id", aid);
+}
+async function renderOwnLeads(id) {
+  const { data: ls } = await sb.from("leads").select("*").eq("academy_id", id).order("created_at", { ascending: false });
+  document.getElementById("ownBody-" + id).innerHTML = `
+    <div class="row" style="margin-bottom:8px">${["신규","연락완료","등록완료"].map(s =>
+      `<span class="tag ${s === "신규" ? "" : "gray"}">${s} ${(ls || []).filter(l => l.status === s).length}</span>`).join("")}</div>
+    ${(ls || []).length ? `<div style="overflow-x:auto"><table><tr><th>일시</th><th>유형/소스</th><th>학생</th><th>과목</th><th>연락처</th><th>내용</th><th>상태</th><th>메모</th></tr>
+    ${ls.map(l => `<tr><td class="mut">${new Date(l.created_at).toLocaleDateString("ko-KR")}</td>
+      <td>${esc(l.lead_type)}<br><span class="mut">${esc(l.source || "")}</span></td>
+      <td>${esc(l.student_name || "")} ${esc(l.grade || "")}</td><td>${esc(l.subject || "")}</td><td>${esc(l.phone || "")}</td>
+      <td class="mut" style="max-width:160px">${esc(l.message || "")}</td>
+      <td><select onchange="updLead(${l.id},'status',this.value,${id})">${["신규","연락완료","등록완료"].map(s => `<option ${l.status === s ? "selected" : ""}>${s}</option>`).join("")}</select></td>
+      <td><input value="${esc(l.memo || "")}" style="width:110px" onchange="updLead(${l.id},'memo',this.value,${id})"></td></tr>`).join("")}</table></div>` : `<p class="mut">아직 들어온 문의가 없습니다.</p>`}`;
+}
+async function updLead(lid, field, value, aid) {
+  const { error } = await sb.from("leads").update({ [field]: value }).eq("id", lid);
+  toast(error ? "오류: " + error.message : "업데이트되었습니다.");
+}
+let posChart;
+async function renderOwnReport(id) {
+  const { data: a } = await sb.from("academies").select("*").eq("id", id).single();
+  const { data: myCs } = await sb.from("courses").select("monthly_fee,hourly_rate,subject").eq("academy_id", id);
+  const body = document.getElementById("ownBody-" + id);
+  if (!myCs?.length) { body.innerHTML = `<p class="mut">수강료를 먼저 등록하면 지역 내 가격 포지션을 분석해 드립니다.</p>`; return; }
+  const subj = myCs[0].subject;
+  const myAvg = Math.round(myCs.reduce((s, c) => s + c.monthly_fee, 0) / myCs.length);
+  const { data: peers } = await sb.from("courses").select("monthly_fee, academies!inner(sido,region_city,dong)").eq("subject", subj).eq("academies.sido", a.sido).eq("academies.region_city", a.region_city).gt("monthly_fee", 0).limit(3000);
+  const all = (peers || []).map(p => p.monthly_fee);
+  const dongFees = (peers || []).filter(p => p.academies.dong === a.dong).map(p => p.monthly_fee);
+  const avg = arr => arr.length ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : 0;
+  const pct = all.length ? Math.round(all.filter(v => v < myAvg).length / all.length * 100) : 50;
+  const comment = pct >= 80 ? `이 지역 상위 ${100 - pct}% 고가 포지션입니다. 차별화된 커리큘럼·실적 어필이 중요합니다.` :
+    pct >= 55 ? `지역 평균보다 다소 높은 가격대입니다. (상위 ${100 - pct}%)` :
+    pct >= 45 ? `지역 평균 수준의 무난한 가격대입니다.` : `지역 평균보다 저렴한 편입니다. 가성비를 적극 홍보해 보세요.`;
+  body.innerHTML = `<p><b>${esc(subj)}</b> 기준 우리 학원 평균 수강료는 <b>${won(myAvg)}</b> — ${a.region_city} ${esc(subj)} 과정 ${all.length}개 중 <b>상위 ${100 - pct}%</b> 가격대.</p>
+    <div class="notice">${comment}</div><canvas id="posChart-${id}" height="80"></canvas>`;
+  posChart?.destroy();
+  posChart = new Chart(document.getElementById("posChart-" + id), {
+    type: "bar", data: { labels: ["우리 학원", (a.dong || "우리 동") + " 평균", a.region_city + " 평균"],
+      datasets: [{ data: [myAvg, avg(dongFees), avg(all)], backgroundColor: ["#4f46e5", "#94a3b8", "#cbd5e1"] }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => (v / 10000) + "만" } } } }
+  });
+}
+async function orderAd(aid) {
+  if (!confirm("프리미엄 노출(검색 상단 고정 + AD 라벨)을 신청할까요? 월 100,000원, 운영자 승인 후 적용됩니다.")) return;
+  const { error } = await sb.from("ad_orders").insert({ academy_id: aid });
+  toast(error ? "오류: " + error.message : "신청 완료! 운영자 승인 후 노출이 시작됩니다.");
+}
+
+// ===== 운영(관리자) =====
+async function saveNeisKey() {
+  const v = document.getElementById("neisKey").value.trim();
+  if (!v) return toast("키를 입력하세요.");
+  const { error } = await sb.from("app_settings").upsert({ key: "neis_key", value: v, updated_at: new Date().toISOString() });
+  toast(error ? "오류: " + error.message : "키가 저장되었습니다. 이제 동기화를 실행하세요.");
+}
+async function loadAdmin() {
+  if (state.profile?.role !== "admin") return;
+  const ss = document.getElementById("syncSido");
+  if (!ss.options.length) ss.innerHTML = SIDOS.map(s => `<option>${s}</option>`).join("");
+  sb.from("app_settings").select("value").eq("key", "neis_key").maybeSingle().then(({ data }) => {
+    if (data?.value) document.getElementById("neisKey").value = data.value;
+  });
+  const [aca, leads, revs, claims] = await Promise.all([
+    sb.from("academies").select("id", { count: "exact", head: true }),
+    sb.from("leads").select("id", { count: "exact", head: true }),
+    sb.from("reviews").select("id", { count: "exact", head: true }),
+    sb.from("claims").select("id", { count: "exact", head: true }).eq("status", "대기"),
+  ]);
+  document.getElementById("adminStats").innerHTML = `
+    <div class="stat"><b>${(aca.count || 0).toLocaleString()}</b><span>등록 학원</span></div>
+    <div class="stat"><b>${leads.count || 0}</b><span>누적 리드</span></div>
+    <div class="stat"><b>${revs.count || 0}</b><span>후기</span></div>
+    <div class="stat"><b>${claims.count || 0}</b><span>대기 클레임</span></div>`;
+  const { data: cls } = await sb.from("claims").select("*, academies(name), profiles:user_id(email,nickname)").eq("status", "대기");
+  document.getElementById("adminClaims").innerHTML = (cls || []).map(c => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)">
+    <span><b>${esc(c.academies?.name)}</b> ← ${esc(c.profiles?.nickname)} (${esc(c.profiles?.email)}) · 사업자번호: ${esc(c.biz_no || "-")}</span>
+    <button class="btn sm right" onclick="decideClaim(${c.id},true)">승인</button>
+    <button class="btn sm gray" onclick="decideClaim(${c.id},false)">거절</button></div>`).join("") || `<p class="mut">대기 중인 클레임이 없습니다.</p>`;
+  const { data: rps } = await sb.from("reports").select("*").eq("status", "접수").order("created_at");
+  document.getElementById("adminReports").innerHTML = (rps || []).map(r => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)">
+    <span><span class="tag gray">${esc(r.target_type)}#${r.target_id}</span> ${esc(r.reason || "")}</span>
+    <button class="btn sm danger right" onclick="decideReport(${r.id},'${r.target_type}',${r.target_id},true)">블라인드</button>
+    <button class="btn sm gray" onclick="decideReport(${r.id},'${r.target_type}',${r.target_id},false)">기각</button></div>`).join("") || `<p class="mut">접수된 신고가 없습니다.</p>`;
+  const { data: ads } = await sb.from("ad_orders").select("*, academies(name)").in("status", ["신청","진행중"]).order("created_at");
+  document.getElementById("adminAds").innerHTML = (ads || []).map(o => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)">
+    <span><b>${esc(o.academies?.name)}</b> · ${esc(o.product)} · ${won(o.price)}/월 · <span class="tag ${o.status === "진행중" ? "" : "gray"}">${o.status}</span></span>
+    ${o.status === "신청" ? `<button class="btn sm right" onclick="decideAd(${o.id},${o.academy_id},true)">승인(노출 시작)</button>` :
+      `<button class="btn sm gray right" onclick="decideAd(${o.id},${o.academy_id},false)">종료</button>`}</div>`).join("") || `<p class="mut">광고 주문이 없습니다.</p>`;
+}
+async function decideClaim(id, ok) {
+  const { error } = await sb.rpc("approve_claim", { claim_id: id, approve: ok });
+  toast(error ? "오류: " + error.message : ok ? "승인되었습니다." : "거절되었습니다.");
+  loadAdmin();
+}
+async function decideReport(rid, ttype, tid, blind) {
+  if (blind) await sb.from(ttype + "s").update({ hidden: true }).eq("id", tid);
+  await sb.from("reports").update({ status: blind ? "블라인드" : "기각" }).eq("id", rid);
+  toast(blind ? "블라인드 처리되었습니다." : "기각되었습니다.");
+  loadAdmin();
+}
+async function decideAd(oid, aid, start) {
+  await sb.from("ad_orders").update({ status: start ? "진행중" : "종료" }).eq("id", oid);
+  await sb.from("academies").update({ is_premium: start }).eq("id", aid);
+  toast(start ? "프리미엄 노출이 시작되었습니다." : "노출이 종료되었습니다.");
+  loadAdmin();
+}
+async function runSync() {
+  const btn = document.getElementById("syncBtn"), sido = document.getElementById("syncSido").value;
+  btn.disabled = true; btn.textContent = "동기화 중... (수 분 소요)";
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + "/functions/v1/sync-neis", {
+      method: "POST", headers: { "Authorization": "Bearer " + (session?.access_token || ANON_KEY), "Content-Type": "application/json" },
+      body: JSON.stringify({ sido }) });
+    const j = await res.json();
+    if (j.error) throw new Error(j.error);
+    toast(`${j.sido} 동기화 완료! 학원 ${j.academies}곳, 수강료 ${j.courses}건`);
+    loadAcademies(); loadAdmin();
+  } catch (e) { toast("동기화 실패: " + e.message); } finally { btn.disabled = false; btn.textContent = "NEIS 동기화"; }
+}
+
+// ===== 초기화 =====
+(function init() {
+  renderFilterChips(); refreshCmpBadge();
+  const opts = SUBJECTS.map(s => `<option>${s}</option>`).join("");
+  document.getElementById("wSubject").innerHTML = `<option value="">과목 전체</option>` + opts;
+  document.getElementById("enSubject").innerHTML = opts;
+  document.getElementById("fKw").addEventListener("keydown", e => { if (e.key === "Enter") { state.page = 1; loadAcademies(); } });
+  document.getElementById("fSido").innerHTML = `<option value="">전국</option>` + SIDOS.map(s => `<option>${s}</option>`).join("");
+  document.getElementById("fSido").addEventListener("change", () => { loadCities(); state.page = 1; loadAcademies(); });
+  document.getElementById("fCity").addEventListener("change", () => { loadDongs(); state.page = 1; loadAcademies(); });
+  ["fDong","fSort","fFee","fCap","fFeeOnly"].forEach(id => document.getElementById(id).addEventListener("change", () => { state.page = 1; loadAcademies(); }));
+  document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("on"); }));
+  initAuth().then(() => { go("search"); loadAcademies(); });
+})();
+</script>
+</body>
+</html>
