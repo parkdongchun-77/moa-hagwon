@@ -446,7 +446,7 @@ function acaCard(a) {
 function page(d) { state.page += d; loadAcademies(); window.scrollTo(0, 0); }
 
 // ===== 지도 (카카오맵 우선, 실패 시 Leaflet+OSM 폴백 / 좌표는 지오코딩 후 DB 캐시) =====
-const KAKAO_JS_KEY = ""; // 카카오 developers JavaScript 키 (호스팅 도메인 등록 필요)
+const KAKAO_JS_KEY = "b68af397a85753ede4faffaba6cc9f61"; // 카카오 developers JavaScript 키 (parkdongchun-77.github.io 등록됨)
 let mapApi = null, mapReady = null, mapToken = 0, userPos = null;
 function geoLocate() {
   if (!navigator.geolocation) return;
