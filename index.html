@@ -167,7 +167,11 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
 
 <!-- ===== 알림 ===== -->
 <section class="view" id="v-noti">
-  <div class="card"><div class="row"><h2>알림</h2><button class="btn sm gray right" onclick="markAllRead()">모두 읽음</button></div><div id="notiList"></div></div>
+  <div class="card"><div class="row"><h2>알림</h2>
+    <button class="btn sm right" id="pushBtn" onclick="enablePush()">🔔 푸시 알림 켜기</button>
+    <button class="btn sm gray" onclick="markAllRead()">모두 읽음</button></div>
+    <p class="mut" id="pushHint">푸시를 켜면 앱을 닫아도 자녀 출석 알림을 휴대폰으로 받습니다. (아이폰은 홈 화면에 추가 후 사용)</p>
+    <div id="notiList"></div></div>
   <div class="card"><h3>관심 지역/과목 (신규 오픈·가격 변동 알림)</h3>
     <div class="row" style="margin-bottom:10px">
       <input id="wCity" placeholder="시/군/구 (예: 천안시, 강남구)" style="width:170px">
@@ -518,6 +522,48 @@ function acaCard(a) {
       <button class="btn sm gray" onclick="toggleFav(${a.id})">♥ 관심</button>
     </div></div>`;
 }
+// ===== 웹푸시 (VAPID) =====
+const VAPID_PUBLIC = "BAUo7jmn_G3xmWU2TDHjJiM1tRrYPZ0DBECBK7cw7sHZjqX3oMWZJkMxao43ql7CxNwP7FgC0erB8LmjywIBZJ0";
+function urlB64ToU8(s) {
+  const pad = "=".repeat((4 - s.length % 4) % 4);
+  const b = atob((s + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from([...b].map(c => c.charCodeAt(0)));
+}
+let swReg = null;
+async function initPush() {
+  if (!("serviceWorker" in navigator) || !location.protocol.startsWith("http")) return;
+  try { swReg = await navigator.serviceWorker.register(location.pathname.replace(/[^/]*$/, "") + "sw.js"); } catch (e) {}
+  refreshPushBtn();
+}
+function refreshPushBtn() {
+  const btn = document.getElementById("pushBtn"); if (!btn) return;
+  if (!("Notification" in window)) { btn.style.display = "none"; return; }
+  if (Notification.permission === "granted") { btn.textContent = "🔔 푸시 알림 켜짐"; btn.classList.add("gray"); }
+  else { btn.textContent = "🔔 푸시 알림 켜기"; btn.classList.remove("gray"); }
+}
+async function enablePush() {
+  if (needLogin()) return;
+  if (!("Notification" in window) || !swReg) return toast("이 브라우저는 푸시를 지원하지 않습니다.");
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") return toast("알림 권한이 거부되었습니다. 브라우저 설정에서 허용해 주세요.");
+  try {
+    let sub = await swReg.pushManager.getSubscription();
+    if (!sub) sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) });
+    const j = sub.toJSON();
+    await sb.from("push_subscriptions").upsert({ user_id: state.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: "endpoint" });
+    toast("푸시 알림이 켜졌습니다. 자녀 출석 시 휴대폰으로 알려드려요.");
+    refreshPushBtn();
+  } catch (e) { toast("푸시 등록 실패: " + e.message); }
+}
+async function sendCheckinPush(payload) {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    await fetch(SUPABASE_URL + "/functions/v1/send-push", {
+      method: "POST", headers: { "Authorization": "Bearer " + (session?.access_token || ANON_KEY), "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {}
+}
 async function openQr(id) {
   openModal("m-qr");
   document.getElementById("qrBox").innerHTML = `<div class="empty">불러오는 중...</div>`;
@@ -574,6 +620,7 @@ async function doCheckin(id) {
   });
   if (error) return toast("출석 실패: " + error.message);
   toast(`✅ ${a.name} 출석 완료${child ? " (" + child.name + ")" : ""}${verified ? ` · 위치확인 (${dist}m)` : dist != null ? ` · 위치 미인정` : ""}`);
+  sendCheckinPush({ academy_id: id, child_id: child?.id || null, child_name: child?.name || state.profile?.nickname, verified, distance_m: dist, fallback_user: state.user.id });
 }
 function page(d) { state.page += d; loadAcademies(); window.scrollTo(0, 0); }
 
@@ -981,6 +1028,7 @@ async function refreshNotiBadge() {
 }
 async function loadNoti() {
   const el = document.getElementById("notiList");
+  refreshPushBtn();
   if (!state.user) { el.innerHTML = `<div class="empty">로그인이 필요합니다.</div>`; return; }
   const { data } = await sb.from("notifications").select("*").eq("user_id", state.user.id).order("created_at", { ascending: false }).limit(50);
   el.innerHTML = (data || []).map(n => `<div class="review" style="${n.read ? "opacity:.55" : ""}">
@@ -1276,6 +1324,7 @@ async function runSync() {
   document.getElementById("fSort").addEventListener("change", () => { state.page = 1; loadAcademies(); });
   document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("on"); }));
   renderBestChips();
+  initPush();
   initAuth().then(() => { handleSocialRedirect(); handleCheckin(); go("search"); loadAcademies(); loadBest(); });
 })();
 </script>
