@@ -265,6 +265,14 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
   <div class="field"><label>문의 내용</label><textarea id="ldMsg" rows="3"></textarea></div>
   <button class="btn" style="width:100%" onclick="submitLead()">신청하기</button>
 </div></div>
+<!-- 출석 QR 모달 -->
+<div class="modal-bg" id="m-qr"><div class="modal" style="max-width:360px;text-align:center"><button class="close" onclick="closeModal('m-qr')">×</button>
+  <h2 id="qrTitle" style="font-size:17px">출석 QR</h2>
+  <div id="qrBox" style="margin:14px 0"></div>
+  <p class="mut">학생이 이 QR을 스캔하면 출석됩니다. 학원 입구에 출력해 붙여두세요.</p>
+  <p class="mut" style="font-size:12px">※ 스캔 시 위치(GPS)가 학원 근처일 때만 출석으로 인정됩니다.</p>
+  <button class="btn ghost no-print" style="width:100%;margin-top:8px" onclick="window.print()">QR 인쇄</button>
+</div></div>
 
 <div class="toast" id="toast"></div>
 <script>
@@ -308,6 +316,8 @@ async function setUser(user) {
   document.getElementById("navOwner").style.display = (p?.role === "owner" || p?.role === "admin") ? "" : "none";
   document.getElementById("navAdmin").style.display = p?.role === "admin" ? "" : "none";
   refreshNotiBadge();
+  const pend = sessionStorage.getItem("pendingCheckin");
+  if (pend) { sessionStorage.removeItem("pendingCheckin"); closeModal("m-auth"); doCheckin(+pend); }
 }
 function onAuthBtn() {
   if (state.user) { sb.auth.signOut().then(() => location.reload()); }
@@ -482,9 +492,18 @@ function feeRange(a) {
   if (a.min_monthly == null) return `<span class="mut">수강료 비공개</span>`;
   return a.min_monthly === a.max_monthly ? won(a.min_monthly) + "/월" : `${won(a.min_monthly)} ~ ${won(a.max_monthly)}/월`;
 }
+// ===== QR (출석용) =====
+const APP_URL = "https://parkdongchun-77.github.io/moa-hagwon/";
+function checkinUrl(id) { return APP_URL + "?checkin=" + id; }
+function qrImg(id, size) {
+  const s = size || 56;
+  return `<img src="https://api.qrserver.com/v1/create-qr-code/?size=${s}x${s}&margin=0&data=${encodeURIComponent(checkinUrl(id))}"
+    width="${s}" height="${s}" alt="출석QR" title="출석 QR — 스캔하면 출석됩니다" style="border-radius:6px;background:#fff;cursor:pointer;flex-shrink:0" onclick="event.stopPropagation();openQr(${id})">`;
+}
 function acaCard(a) {
   const inCmp = state.compare.includes(a.id);
   return `<div class="aca-card ${a.is_premium ? "premium" : ""}">
+    <div class="no-print" style="display:flex;align-items:center">${qrImg(a.id, 56)}</div>
     <div class="aca-main" onclick="openDetail(${a.id})">
       <div class="aca-name">${a.is_premium ? `<span class="tag ad">AD</span>` : ""}${esc(a.name)} <span class="tag gray">${esc(a.kind || "")}</span></div>
       <div class="mut">${esc(a.sido || "")} ${esc(a.region_city || "")} ${esc(a.district || "")} ${esc(a.dong || "")} ${a.capacity ? `· 정원 ${a.capacity}명` : ""} ${a.small_class ? `· <b style="color:var(--good)">소수정예</b>` : ""}</div>
@@ -496,6 +515,66 @@ function acaCard(a) {
       <button class="btn sm ${inCmp ? "" : "gray"}" onclick="toggleCompare(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">${inCmp ? "비교함 ✓" : "비교 담기"}</button>
       <button class="btn sm gray" onclick="toggleFav(${a.id})">♥ 관심</button>
     </div></div>`;
+}
+async function openQr(id) {
+  openModal("m-qr");
+  document.getElementById("qrBox").innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const { data: a } = await sb.from("academies").select("id,name,region_city,dong").eq("id", id).single();
+  document.getElementById("qrTitle").textContent = (a?.name || "학원") + " 출석 QR";
+  document.getElementById("qrBox").innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(checkinUrl(id))}" width="240" height="240" alt="출석QR" style="background:#fff;border-radius:10px">
+    <div class="mut" style="margin-top:6px">${esc(a?.region_city || "")} ${esc(a?.dong || "")}</div>`;
+}
+// 두 좌표 간 거리(m) — 하버사인
+function distM(a, b, c, d) {
+  const R = 6371000, t = x => x * Math.PI / 180;
+  const u = Math.sin(t(c - a) / 2) ** 2 + Math.cos(t(a)) * Math.cos(t(c)) * Math.sin(t(d - b) / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(u), Math.sqrt(1 - u)));
+}
+function getGps() {
+  return new Promise(res => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(p => res([p.coords.latitude, p.coords.longitude]), () => res(null), { timeout: 7000, enableHighAccuracy: true });
+  });
+}
+async function geocodeAcademy(a) {
+  if (a.lat && a.lng) return [a.lat, a.lng];
+  await ensureMap();
+  if (mapApi?.geocode) { const c = await mapApi.geocode(a); if (c) { sb.rpc("set_academy_coords", { aid: a.id, p_lat: c[0], p_lng: c[1] }); return c; } }
+  return null;
+}
+// ?checkin=<id> 처리 (QR 스캔 진입)
+async function handleCheckin() {
+  const id = new URLSearchParams(location.search).get("checkin");
+  if (!id) return;
+  history.replaceState({}, "", location.pathname);
+  if (!state.user) { sessionStorage.setItem("pendingCheckin", id); toast("출석하려면 로그인이 필요합니다."); openModal("m-auth"); return; }
+  await doCheckin(+id);
+}
+async function doCheckin(id) {
+  toast("출석 처리 중... 위치를 확인합니다.");
+  const { data: a } = await sb.from("academies").select("id,name,address,lat,lng").eq("id", id).single();
+  if (!a) return toast("학원을 찾을 수 없습니다.");
+  // 자녀 선택 (있으면 첫 자녀, 없으면 본인)
+  const { data: kids } = await sb.from("children").select("id,name").eq("user_id", state.user.id);
+  let child = (kids || [])[0] || null;
+  if (kids && kids.length > 1) {
+    const names = kids.map((k, i) => `${i + 1}. ${k.name}`).join("\n");
+    const pick = prompt(`출석할 자녀 번호를 입력하세요.\n${names}`, "1");
+    const idx = (parseInt(pick) || 1) - 1; if (kids[idx]) child = kids[idx];
+  }
+  // GPS + 학원 좌표로 거리 검증
+  const [gps, ac] = await Promise.all([getGps(), geocodeAcademy(a)]);
+  let dist = null, verified = false;
+  if (gps && ac) { dist = distM(gps[0], gps[1], ac[0], ac[1]); verified = dist <= 400; }
+  if (gps && ac && !verified) {
+    if (!confirm(`현재 위치가 학원에서 약 ${dist}m 떨어져 있습니다 (인정 범위 400m).\n그래도 출석 기록을 남길까요? (미인정으로 표시됩니다)`)) { toast("출석이 취소되었습니다."); return; }
+  }
+  const { error } = await sb.from("attendances").insert({
+    academy_id: id, user_id: state.user.id, child_id: child?.id || null, child_name: child?.name || state.profile?.nickname,
+    method: "qr", lat: gps?.[0], lng: gps?.[1], distance_m: dist, verified
+  });
+  if (error) return toast("출석 실패: " + error.message);
+  toast(`✅ ${a.name} 출석 완료${child ? " (" + child.name + ")" : ""}${verified ? ` · 위치확인 (${dist}m)` : dist != null ? ` · 위치 미인정` : ""}`);
 }
 function page(d) { state.page += d; loadAcademies(); window.scrollTo(0, 0); }
 
@@ -637,6 +716,7 @@ async function openDetail(id) {
       <button class="btn sm ghost" onclick="openLead('체험')">체험 수업 신청</button>
       <button class="btn sm gray" onclick="toggleCompare(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">비교 담기</button>
       <button class="btn sm gray" onclick="toggleFav(${a.id})">♥ 관심 등록</button>
+      <button class="btn sm gray" onclick="openQr(${a.id})">📷 출석 QR</button>
     </div>
     <h3>수강료 (월 기준)</h3>
     ${courses?.length ? `<table><tr><th>과정</th><th>과목</th><th class="num">월 수강료</th><th class="num">시간당 단가</th><th class="no-print">선택</th></tr>
@@ -959,7 +1039,8 @@ async function loadOwner() {
     <div class="tabbar"><button class="tab on" onclick="ownTab(this,${a.id},'info')">학원 정보</button>
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
-      <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button></div>
+      <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button></div>
     <div id="ownBody-${a.id}"></div></div>`).join("");
   acas.forEach(a => renderOwnInfo(a.id));
 }
@@ -970,6 +1051,25 @@ async function ownTab(btn, id, tab) {
   if (tab === "fee") renderOwnFee(id);
   if (tab === "lead") renderOwnLeads(id);
   if (tab === "report") renderOwnReport(id);
+  if (tab === "att") renderOwnAtt(id);
+}
+async function renderOwnAtt(id) {
+  const body = document.getElementById("ownBody-" + id);
+  body.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const { data } = await sb.from("attendances").select("*").eq("academy_id", id).order("checked_at", { ascending: false }).limit(100);
+  const today = new Date().toISOString().slice(0, 10);
+  const todayCnt = (data || []).filter(r => r.checked_at.slice(0, 10) === today).length;
+  body.innerHTML = `
+    <div class="row no-print" style="margin-bottom:10px;align-items:center">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(checkinUrl(id))}" width="120" height="120" style="background:#fff;border-radius:8px">
+      <div><b>출석용 QR</b><div class="mut">학원 입구에 출력해 붙여두세요. 학생이 스캔하면 위치 확인 후 자동 출석됩니다.</div>
+      <button class="btn sm ghost" style="margin-top:6px" onclick="openQr(${id})">크게 보기 · 인쇄</button></div>
+    </div>
+    <div class="row" style="margin-bottom:8px"><span class="stat" style="flex:0 0 auto"><b>${todayCnt}</b><span>오늘 출석</span></span>
+      <span class="stat" style="flex:0 0 auto"><b>${(data || []).length}</b><span>최근 100건</span></span></div>
+    ${(data || []).length ? `<table><tr><th>일시</th><th>이름</th><th>위치확인</th></tr>
+      ${data.map(r => `<tr><td class="mut">${new Date(r.checked_at).toLocaleString("ko-KR")}</td><td>${esc(r.child_name || "")}</td>
+        <td>${r.verified ? `<span style="color:var(--good)">✔ 인정 (${r.distance_m}m)</span>` : r.distance_m != null ? `<span style="color:var(--warn)">미인정 (${r.distance_m}m)</span>` : `<span class="mut">위치 없음</span>`}</td></tr>`).join("")}</table>` : `<p class="mut">아직 출석 기록이 없습니다.</p>`}`;
 }
 async function renderOwnInfo(id) {
   const { data: a } = await sb.from("academies").select("*").eq("id", id).single();
@@ -1176,7 +1276,7 @@ async function runSync() {
   ["fDong","fSort"].forEach(id => document.getElementById(id).addEventListener("change", () => { state.page = 1; loadAcademies(); }));
   document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("on"); }));
   renderBestChips();
-  initAuth().then(() => { handleSocialRedirect(); go("search"); loadAcademies(); loadBest(); });
+  initAuth().then(() => { handleSocialRedirect(); handleCheckin(); go("search"); loadAcademies(); loadBest(); });
 })();
 </script>
 </body>
