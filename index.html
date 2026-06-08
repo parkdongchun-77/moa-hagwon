@@ -284,7 +284,7 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
 const SUPABASE_URL = "https://mqoawibfxpcrwhmvzegg.supabase.co";
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1xb2F3aWJmeHBjcndobXZ6ZWdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3MzcxMjIsImV4cCI6MjA5NjMxMzEyMn0.z8goCZj95l1sAOHpV2niO-0rw-nwqFotsnYFy-uwUKU";
 const sb = window.supabase.createClient(SUPABASE_URL, ANON_KEY);
-const SUBJECTS = ["수학","영어","국어","과학","사회","코딩","음악","미술","체육","외국어","입시컨설팅","종합보습","기타"];
+const SUBJECTS = ["수학","영어","국어","과학","사회","코딩","음악","미술","체육","외국어","입시컨설팅","종합보습","기타","교육서비스"];
 const GRADES = ["유아","초등","중등","고등","성인"];
 const won = n => n == null ? "-" : Number(n).toLocaleString("ko-KR") + "원";
 const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
