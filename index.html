@@ -232,6 +232,9 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
     <div class="field"><label>역할</label><select id="aRole"><option value="parent">학부모</option><option value="owner">학원 원장/운영자</option></select></div>
   </div>
   <button class="btn" style="width:100%" id="authGo" onclick="doAuth()">로그인</button>
+  <div style="display:flex;align-items:center;gap:8px;margin:14px 0;color:var(--mut);font-size:13px"><div style="flex:1;height:1px;background:var(--line)"></div>또는<div style="flex:1;height:1px;background:var(--line)"></div></div>
+  <button class="btn" style="width:100%;background:#fee500;color:#191600;margin-bottom:8px" onclick="socialLogin('kakao')">카카오로 시작하기</button>
+  <button class="btn" style="width:100%;background:#fff;color:#1f2937;border:1px solid var(--line)" onclick="socialLogin('google')">Google로 시작하기</button>
   <p class="mut" style="margin-top:10px;text-align:center"><a href="#" onclick="toggleAuthMode();return false" id="authSwitch">처음이신가요? 회원가입</a></p>
 </div></div>
 <!-- 자녀 모달 -->
@@ -324,6 +327,13 @@ function toggleAuthMode() {
   document.getElementById("authGo").textContent = state.signupMode ? "가입하기" : "로그인";
   document.getElementById("signupExtra").style.display = state.signupMode ? "" : "none";
   document.getElementById("authSwitch").textContent = state.signupMode ? "이미 계정이 있나요? 로그인" : "처음이신가요? 회원가입";
+}
+async function socialLogin(provider) {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: location.origin + location.pathname }
+  });
+  if (error) toast("오류: " + error.message);
 }
 async function doAuth() {
   const email = document.getElementById("aEmail").value.trim(), pw = document.getElementById("aPw").value;
