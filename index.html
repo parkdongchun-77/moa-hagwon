@@ -566,9 +566,6 @@ async function doCheckin(id) {
   const [gps, ac] = await Promise.all([getGps(), geocodeAcademy(a)]);
   let dist = null, verified = false;
   if (gps && ac) { dist = distM(gps[0], gps[1], ac[0], ac[1]); verified = dist <= 400; }
-  if (gps && ac && !verified) {
-    if (!confirm(`현재 위치가 학원에서 약 ${dist}m 떨어져 있습니다 (인정 범위 400m).\n그래도 출석 기록을 남길까요? (미인정으로 표시됩니다)`)) { toast("출석이 취소되었습니다."); return; }
-  }
   const { error } = await sb.from("attendances").insert({
     academy_id: id, user_id: state.user.id, child_id: child?.id || null, child_name: child?.name || state.profile?.nickname,
     method: "qr", lat: gps?.[0], lng: gps?.[1], distance_m: dist, verified
