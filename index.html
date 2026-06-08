@@ -122,24 +122,16 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
     <div class="row" style="margin-bottom:8px" id="fSubjects"></div>
     <div class="row" style="margin-bottom:8px">
       <span class="mut">학년:</span><span id="fGrades" class="row"></span>
-      <span class="mut" style="margin-left:8px">월 학원비:</span>
-      <select id="fFee">
-        <option value="">전체</option>
-        <option value="100000">10만원 이하</option>
-        <option value="200000">20만원 이하</option>
-        <option value="300000">30만원 이하</option>
-        <option value="400000">40만원 이하</option>
-        <option value="500000">50만원 이하</option>
-      </select>
-      <select id="fCap">
-        <option value="">정원 전체</option>
-        <option value="small">소수정예 (12명 이하)</option>
-        <option value="large">13명 이상</option>
-      </select>
-      <label class="chip" style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="fFeeOnly" style="width:auto" checked>수강료 공개만</label>
       <button class="btn sm" onclick="state.page=1;loadAcademies()">검색</button>
       <button class="btn sm gray" onclick="resetFilters()">초기화</button>
     </div>
+  </div>
+  <!-- ===== 우리 동네 베스트 학원 ===== -->
+  <div class="card no-print" id="bestCard">
+    <div class="row"><h2 style="margin:0">🏆 우리 동네 베스트 학원 <span class="mut" id="bestRegion"></span></h2></div>
+    <div class="row" id="bestSubjects" style="margin:8px 0"></div>
+    <div id="bestList"></div>
+    <p class="mut" style="margin-top:6px">※ 현재는 수강생 규모·운영 정보 기준의 추천 목록입니다. 후기 데이터가 쌓이면 평점 기반으로 갱신됩니다.</p>
   </div>
   <div id="acaList"></div>
   <div class="row no-print" style="justify-content:center;margin-top:10px">
@@ -395,9 +387,8 @@ function renderFilterChips() {
 function togSet(set, v) { set.has(v) ? set.delete(v) : set.add(v); }
 function resetFilters() {
   selSubjects.clear(); selGrades.clear();
-  ["fSido","fCity","fDong","fKw","fFee","fCap"].forEach(id => document.getElementById(id).value = "");
+  ["fSido","fCity","fDong","fKw"].forEach(id => document.getElementById(id).value = "");
   loadCities();
-  document.getElementById("fFeeOnly").checked = true;
   document.getElementById("fSort").value = "name";
   renderFilterChips(); state.page = 1; loadAcademies();
 }
@@ -424,18 +415,13 @@ async function loadDongs() {
 function buildQuery() {
   let q = sb.from("academies").select("*", { count: "exact" }).eq("status", "개원");
   const sido = document.getElementById("fSido").value, city = document.getElementById("fCity").value, dong = document.getElementById("fDong").value;
-  const kw = document.getElementById("fKw").value.trim(), fee = document.getElementById("fFee").value;
+  const kw = document.getElementById("fKw").value.trim();
   if (sido) q = q.eq("sido", sido);
   if (city) q = q.eq("region_city", city);
   if (dong) q = q.eq("dong", dong);
   if (kw) q = q.ilike("name", `%${kw}%`);
   if (selSubjects.size) q = q.overlaps("subjects", [...selSubjects]);
   if (selGrades.size) q = q.overlaps("grades", [...selGrades]);
-  if (fee) q = q.lte("min_monthly", +fee);
-  const cap = document.getElementById("fCap").value;
-  if (cap === "small") q = q.lte("capacity", 12);
-  if (cap === "large") q = q.gt("capacity", 12);
-  if (document.getElementById("fFeeOnly").checked) q = q.not("min_monthly", "is", null);
   const sort = document.getElementById("fSort").value;
   q = q.order("is_premium", { ascending: false });
   if (sort === "feeAsc") q = q.order("min_monthly", { ascending: true, nullsFirst: false });
@@ -456,12 +442,41 @@ async function loadAcademies() {
   document.getElementById("pgNext").disabled = state.page * PAGE_SIZE >= state.total;
   updateMap(data || []);
   if (!data?.length) {
-    const feeOnly = document.getElementById("fFeeOnly").checked;
-    list.innerHTML = `<div class="empty">조건에 맞는 학원이 없습니다.${feeOnly ? `<br><span class="mut">수강료를 공개하지 않은 학원이 제외되어 있어요 (전국 학원의 약 80%가 미공개).</span><br>
-      <button class="btn sm ghost" style="margin-top:8px" onclick="document.getElementById('fFeeOnly').checked=false;state.page=1;loadAcademies()">수강료 비공개 학원 포함해서 다시 검색</button>` : ""}</div>`;
+    list.innerHTML = `<div class="empty">조건에 맞는 학원이 없습니다. 지역·과목 조건을 바꿔보세요.</div>`;
     return;
   }
   list.innerHTML = data.map(a => acaCard(a)).join("");
+}
+
+// ===== 우리 동네 베스트 학원 (과목별) =====
+const BEST_SUBJECTS = ["수학","영어","국어","과학","코딩","음악","미술","체육"];
+let bestSubject = "수학";
+function renderBestChips() {
+  document.getElementById("bestSubjects").innerHTML = BEST_SUBJECTS.map(s =>
+    `<button class="chip ${s === bestSubject ? "on" : ""}" onclick="bestSubject='${s}';renderBestChips();loadBest()">${s}</button>`).join("");
+}
+async function loadBest() {
+  const el = document.getElementById("bestList");
+  const sido = document.getElementById("fSido").value, city = document.getElementById("fCity").value;
+  document.getElementById("bestRegion").textContent = city ? `· ${city} ${bestSubject}` : (sido ? `· ${sido} ${bestSubject}` : `· 전국 ${bestSubject}`);
+  el.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  let q = sb.from("academies").select("id,name,kind,sido,region_city,dong,subjects,grades,min_monthly,max_monthly,total_students,capacity,is_premium")
+    .eq("status", "개원").contains("subjects", [bestSubject])
+    .order("is_premium", { ascending: false }).order("total_students", { ascending: false, nullsFirst: false }).limit(5);
+  if (sido) q = q.eq("sido", sido);
+  if (city) q = q.eq("region_city", city);
+  const { data } = await q;
+  if (!data?.length) { el.innerHTML = `<div class="empty">해당 지역·과목의 추천 학원이 없습니다.</div>`; return; }
+  const medal = ["🥇","🥈","🥉","4️⃣","5️⃣"];
+  el.innerHTML = data.map((a, i) => `<div class="aca-card" style="align-items:center">
+    <div style="font-size:22px;width:36px;text-align:center">${medal[i]}</div>
+    <div class="aca-main" onclick="openDetail(${a.id})">
+      <div class="aca-name">${a.is_premium ? `<span class="tag ad">AD</span>` : ""}${esc(a.name)} <span class="tag gray">${esc(a.kind || "")}</span></div>
+      <div class="mut">${esc(a.region_city || "")} ${esc(a.dong || "")}${a.total_students ? ` · 수강생 ${a.total_students}명` : ""}</div>
+      <div class="fee-line">${feeRange(a)}</div>
+    </div>
+    <button class="btn sm ghost no-print" onclick="openDetail(${a.id})">상세</button>
+  </div>`).join("");
 }
 function feeRange(a) {
   if (a.min_monthly == null) return `<span class="mut">수강료 비공개</span>`;
@@ -1156,11 +1171,12 @@ async function runSync() {
   document.getElementById("enSubject").innerHTML = opts;
   document.getElementById("fKw").addEventListener("keydown", e => { if (e.key === "Enter") { state.page = 1; loadAcademies(); } });
   document.getElementById("fSido").innerHTML = `<option value="">전국</option>` + SIDOS.map(s => `<option>${s}</option>`).join("");
-  document.getElementById("fSido").addEventListener("change", () => { loadCities(); state.page = 1; loadAcademies(); });
-  document.getElementById("fCity").addEventListener("change", () => { loadDongs(); state.page = 1; loadAcademies(); });
-  ["fDong","fSort","fFee","fCap","fFeeOnly"].forEach(id => document.getElementById(id).addEventListener("change", () => { state.page = 1; loadAcademies(); }));
+  document.getElementById("fSido").addEventListener("change", () => { loadCities(); state.page = 1; loadAcademies(); loadBest(); });
+  document.getElementById("fCity").addEventListener("change", () => { loadDongs(); state.page = 1; loadAcademies(); loadBest(); });
+  ["fDong","fSort"].forEach(id => document.getElementById(id).addEventListener("change", () => { state.page = 1; loadAcademies(); }));
   document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("on"); }));
-  initAuth().then(() => { handleSocialRedirect(); go("search"); loadAcademies(); });
+  renderBestChips();
+  initAuth().then(() => { handleSocialRedirect(); go("search"); loadAcademies(); loadBest(); });
 })();
 </script>
 </body>
