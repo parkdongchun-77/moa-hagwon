@@ -329,27 +329,31 @@ function toggleAuthMode() {
   document.getElementById("authSwitch").textContent = state.signupMode ? "이미 계정이 있나요? 로그인" : "처음이신가요? 회원가입";
 }
 const KAKAO_REST_KEY = "aa2789f17b58a4941235c74b5250a32d";
+const GOOGLE_CLIENT_ID = "332050617570-g404e20aj20nbkjgl5dv9l4dchecsq7g.apps.googleusercontent.com";
 const APP_REDIRECT = "https://parkdongchun-77.github.io/moa-hagwon/";
 function socialLogin(provider) {
   if (provider === "kakao") {
-    const url = "https://kauth.kakao.com/oauth/authorize?response_type=code"
+    location.href = "https://kauth.kakao.com/oauth/authorize?response_type=code"
       + "&client_id=" + KAKAO_REST_KEY
-      + "&redirect_uri=" + encodeURIComponent(APP_REDIRECT)
-      + "&state=kakao";
-    location.href = url;
+      + "&redirect_uri=" + encodeURIComponent(APP_REDIRECT) + "&state=kakao";
   } else if (provider === "google") {
-    toast("구글 로그인은 곧 추가됩니다. 지금은 카카오 또는 이메일로 로그인해 주세요.");
+    location.href = "https://accounts.google.com/o/oauth2/v2/auth?response_type=code"
+      + "&client_id=" + GOOGLE_CLIENT_ID
+      + "&redirect_uri=" + encodeURIComponent(APP_REDIRECT)
+      + "&scope=" + encodeURIComponent("openid email profile")
+      + "&state=google&prompt=select_account";
   }
 }
-// 카카오 인가코드 리다이렉트 처리 (페이지 로드시)
-async function handleKakaoRedirect() {
+// 소셜 로그인 인가코드 리다이렉트 처리 (페이지 로드시)
+async function handleSocialRedirect() {
   const p = new URLSearchParams(location.search);
-  const code = p.get("code");
-  if (!code || p.get("state") !== "kakao") return;
+  const code = p.get("code"), state = p.get("state");
+  if (!code || (state !== "kakao" && state !== "google")) return;
   history.replaceState({}, "", location.pathname); // URL에서 code 제거
-  toast("카카오 로그인 처리 중...");
+  const label = state === "kakao" ? "카카오" : "구글";
+  toast(label + " 로그인 처리 중...");
   try {
-    const res = await fetch(SUPABASE_URL + "/functions/v1/kakao-login", {
+    const res = await fetch(SUPABASE_URL + "/functions/v1/" + state + "-login", {
       method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ANON_KEY },
       body: JSON.stringify({ code, redirectUri: APP_REDIRECT })
     });
@@ -357,8 +361,8 @@ async function handleKakaoRedirect() {
     if (j.error) throw new Error(j.error);
     const { error } = await sb.auth.verifyOtp({ email: j.email, token: j.otp, type: "email" });
     if (error) throw new Error(error.message);
-    toast("카카오로 로그인되었습니다.");
-  } catch (e) { toast("카카오 로그인 실패: " + e.message); }
+    toast(label + "(으)로 로그인되었습니다.");
+  } catch (e) { toast(label + " 로그인 실패: " + e.message); }
 }
 async function doAuth() {
   const email = document.getElementById("aEmail").value.trim(), pw = document.getElementById("aPw").value;
@@ -1156,7 +1160,7 @@ async function runSync() {
   document.getElementById("fCity").addEventListener("change", () => { loadDongs(); state.page = 1; loadAcademies(); });
   ["fDong","fSort","fFee","fCap","fFeeOnly"].forEach(id => document.getElementById(id).addEventListener("change", () => { state.page = 1; loadAcademies(); }));
   document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("on"); }));
-  initAuth().then(() => { handleKakaoRedirect(); go("search"); loadAcademies(); });
+  initAuth().then(() => { handleSocialRedirect(); go("search"); loadAcademies(); });
 })();
 </script>
 </body>
