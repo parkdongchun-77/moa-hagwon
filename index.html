@@ -194,6 +194,22 @@ body{padding-bottom:70px}
   </div>
 </section>
 
+<!-- ===== 등·퇴원 QR ===== -->
+<section class="view" id="v-attend">
+  <div class="card"><h2>등원·퇴원 QR</h2>
+    <p class="mut">학원 입구에 붙은 QR을 휴대폰으로 찍으면 등원·퇴원이 기록됩니다. 학원에 도착·하원할 때 아래 버튼으로도 바로 체크할 수 있어요. (위치가 학원 근처일 때만 인정)</p>
+  </div>
+  <div id="attendBody"></div>
+</section>
+
+<!-- ===== 등·퇴원 주간 요약 ===== -->
+<section class="view" id="v-attstat">
+  <div class="card"><h2>등·퇴원 주간 요약 <span class="mut">최근 7일 평균</span></h2>
+    <p class="mut">최근 7일간 자녀의 등원·퇴원 시간을 평균으로 정리했어요.</p>
+  </div>
+  <div id="attStatBody"></div>
+</section>
+
 <!-- ===== 원장센터 ===== -->
 <section class="view" id="v-owner">
   <div class="card"><h2>원장센터</h2>
@@ -318,6 +334,8 @@ function go(v) {
   if (v === "noti") loadNoti();
   if (v === "owner") loadOwner();
   if (v === "admin") loadAdmin();
+  if (v === "attend") loadAttend();
+  if (v === "attstat") loadAttStat();
 }
 function closeModal(id) { document.getElementById(id).classList.remove("on"); }
 function openModal(id) { document.getElementById(id).classList.add("on"); }
@@ -325,8 +343,8 @@ function needLogin() { if (!state.user) { toast("로그인이 필요합니다.")
 // ===== 하단 고정 바 + 메뉴 시트 =====
 const SHEETS = {
   parent: { title: "학생·학부모", items: () => [
-    ["🔍", "학원 검색", "go('search')"],
-    ["📊", "학원비 대시보드", "go('dash')"],
+    ["📷", "등원·퇴원 QR", "go('attend')"],
+    ["📊", "등·퇴원 주간 요약", "go('attstat')"],
     ["🔔", "알림", "go('noti')"],
     ["⚖️", "비교함", "go('compare')"],
   ] },
@@ -672,8 +690,10 @@ async function handleCheckin() {
   if (!state.user) { sessionStorage.setItem("pendingCheckin", id); toast("출석하려면 로그인이 필요합니다."); openModal("m-auth"); return; }
   await doCheckin(+id);
 }
-async function doCheckin(id) {
-  toast("출석 처리 중... 위치를 확인합니다.");
+// dir: '등원'|'퇴원' 명시(수동 버튼) / 미지정이면 오늘 마지막 기록 기준 자동 토글(QR 스캔)
+async function doCheckin(id, dir) {
+  if (!state.user) { sessionStorage.setItem("pendingCheckin", id); toast("기록하려면 로그인이 필요합니다."); return openModal("m-auth"); }
+  toast((dir || "등·퇴원") + " 처리 중... 위치를 확인합니다.");
   const { data: a } = await sb.from("academies").select("id,name,address,lat,lng").eq("id", id).single();
   if (!a) return toast("학원을 찾을 수 없습니다.");
   // 자녀 선택 (있으면 첫 자녀, 없으면 본인)
@@ -681,8 +701,16 @@ async function doCheckin(id) {
   let child = (kids || [])[0] || null;
   if (kids && kids.length > 1) {
     const names = kids.map((k, i) => `${i + 1}. ${k.name}`).join("\n");
-    const pick = prompt(`출석할 자녀 번호를 입력하세요.\n${names}`, "1");
+    const pick = prompt(`기록할 자녀 번호를 입력하세요.\n${names}`, "1");
     const idx = (parseInt(pick) || 1) - 1; if (kids[idx]) child = kids[idx];
+  }
+  // 방향 결정: 명시 없으면 오늘 마지막 기록이 등원이면 퇴원, 아니면 등원
+  let direction = dir;
+  if (!direction) {
+    const ds = new Date(); ds.setHours(0, 0, 0, 0);
+    const { data: last } = await sb.from("attendances").select("status").eq("user_id", state.user.id).eq("academy_id", id)
+      .gte("checked_at", ds.toISOString()).order("checked_at", { ascending: false }).limit(1);
+    direction = (last && last[0] && last[0].status === "등원") ? "퇴원" : "등원";
   }
   // GPS + 학원 좌표로 거리 검증
   const [gps, ac] = await Promise.all([getGps(), geocodeAcademy(a)]);
@@ -690,11 +718,54 @@ async function doCheckin(id) {
   if (gps && ac) { dist = distM(gps[0], gps[1], ac[0], ac[1]); verified = dist <= 400; }
   const { error } = await sb.from("attendances").insert({
     academy_id: id, user_id: state.user.id, child_id: child?.id || null, child_name: child?.name || state.profile?.nickname,
-    method: "qr", lat: gps?.[0], lng: gps?.[1], distance_m: dist, verified
+    method: "qr", lat: gps?.[0], lng: gps?.[1], distance_m: dist, verified, status: direction
   });
-  if (error) return toast("출석 실패: " + error.message);
-  toast(`✅ ${a.name} 출석 완료${child ? " (" + child.name + ")" : ""}${verified ? ` · 위치확인 (${dist}m)` : dist != null ? ` · 위치 미인정` : ""}`);
-  sendCheckinPush({ academy_id: id, child_id: child?.id || null, child_name: child?.name || state.profile?.nickname, verified, distance_m: dist, fallback_user: state.user.id });
+  if (error) return toast(direction + " 실패: " + error.message);
+  toast(`✅ ${a.name} ${direction} 완료${child ? " (" + child.name + ")" : ""}${verified ? ` · 위치확인 (${dist}m)` : dist != null ? ` · 위치 미인정` : ""}`);
+  sendCheckinPush({ academy_id: id, child_id: child?.id || null, child_name: child?.name || state.profile?.nickname, verified, distance_m: dist, fallback_user: state.user.id, direction });
+  if (document.getElementById("v-attend").classList.contains("on")) loadAttend();
+}
+// ===== 등·퇴원 화면 =====
+async function loadAttend() {
+  const el = document.getElementById("attendBody");
+  if (!state.user) { el.innerHTML = `<div class="card empty">로그인하면 자녀의 등·퇴원을 기록할 수 있어요.</div>`; return; }
+  const { data: children } = await sb.from("children").select("name, child_academies(academy_id, academy_name)").eq("user_id", state.user.id);
+  const items = [];
+  (children || []).forEach(ch => (ch.child_academies || []).forEach(e => { if (e.academy_id) items.push({ child: ch.name, id: e.academy_id, name: e.academy_name }); }));
+  if (!items.length) { el.innerHTML = `<div class="card empty">먼저 [학원비 대시보드]에서 자녀와 다니는 학원을 등록해 주세요.</div>`; return; }
+  el.innerHTML = items.map(it => `<div class="card"><div class="row" style="align-items:center;gap:14px">
+    <img src="https://api.qrserver.com/v1/create-qr-code/?size=104x104&margin=0&data=${encodeURIComponent(checkinUrl(it.id))}" width="104" height="104" style="background:#fff;border-radius:8px;flex-shrink:0">
+    <div style="flex:1;min-width:160px"><b>${esc(it.name)}</b><div class="mut">${esc(it.child)}</div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn sm" style="background:var(--good);color:#fff;font-weight:700" onclick="doCheckin(${it.id},'등원')">🟢 등원</button>
+        <button class="btn sm" style="background:#ef4444;color:#fff;font-weight:700" onclick="doCheckin(${it.id},'퇴원')">🔴 퇴원</button>
+      </div></div></div></div>`).join("");
+}
+async function loadAttStat() {
+  const el = document.getElementById("attStatBody");
+  if (!state.user) { el.innerHTML = `<div class="card empty">로그인하면 등·퇴원 요약을 볼 수 있어요.</div>`; return; }
+  const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const { data } = await sb.from("attendances").select("child_name,status,checked_at").eq("user_id", state.user.id).gte("checked_at", since).order("checked_at");
+  if (!data || !data.length) { el.innerHTML = `<div class="card empty">최근 7일간 등·퇴원 기록이 없습니다.</div>`; return; }
+  const groups = {};
+  data.forEach(r => {
+    const name = r.child_name || "나";
+    const dir = r.status === "퇴원" ? "out" : "in"; // 등원/출석(legacy)→in
+    const d = new Date(r.checked_at), mins = d.getHours() * 60 + d.getMinutes();
+    (groups[name] = groups[name] || { in: [], out: [] })[dir].push(mins);
+  });
+  const fmt = m => { m = Math.round(m); return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
+  const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+  el.innerHTML = Object.entries(groups).map(([name, g]) => {
+    const ai = avg(g.in), ao = avg(g.out), stay = (ai != null && ao != null && ao > ai) ? fmt(ao - ai) : "-";
+    return `<div class="card"><h3 style="margin:0 0 10px">${esc(name)}</h3>
+      <div class="row">
+        <div class="stat"><b>${ai != null ? fmt(ai) : "-"}</b><span>평균 등원</span></div>
+        <div class="stat"><b>${ao != null ? fmt(ao) : "-"}</b><span>평균 퇴원</span></div>
+        <div class="stat"><b>${stay}</b><span>평균 체류</span></div>
+      </div>
+      <div class="mut" style="margin-top:6px">최근 7일 · 등원 ${g.in.length}회 · 퇴원 ${g.out.length}회</div></div>`;
+  }).join("");
 }
 function page(d) { state.page += d; loadAcademies(); window.scrollTo(0, 0); }
 
