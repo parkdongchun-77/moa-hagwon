@@ -581,29 +581,32 @@ async function geocodeAcademy(a) {
   if (mapApi?.geocode) { const c = await mapApi.geocode(a); if (c) { sb.rpc("set_academy_coords", { aid: a.id, p_lat: c[0], p_lng: c[1] }); return c; } }
   return null;
 }
-// 카카오맵 길찾기 — 현재 위치에서 학원까지 경로 안내
+// 길찾기 — 현재 위치 → 학원 주소까지 경로를 자동으로 계산해 표시
 async function openDirections(id, ev) {
   if (ev) { ev.stopPropagation(); ev.preventDefault(); }
   let a = (state.detail && state.detail.id === id) ? state.detail : null;
   if (!a) { const { data } = await sb.from("academies").select("id,name,address,sido,region_city,dong,lat,lng").eq("id", id).single(); a = data; }
   if (!a) return toast("학원 정보를 찾을 수 없어요.");
-  let lat = a.lat, lng = a.lng;
-  if (!lat || !lng) { toast("학원 위치를 확인하는 중..."); const c = await geocodeAcademy(a); if (c) { lat = c[0]; lng = c[1]; } }
-  if (!lat || !lng) return toast("이 학원은 위치 정보를 찾지 못했어요.");
-  const web = `https://map.kakao.com/link/to/${encodeURIComponent(a.name)},${lat},${lng}`;
+  const dest = a.address && a.address.trim() ? a.address.trim() : `${a.sido || ""} ${a.region_city || ""} ${a.dong || ""} ${a.name}`.trim();
+  // 도착지 = 학원 주소, 출발지 = 내 위치. 경로가 바로 계산돼 나옴.
+  const gmap = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}&travelmode=transit`;
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile && navigator.geolocation) {
-    toast("현재 위치에서 길찾기를 여는 중...");
-    navigator.geolocation.getCurrentPosition(
-      p => { const s = p.coords;
-        const t = setTimeout(() => { location.href = web; }, 1500); // 앱 미설치 시 웹으로
-        window.addEventListener("pagehide", () => clearTimeout(t), { once: true });
-        location.href = `kakaomap://route?sp=${s.latitude},${s.longitude}&ep=${lat},${lng}&by=PUBLICTRANSIT`;
-      },
-      () => window.open(web, "_blank"),
-      { timeout: 6000, enableHighAccuracy: true });
+  if (isMobile) {
+    toast("길찾기를 여는 중...");
+    let lat = a.lat, lng = a.lng;
+    if (!lat || !lng) { const c = await geocodeAcademy(a); if (c) { lat = c[0]; lng = c[1]; } }
+    if (lat && lng && navigator.geolocation) { // 카카오맵 앱에서 내 위치→학원 경로 자동
+      navigator.geolocation.getCurrentPosition(
+        p => { const s = p.coords;
+          const t = setTimeout(() => { location.href = gmap; }, 1500); // 앱 없으면 구글 길찾기
+          window.addEventListener("pagehide", () => clearTimeout(t), { once: true });
+          location.href = `kakaomap://route?sp=${s.latitude},${s.longitude}&ep=${lat},${lng}&by=CAR`;
+        },
+        () => window.open(gmap, "_blank"),
+        { timeout: 6000, enableHighAccuracy: true });
+    } else { window.open(gmap, "_blank"); }
   } else {
-    window.open(web, "_blank"); // 데스크톱: 카카오맵 웹(길찾기 누르면 현재 위치 자동)
+    window.open(gmap, "_blank"); // 데스크톱: 구글 지도가 내 위치→학원 주소 경로를 자동 표시
   }
 }
 // ?checkin=<id> 처리 (QR 스캔 진입)
