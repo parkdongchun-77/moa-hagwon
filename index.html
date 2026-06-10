@@ -508,6 +508,7 @@ function acaCard(a) {
     </div>
     <div class="aca-actions no-print">
       <button class="btn sm ghost" onclick="openDetail(${a.id})">상세·비용</button>
+      <button class="btn sm" style="background:#fae100;color:#3c1e1e;font-weight:700" onclick="openDirections(${a.id})">🧭 길찾기</button>
       <button class="btn sm ${inCmp ? "" : "gray"}" onclick="toggleCompare(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">${inCmp ? "비교함 ✓" : "비교 담기"}</button>
       <button class="btn sm gray" onclick="toggleFav(${a.id})">♥ 관심</button>
     </div></div>`;
@@ -580,6 +581,31 @@ async function geocodeAcademy(a) {
   if (mapApi?.geocode) { const c = await mapApi.geocode(a); if (c) { sb.rpc("set_academy_coords", { aid: a.id, p_lat: c[0], p_lng: c[1] }); return c; } }
   return null;
 }
+// 카카오맵 길찾기 — 현재 위치에서 학원까지 경로 안내
+async function openDirections(id, ev) {
+  if (ev) { ev.stopPropagation(); ev.preventDefault(); }
+  let a = (state.detail && state.detail.id === id) ? state.detail : null;
+  if (!a) { const { data } = await sb.from("academies").select("id,name,address,sido,region_city,dong,lat,lng").eq("id", id).single(); a = data; }
+  if (!a) return toast("학원 정보를 찾을 수 없어요.");
+  let lat = a.lat, lng = a.lng;
+  if (!lat || !lng) { toast("학원 위치를 확인하는 중..."); const c = await geocodeAcademy(a); if (c) { lat = c[0]; lng = c[1]; } }
+  if (!lat || !lng) return toast("이 학원은 위치 정보를 찾지 못했어요.");
+  const web = `https://map.kakao.com/link/to/${encodeURIComponent(a.name)},${lat},${lng}`;
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile && navigator.geolocation) {
+    toast("현재 위치에서 길찾기를 여는 중...");
+    navigator.geolocation.getCurrentPosition(
+      p => { const s = p.coords;
+        const t = setTimeout(() => { location.href = web; }, 1500); // 앱 미설치 시 웹으로
+        window.addEventListener("pagehide", () => clearTimeout(t), { once: true });
+        location.href = `kakaomap://route?sp=${s.latitude},${s.longitude}&ep=${lat},${lng}&by=PUBLICTRANSIT`;
+      },
+      () => window.open(web, "_blank"),
+      { timeout: 6000, enableHighAccuracy: true });
+  } else {
+    window.open(web, "_blank"); // 데스크톱: 카카오맵 웹(길찾기 누르면 현재 위치 자동)
+  }
+}
 // ?checkin=<id> 처리 (QR 스캔 진입)
 async function handleCheckin() {
   const id = new URLSearchParams(location.search).get("checkin");
@@ -649,7 +675,7 @@ async function initKakao() {
     clear() { markers.forEach(mk => mk.setMap(null)); infos.forEach(i => i.close()); markers = []; infos = []; },
     add(a) {
       const mk = new kakao.maps.Marker({ map: m, position: new kakao.maps.LatLng(a.lat, a.lng) });
-      const iw = new kakao.maps.InfoWindow({ removable: true, content: `<div style="padding:6px 10px;font-size:12px;max-width:230px;line-height:1.5"><b>${esc(a.name)}</b><br>${esc(a.region_city || "")} ${esc(a.dong || "")} · ${a.min_monthly ? won(a.min_monthly) + "~/월" : "수강료 비공개"}<br><a href="#" onclick="openDetail(${a.id});return false">상세 보기</a></div>` });
+      const iw = new kakao.maps.InfoWindow({ removable: true, content: `<div style="padding:6px 10px;font-size:12px;max-width:230px;line-height:1.5"><b>${esc(a.name)}</b><br>${esc(a.region_city || "")} ${esc(a.dong || "")} · ${a.min_monthly ? won(a.min_monthly) + "~/월" : "수강료 비공개"}<br><a href="#" onclick="openDetail(${a.id});return false">상세 보기</a> · <a href="#" onclick="openDirections(${a.id});return false">🧭 길찾기</a></div>` });
       kakao.maps.event.addListener(mk, "click", () => { infos.forEach(i => i.close()); iw.open(m, mk); });
       markers.push(mk); infos.push(iw);
     },
@@ -673,7 +699,7 @@ async function initLeaflet() {
   mapApi = {
     clear() { layer.clearLayers(); },
     add(a) {
-      L.marker([a.lat, a.lng]).addTo(layer).bindPopup(`<b>${esc(a.name)}</b><br><span style="color:#64748b;font-size:12px">${esc(a.region_city || "")} ${esc(a.dong || "")} · ${a.min_monthly ? won(a.min_monthly) + "~/월" : "수강료 비공개"}</span><br><a href="#" onclick="openDetail(${a.id});return false">상세 보기</a>`);
+      L.marker([a.lat, a.lng]).addTo(layer).bindPopup(`<b>${esc(a.name)}</b><br><span style="color:#64748b;font-size:12px">${esc(a.region_city || "")} ${esc(a.dong || "")} · ${a.min_monthly ? won(a.min_monthly) + "~/월" : "수강료 비공개"}</span><br><a href="#" onclick="openDetail(${a.id});return false">상세 보기</a> · <a href="#" onclick="openDirections(${a.id});return false">🧭 길찾기</a>`);
     },
     fit(pts) { m.fitBounds(pts, { padding: [30, 30], maxZoom: 15 }); },
     setView(p) { m.setView(p, 13); },
@@ -748,6 +774,7 @@ async function openDetail(id) {
     ${a.intro ? `<p style="margin:8px 0">${esc(a.intro)}</p>` : ""}
     ${a.promo ? `<div class="notice">🎉 ${esc(a.promo)}</div>` : ""}
     <div class="row no-print" style="margin:10px 0">
+      <button class="btn sm" style="background:#fae100;color:#3c1e1e;font-weight:700" onclick="openDirections(${a.id})">🧭 길찾기</button>
       <button class="btn sm" onclick="openLead('상담')">상담 신청</button>
       <button class="btn sm ghost" onclick="openLead('체험')">체험 수업 신청</button>
       <button class="btn sm gray" onclick="toggleCompare(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">비교 담기</button>
