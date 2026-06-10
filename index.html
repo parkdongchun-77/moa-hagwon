@@ -895,6 +895,10 @@ async function openDetail(id) {
   const avg = reviews?.length ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : null;
   const extra = Array.isArray(a.extra_fees) ? a.extra_fees : [];
   const extraSum = extra.reduce((s, e) => s + (+e.amount || 0), 0);
+  const cd = (a.class_days && typeof a.class_days === "object") ? a.class_days : {};
+  const cdReg = ["월","화","수","목","금","토","일"].filter(d => cd[d] === "수업");
+  const cdMk = ["월","화","수","목","금","토","일"].filter(d => cd[d] === "대체");
+  const classDayHtml = (cdReg.length || cdMk.length) ? `<p style="margin:8px 0"><b>🗓 수업 요일</b> — ${cdReg.length ? cdReg.join("·") + " 수업" : ""}${cdMk.length ? (cdReg.length ? " · " : "") + cdMk.join("·") + " 대체수업" : ""}</p>` : "";
   body.innerHTML = `
     <h2>${a.is_premium ? `<span class="tag ad">AD</span>` : ""}${esc(a.name)} <span class="tag gray">${esc(a.kind || "")}</span></h2>
     <div class="mut">${esc(a.address || "")} ${esc(a.address_detail || "")} ${a.tel ? "· ☎ " + esc(a.tel) : ""}</div>
@@ -910,6 +914,7 @@ async function openDetail(id) {
       <button class="btn sm gray" onclick="toggleFav(${a.id})">♥ 관심 등록</button>
       <button class="btn sm gray" onclick="openQr(${a.id})">📷 출석 QR</button>
     </div>
+    ${classDayHtml}
     <h3>수강료 (월 기준)</h3>
     ${courses?.length ? `<table><tr><th>과정</th><th>과목</th><th class="num">월 수강료</th><th class="num">시간당 단가</th><th class="no-print">선택</th></tr>
       ${courses.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.subject || "")}</td><td class="num">${won(c.monthly_fee)}</td>
@@ -929,11 +934,13 @@ async function openDetail(id) {
     <div class="no-print" style="margin-bottom:8px">
       <div class="row"><select id="rvRating"><option value="5">★★★★★</option><option value="4">★★★★</option><option value="3">★★★</option><option value="2">★★</option><option value="1">★</option></select>
       <input id="rvOne" placeholder="한줄평" style="flex:1;min-width:150px"></div>
-      <button class="btn sm" style="margin-top:6px" onclick="submitReview()">후기 등록</button>
-      <span class="mut">· 허위/비방 후기는 명예훼손 등 법적 문제가 될 수 있습니다. 경험한 사실 위주로 작성해 주세요.</span>
+      <div class="row" style="margin-top:6px;align-items:center">
+        <label class="chip" style="display:inline-flex;align-items:center;gap:5px"><input type="checkbox" id="rvAnon" style="width:auto">🙈 익명으로 작성</label>
+        <button class="btn sm" onclick="submitReview()">후기 등록</button></div>
+      <span class="mut">· 익명으로 작성하면 이름/닉네임 대신 '익명'으로 표시됩니다. 허위/비방 후기는 명예훼손 등 법적 문제가 될 수 있습니다.</span>
     </div>
     <div id="rvList">${(reviews || []).map(r => `<div class="review">
-      <span class="stars">${"★".repeat(r.rating)}</span> <b>${esc(r.oneline || "")}</b> <span class="mut">— ${esc(r.profiles?.nickname || "익명")}</span>
+      <span class="stars">${"★".repeat(r.rating)}</span> <b>${esc(r.oneline || "")}</b> <span class="mut">— ${r.anonymous ? "익명" : esc(r.profiles?.nickname || "익명")}</span>
       <a href="#" class="mut no-print" onclick="reportTarget('review',${r.id});return false">신고</a></div>`).join("") || `<p class="mut">아직 후기가 없습니다.</p>`}</div>
     <h3>Q&A</h3>
     <div class="row no-print" style="margin-bottom:8px"><input id="qContent" placeholder="질문을 남겨보세요 (예: 주차 편한가요?)" style="flex:1"><button class="btn sm" onclick="submitQuestion()">질문</button></div>
@@ -954,7 +961,7 @@ function calcTotal() {
 async function submitReview() {
   if (needLogin()) return;
   const r = { academy_id: state.detail.id, user_id: state.user.id, rating: +document.getElementById("rvRating").value,
-    oneline: document.getElementById("rvOne").value.trim() };
+    oneline: document.getElementById("rvOne").value.trim(), anonymous: document.getElementById("rvAnon").checked };
   if (!r.oneline) return toast("한줄평을 입력하세요.");
   const { error } = await sb.from("reviews").upsert(r, { onConflict: "academy_id,user_id" });
   if (error) return toast("오류: " + error.message);
@@ -1285,6 +1292,15 @@ async function renderOwnInfo(id) {
     </div>
     <div class="field"><label>수업 시간대</label>
       ${["방과후","저녁","주말"].map(t => `<label class="chip" style="margin-right:4px"><input type="checkbox" class="oi-slot-${id}" value="${t}" ${a.time_slots?.includes(t) ? "checked" : ""} style="width:auto"> ${t}</label>`).join("")}</div>
+    <div class="field"><label>수업 요일 (학부모 화면에 표시됩니다 · 대체는 보강/주말 대체수업)</label>
+      <div class="row" style="flex-wrap:wrap;gap:6px">
+      ${["월","화","수","목","금","토","일"].map(d => { const v = (a.class_days && a.class_days[d]) || ""; return `<span class="chip" style="margin:0;gap:4px"><b>${d}</b>
+        <select class="oi-day-${id}" data-day="${d}" style="padding:3px 4px;font-size:12px;width:auto">
+          <option value="" ${v === "" ? "selected" : ""}>없음</option>
+          <option value="수업" ${v === "수업" ? "selected" : ""}>수업</option>
+          <option value="대체" ${v === "대체" ? "selected" : ""}>대체</option>
+        </select></span>`; }).join("")}
+      </div></div>
     <div class="field"><label>추가 비용 항목 (재료비·차량비·모의고사비 등)</label><div id="oi-extra-${id}">
       ${extra.map((e, i) => `<div class="row" style="margin-bottom:4px"><input value="${esc(e.label)}" placeholder="항목" style="width:140px" data-x="label"><input value="${e.amount}" type="number" placeholder="금액" style="width:110px" data-x="amount"><button class="btn sm gray" onclick="this.parentElement.remove()">✕</button></div>`).join("")}
     </div><button class="btn sm gray" onclick="addExtraRow(${id})">+ 항목 추가</button></div>
@@ -1297,10 +1313,12 @@ function addExtraRow(id) {
 async function saveOwnInfo(id) {
   const extra = [...document.querySelectorAll(`#oi-extra-${id} > div`)].map(d => ({
     label: d.querySelector('[data-x="label"]').value.trim(), amount: +d.querySelector('[data-x="amount"]').value || 0 })).filter(e => e.label);
+  const class_days = {};
+  document.querySelectorAll(`.oi-day-${id}`).forEach(s => { if (s.value) class_days[s.dataset.day] = s.value; });
   const upd = { intro: document.getElementById(`oi-intro-${id}`).value.trim(), teachers: document.getElementById(`oi-teachers-${id}`).value.trim(),
     timetable: document.getElementById(`oi-timetable-${id}`).value.trim(), promo: document.getElementById(`oi-promo-${id}`).value.trim(),
     discount_note: document.getElementById(`oi-discount-${id}`).value.trim(),
-    time_slots: [...document.querySelectorAll(`.oi-slot-${id}:checked`)].map(c => c.value), extra_fees: extra, updated_at: new Date().toISOString() };
+    time_slots: [...document.querySelectorAll(`.oi-slot-${id}:checked`)].map(c => c.value), class_days, extra_fees: extra, updated_at: new Date().toISOString() };
   const { error } = await sb.from("academies").update(upd).eq("id", id);
   toast(error ? "오류: " + error.message : "저장되었습니다.");
 }
