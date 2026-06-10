@@ -81,7 +81,22 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
 .review{border-bottom:1px solid var(--line);padding:10px 0}
 .empty{text-align:center;color:var(--mut);padding:30px 0}
 .notice{background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px 14px;font-size:13px;color:#92400e;margin-bottom:12px}
-@media print{header,.no-print{display:none!important}body{background:#fff}}
+/* 하단 고정 바 + 메뉴 시트 */
+body{padding-bottom:70px}
+.botbar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;background:#fff;border-top:1px solid var(--line);box-shadow:0 -2px 12px rgba(0,0,0,.06)}
+.botbar button{flex:1;border:none;background:none;padding:9px 4px 11px;font-size:12px;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+.botbar button .ic{font-size:21px;line-height:1}
+.botbar button:active{background:#f1f5f9}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:60;opacity:0;pointer-events:none;transition:opacity .2s}
+.sheet-bg.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;background:#fff;border-radius:18px 18px 0 0;padding:6px 12px calc(16px + env(safe-area-inset-bottom));transform:translateY(110%);transition:transform .24s;max-width:760px;margin:0 auto;box-shadow:0 -6px 24px rgba(0,0,0,.16)}
+.sheet.on{transform:translateY(0)}
+.sheet .grab{width:42px;height:4px;border-radius:2px;background:#cbd5e1;margin:8px auto 2px}
+.sheet .sh-title{font-weight:700;font-size:15px;margin:6px 8px 8px}
+.sheet a{display:flex;align-items:center;gap:12px;padding:14px 10px;border-radius:11px;font-size:16px;color:var(--ink);text-decoration:none;cursor:pointer}
+.sheet a:active{background:#f1f5f9}
+.sheet a .ic{font-size:20px;width:24px;text-align:center}
+@media print{header,.no-print,.botbar,.sheet,.sheet-bg{display:none!important}body{background:#fff;padding-bottom:0}}
 </style>
 </head>
 <body>
@@ -273,6 +288,15 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
   <button class="btn ghost no-print" style="width:100%;margin-top:8px" onclick="window.print()">QR 인쇄</button>
 </div></div>
 
+<!-- 하단 고정 바 + 메뉴 시트 -->
+<div class="sheet-bg no-print" id="sheetBg" onclick="closeSheet()"></div>
+<div class="sheet no-print" id="sheet"><div class="grab"></div><div class="sh-title" id="sheetTitle"></div><div id="sheetBody"></div></div>
+<nav class="botbar no-print">
+  <button onclick="openSheet('parent')"><span class="ic">👨‍👩‍👧</span>학생·학부모</button>
+  <button onclick="openSheet('owner')"><span class="ic">🏫</span>학원장</button>
+  <button onclick="openSheet('more')"><span class="ic">⋯</span>더보기</button>
+</nav>
+
 <div class="toast" id="toast"></div>
 <script>
 // ===== 설정 =====
@@ -298,6 +322,37 @@ function go(v) {
 function closeModal(id) { document.getElementById(id).classList.remove("on"); }
 function openModal(id) { document.getElementById(id).classList.add("on"); }
 function needLogin() { if (!state.user) { toast("로그인이 필요합니다."); openModal("m-auth"); return true; } return false; }
+// ===== 하단 고정 바 + 메뉴 시트 =====
+const SHEETS = {
+  parent: { title: "학생·학부모", items: () => [
+    ["🔍", "학원 검색", "go('search')"],
+    ["📊", "학원비 대시보드", "go('dash')"],
+    ["🔔", "알림", "go('noti')"],
+    ["⚖️", "비교함", "go('compare')"],
+  ] },
+  owner: { title: "학원장", items: () => [
+    ["🏫", "원장센터 (내 학원 관리)", "go('owner')"],
+    ["📈", "프리미엄 노출·광고 신청", "go('owner')"],
+  ] },
+  more: { title: "더보기", items: () => {
+    const arr = [["🔔", "푸시 알림 켜기", "enablePush()"]];
+    if (state.profile?.role === "admin") arr.push(["🛠", "운영 (관리자)", "go('admin')"]);
+    arr.push(state.user ? ["🚪", "로그아웃", "onAuthBtn()"] : ["🔑", "로그인 / 회원가입", "onAuthBtn()"]);
+    return arr;
+  } },
+};
+function openSheet(which) {
+  const s = SHEETS[which]; if (!s) return;
+  document.getElementById("sheetTitle").textContent = s.title;
+  document.getElementById("sheetBody").innerHTML = s.items().map(([ic, label, act]) =>
+    `<a onclick="${act};closeSheet()"><span class="ic">${ic}</span>${label}</a>`).join("");
+  document.getElementById("sheetBg").classList.add("on");
+  document.getElementById("sheet").classList.add("on");
+}
+function closeSheet() {
+  document.getElementById("sheetBg").classList.remove("on");
+  document.getElementById("sheet").classList.remove("on");
+}
 </script>
 <script id="part2">
 // ===== 인증 =====
