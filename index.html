@@ -112,13 +112,13 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
       <select id="fSido"><option value="">전국</option></select>
       <select id="fCity"><option value="">전체 시/군/구</option></select>
       <select id="fDong"><option value="">전체 동/읍/면</option></select>
-      <input id="fKw" placeholder="학원명 검색" style="width:160px">
+      <input id="fKw" placeholder="🔍 학원명 검색" style="flex:1;min-width:220px;padding:11px 14px;font-size:16px" onkeydown="if(event.key==='Enter'){state.page=1;loadAcademies();}">
+      <button class="btn" onclick="state.page=1;loadAcademies()">검색</button>
+      <button class="btn gray" onclick="resetFilters()">초기화</button>
     </div>
     <div class="row" style="margin-bottom:8px" id="fSubjects"></div>
     <div class="row" style="margin-bottom:8px">
       <span class="mut">학년:</span><span id="fGrades" class="row"></span>
-      <button class="btn sm" onclick="state.page=1;loadAcademies()">검색</button>
-      <button class="btn sm gray" onclick="resetFilters()">초기화</button>
     </div>
   </div>
   <!-- ===== 우리 동네 베스트 학원 ===== -->
