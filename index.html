@@ -113,12 +113,6 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
       <select id="fCity"><option value="">전체 시/군/구</option></select>
       <select id="fDong"><option value="">전체 동/읍/면</option></select>
       <input id="fKw" placeholder="학원명 검색" style="width:160px">
-      <select id="fSort">
-        <option value="name">이름순</option>
-        <option value="feeAsc">월 학원비 낮은순</option>
-        <option value="feeDesc">월 학원비 높은순</option>
-        <option value="hourly">시간당 단가 낮은순</option>
-      </select>
     </div>
     <div class="row" style="margin-bottom:8px" id="fSubjects"></div>
     <div class="row" style="margin-bottom:8px">
@@ -404,7 +398,6 @@ function resetFilters() {
   selSubjects.clear(); selGrades.clear();
   ["fSido","fCity","fDong","fKw"].forEach(id => document.getElementById(id).value = "");
   loadCities();
-  document.getElementById("fSort").value = "name";
   renderFilterChips(); state.page = 1; loadAcademies();
 }
 const SIDOS = ["서울","부산","대구","인천","광주","대전","울산","세종","경기","강원","충북","충남","전북","전남","경북","경남","제주"];
@@ -437,12 +430,8 @@ function buildQuery() {
   if (kw) q = q.ilike("name", `%${kw}%`);
   if (selSubjects.size) q = q.overlaps("subjects", [...selSubjects]);
   if (selGrades.size) q = q.overlaps("grades", [...selGrades]);
-  const sort = document.getElementById("fSort").value;
   q = q.order("is_premium", { ascending: false });
-  if (sort === "feeAsc") q = q.order("min_monthly", { ascending: true, nullsFirst: false });
-  else if (sort === "feeDesc") q = q.order("max_monthly", { ascending: false, nullsFirst: false });
-  else if (sort === "hourly") q = q.order("min_monthly", { ascending: true, nullsFirst: false });
-  else q = q.order("name");
+  q = q.order("name");
   return q.range((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE - 1);
 }
 async function loadAcademies() {
@@ -1330,7 +1319,6 @@ async function runSync() {
   document.getElementById("fSido").addEventListener("change", () => { loadCities(); state.page = 1; loadAcademies(); loadBest(); });
   document.getElementById("fCity").addEventListener("change", () => { loadDongs(); state.page = 1; loadAcademies(); loadBest(); });
   document.getElementById("fDong").addEventListener("change", () => { state.page = 1; loadAcademies(); loadBest(); });
-  document.getElementById("fSort").addEventListener("change", () => { state.page = 1; loadAcademies(); });
   document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("on"); }));
   renderBestChips();
   initPush();
