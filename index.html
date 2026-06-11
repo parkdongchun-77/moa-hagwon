@@ -315,9 +315,9 @@ body{padding-bottom:70px}
   <h2 id="payTitle" style="font-size:17px">지역화폐 결제</h2>
   <div id="payBox" style="margin:14px 0"></div>
 </div></div>
-<!-- 학원 소유권 신청 모달 -->
+<!-- 학원 권한 신청 모달 -->
 <div class="modal-bg" id="m-claim"><div class="modal" style="max-width:420px"><button class="close" onclick="closeModal('m-claim')">×</button>
-  <h2 id="claimTitle">학원 소유권 신청</h2>
+  <h2 id="claimTitle">학원 권한 신청</h2>
   <p class="mut">사업자등록번호와 사업자등록증을 제출하면 운영자가 확인 후 승인합니다.</p>
   <div class="field"><label>사업자등록번호</label><input id="clBizNo" placeholder="000-00-00000"></div>
   <div class="field"><label>사업자등록증 첨부 (이미지·PDF, 5MB 이하)</label><input type="file" id="clBizDoc" accept="image/*,application/pdf"></div>
@@ -1278,12 +1278,12 @@ async function searchClaim() {
   const rows = [...map.values()].slice(0, 12);
   document.getElementById("claimResults").innerHTML = rows.map(a =>
     `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(a.name)} <span class="mut">${esc(a.address || a.dong || "")}</span></span>
-     ${a.owner_id ? `<span class="tag gray right">이미 소유자 있음</span>` : `<button class="btn sm right" onclick="openClaimModal(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">소유권 신청</button>`}</div>`).join("") || `<p class="mut">검색 결과가 없습니다.</p>`;
+     ${a.owner_id ? `<span class="tag gray right">이미 소유자 있음</span>` : `<button class="btn sm right" onclick="openClaimModal(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">권한 신청</button>`}</div>`).join("") || `<p class="mut">검색 결과가 없습니다.</p>`;
 }
 function openClaimModal(acaId, name) {
   if (needLogin()) return;
   state.claimAcademy = { id: acaId, name };
-  document.getElementById("claimTitle").textContent = name + " 소유권 신청";
+  document.getElementById("claimTitle").textContent = name + " 권한 신청";
   document.getElementById("clBizNo").value = "";
   document.getElementById("clBizDoc").value = "";
   openModal("m-claim");
