@@ -221,6 +221,13 @@ body{padding-bottom:70px}
     <div id="claimResults"></div>
     <div id="myClaims"></div>
   </div>
+  <div class="card" id="ownerAdminBox" style="display:none;border:1px solid #c7d2fe;background:#f5f7ff">
+    <h3 style="margin-top:0">🛠 관리자 대행 — 학원 정보 수정</h3>
+    <p class="mut">바쁜 원장을 대신해 아무 학원이나 검색해 직접 수정할 수 있습니다.</p>
+    <div class="row"><input id="admAcaKw" placeholder="학원명 또는 주소" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')admSearchAca()"><button class="btn sm" onclick="admSearchAca()">검색</button></div>
+    <div id="admAcaResults"></div>
+    <div id="admAcaManage"></div>
+  </div>
   <div id="myAcademies"></div>
 </section>
 
@@ -1308,8 +1315,38 @@ async function viewBizDoc(path) {
   if (error || !data?.signedUrl) return toast("등록증을 불러올 수 없습니다." + (error ? " (" + error.message + ")" : ""));
   window.open(data.signedUrl, "_blank");
 }
+// 관리자 대행: 아무 학원이나 검색해서 직접 수정 (RLS: academies/courses update는 is_admin() 허용)
+async function admSearchAca() {
+  const kw = document.getElementById("admAcaKw").value.trim();
+  if (kw.length < 2) return toast("두 글자 이상 입력하세요.");
+  const sel = "id,name,dong,address";
+  const [n, ad] = await Promise.all([
+    sb.from("academies").select(sel).ilike("name", `%${kw}%`).limit(12),
+    sb.from("academies").select(sel).ilike("address", `%${kw}%`).limit(12),
+  ]);
+  const map = new Map();
+  [...(n.data || []), ...(ad.data || [])].forEach(r => map.set(r.id, r));
+  document.getElementById("admAcaResults").innerHTML = [...map.values()].slice(0, 12).map(a =>
+    `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(a.name)} <span class="mut">${esc(a.address || a.dong || "")}</span></span>
+     <button class="btn sm right" onclick="admManageAca(${a.id})">관리</button></div>`).join("") || `<p class="mut">검색 결과가 없습니다.</p>`;
+}
+async function admManageAca(id) {
+  const { data: a } = await sb.from("academies").select("id,name,dong,is_premium").eq("id", id).single();
+  if (!a) return;
+  document.getElementById("admAcaManage").innerHTML = `<div class="card" id="own-${a.id}" style="border:2px solid var(--p);margin-top:10px">
+    <div class="row"><h3 style="margin:0">${esc(a.name)} <span class="tag" style="background:#eef2ff;color:var(--p)">관리자 수정</span></h3><span class="mut">${esc(a.dong || "")}</span></div>
+    <div class="tabbar"><button class="tab on" onclick="ownTab(this,${a.id},'info')">학원 정보</button>
+      <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
+      <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
+      <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button></div>
+    <div id="ownBody-${a.id}"></div></div>`;
+  renderOwnInfo(a.id);
+  document.getElementById("admAcaManage").scrollIntoView({ behavior: "smooth", block: "start" });
+}
 async function loadOwner() {
   if (!state.user) { document.getElementById("myAcademies").innerHTML = `<div class="card empty">로그인이 필요합니다.</div>`; return; }
+  document.getElementById("ownerAdminBox").style.display = state.profile?.role === "admin" ? "" : "none";
   const { data: claims } = await sb.from("claims").select("*, academies(name)").eq("user_id", state.user.id).order("created_at", { ascending: false });
   document.getElementById("myClaims").innerHTML = claims?.length ? `<h3>내 신청 내역</h3>` + claims.map(c =>
     `<div class="mut">· ${esc(c.academies?.name)} — <b>${c.status}</b></div>`).join("") : "";
