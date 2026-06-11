@@ -215,7 +215,8 @@ body{padding-bottom:70px}
   <div class="card"><h2>원장센터</h2>
     <div class="notice">학원 소유권을 인증(클레임)하면 학원 소개·수강료·이벤트를 직접 관리하고 상담 신청을 받을 수 있습니다.</div>
     <div class="row" style="margin-bottom:6px">
-      <input id="claimKw" placeholder="내 학원 이름 검색" style="width:200px">
+      <select id="claimMode" style="width:auto"><option value="both">학원명+주소</option><option value="name">학원명</option><option value="addr">주소</option></select>
+      <input id="claimKw" placeholder="학원명 또는 주소로 검색" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')searchClaim()">
       <button class="btn sm" onclick="searchClaim()">검색</button>
     </div>
     <div id="claimResults"></div>
@@ -1252,9 +1253,22 @@ async function delWatch(id) { await sb.from("watches").delete().eq("id", id); lo
 async function searchClaim() {
   const kw = document.getElementById("claimKw").value.trim();
   if (kw.length < 2) return toast("두 글자 이상 입력하세요.");
-  const { data } = await sb.from("academies").select("id,name,dong,owner_id").ilike("name", `%${kw}%`).limit(8);
-  document.getElementById("claimResults").innerHTML = (data || []).map(a =>
-    `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(a.name)} <span class="mut">${esc(a.dong || "")}</span></span>
+  const mode = document.getElementById("claimMode").value;
+  const sel = "id,name,dong,address,owner_id";
+  let rows = [];
+  if (mode === "name") rows = (await sb.from("academies").select(sel).ilike("name", `%${kw}%`).limit(12)).data || [];
+  else if (mode === "addr") rows = (await sb.from("academies").select(sel).ilike("address", `%${kw}%`).limit(12)).data || [];
+  else { // 학원명+주소 둘 다 (각각 조회 후 합치기)
+    const [n, ad] = await Promise.all([
+      sb.from("academies").select(sel).ilike("name", `%${kw}%`).limit(12),
+      sb.from("academies").select(sel).ilike("address", `%${kw}%`).limit(12),
+    ]);
+    const map = new Map();
+    [...(n.data || []), ...(ad.data || [])].forEach(r => map.set(r.id, r));
+    rows = [...map.values()].slice(0, 12);
+  }
+  document.getElementById("claimResults").innerHTML = rows.map(a =>
+    `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(a.name)} <span class="mut">${esc(a.address || a.dong || "")}</span></span>
      ${a.owner_id ? `<span class="tag gray right">이미 소유자 있음</span>` : `<button class="btn sm right" onclick="openClaimModal(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">소유권 신청</button>`}</div>`).join("") || `<p class="mut">검색 결과가 없습니다.</p>`;
 }
 function openClaimModal(acaId, name) {
