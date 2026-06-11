@@ -928,7 +928,12 @@ async function openDetail(id) {
   const cd = (a.class_days && typeof a.class_days === "object") ? a.class_days : {};
   const cdReg = ["월","화","수","목","금","토","일"].filter(d => cd[d] === "수업");
   const cdMk = ["월","화","수","목","금","토","일"].filter(d => cd[d] === "대체");
-  const classDayHtml = (cdReg.length || cdMk.length) ? `<p style="margin:8px 0"><b>🗓 수업 요일</b> — ${cdReg.length ? cdReg.join("·") + " 수업" : ""}${cdMk.length ? (cdReg.length ? " · " : "") + cdMk.join("·") + " 대체수업" : ""}</p>` : "";
+  const weekly = cdReg.length; // 주 N회 = 정규 수업 요일 수
+  const scheduleHtml = (cdReg.length || cdMk.length)
+    ? `${cdReg.length ? `<p style="margin:4px 0"><b>수업 요일</b><br><span style="font-size:15px">${cdReg.join(" · ")}</span></p>` : ""}
+       ${weekly ? `<p style="margin:8px 0"><span class="tag" style="background:#eef2ff;color:var(--p);font-size:14px;padding:5px 10px">주 ${weekly}회 수업</span></p>` : ""}
+       ${cdMk.length ? `<p class="mut" style="margin:4px 0">대체수업: ${cdMk.join(" · ")}</p>` : ""}`
+    : `<p class="mut">아직 수업 일정이 등록되지 않았어요.<br>학원 원장이 소유권 인증 후 등록할 수 있습니다.</p>`;
   const lpTypes = Array.isArray(a.localpay_types) ? a.localpay_types : [];
   const localpayHtml = a.localpay_enabled ? `<p style="margin:8px 0"><b style="color:#16a34a">💳 지역화폐 결제 가능</b>${lpTypes.length ? " — " + lpTypes.map(esc).join(", ") : ""}</p>` : "";
   body.innerHTML = `
@@ -947,13 +952,16 @@ async function openDetail(id) {
       <button class="btn sm gray" onclick="toggleFav(${a.id})">♥ 관심 등록</button>
       <button class="btn sm gray" onclick="openQr(${a.id})">📷 출석 QR</button>
     </div>
-    ${classDayHtml}
     ${localpayHtml}
-    <h3>수강료 (월 기준)</h3>
-    ${courses?.length ? `<table><tr><th>과정</th><th>과목</th><th class="num">월 수강료</th><th class="num">시간당 단가</th><th class="no-print">선택</th></tr>
-      ${courses.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.subject || "")}</td><td class="num">${won(c.monthly_fee)}</td>
-        <td class="num">${c.hourly_rate ? won(c.hourly_rate) : "-"}</td>
-        <td class="no-print"><input type="checkbox" class="calcCourse" data-fee="${c.monthly_fee}" onchange="calcTotal()"></td></tr>`).join("")}</table>` : `<p class="mut">등록된 수강료 정보가 없습니다.</p>`}
+    <div class="grid2" style="align-items:start;gap:16px;margin-top:6px">
+      <div><h3 style="margin-top:0">📅 수업 일정</h3>${scheduleHtml}</div>
+      <div><h3 style="margin-top:0">💰 수강료 (월 기준)</h3>
+        ${courses?.length ? `<div style="overflow-x:auto"><table><tr><th>과정</th><th>과목</th><th class="num">월 수강료</th><th class="num">시간당 단가</th><th class="no-print">선택</th></tr>
+        ${courses.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.subject || "")}</td><td class="num">${won(c.monthly_fee)}</td>
+          <td class="num">${c.hourly_rate ? won(c.hourly_rate) : "-"}</td>
+          <td class="no-print"><input type="checkbox" class="calcCourse" data-fee="${c.monthly_fee}" onchange="calcTotal()"></td></tr>`).join("")}</table></div>` : `<p class="mut">등록된 수강료 정보가 없습니다.</p>`}
+      </div>
+    </div>
     ${extra.length ? `<h3>추가 비용</h3><table>${extra.map(e => `<tr><td>${esc(e.label)}</td><td class="num">${won(e.amount)}</td></tr>`).join("")}
       <tr><th>추가 비용 합계</th><th class="num">${won(extraSum)}</th></tr></table>` : ""}
     <div class="card" style="background:#eef2ff;border:none;margin-top:10px">
