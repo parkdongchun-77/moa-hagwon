@@ -936,6 +936,8 @@ async function openDetail(id) {
     : `<p class="mut">아직 수업 일정이 등록되지 않았어요.<br>학원 원장이 소유권 인증 후 등록할 수 있습니다.</p>`;
   const lpTypes = Array.isArray(a.localpay_types) ? a.localpay_types : [];
   const localpayHtml = a.localpay_enabled ? `<p style="margin:8px 0"><b style="color:#16a34a">💳 지역화폐 결제 가능</b>${lpTypes.length ? " — " + lpTypes.map(esc).join(", ") : ""}</p>` : "";
+  const achievementsHtml = (a.achievements && a.achievements.trim())
+    ? `<div class="card" style="background:#fffbeb;border:1px solid #fcd34d;margin:10px 0"><h3 style="margin:0 0 6px;color:#92400e">🏆 학원 자랑거리 · 수상/실적</h3><div style="white-space:pre-wrap">${esc(a.achievements)}</div></div>` : "";
   body.innerHTML = `
     <h2>${a.is_premium ? `<span class="tag ad">AD</span>` : ""}${esc(a.name)} <span class="tag gray">${esc(a.kind || "")}</span></h2>
     <div class="mut">${esc(a.address || "")} ${esc(a.address_detail || "")} ${a.tel ? "· ☎ " + esc(a.tel) : ""}</div>
@@ -953,15 +955,13 @@ async function openDetail(id) {
       <button class="btn sm gray" onclick="openQr(${a.id})">📷 출석 QR</button>
     </div>
     ${localpayHtml}
-    <div class="grid2" style="align-items:start;gap:16px;margin-top:6px">
-      <div><h3 style="margin-top:0">📅 수업 일정</h3>${scheduleHtml}</div>
-      <div><h3 style="margin-top:0">💰 수강료 (월 기준)</h3>
-        ${courses?.length ? `<div style="overflow-x:auto"><table><tr><th>과정</th><th>과목</th><th class="num">월 수강료</th><th class="num">시간당 단가</th><th class="no-print">선택</th></tr>
-        ${courses.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.subject || "")}</td><td class="num">${won(c.monthly_fee)}</td>
-          <td class="num">${c.hourly_rate ? won(c.hourly_rate) : "-"}</td>
-          <td class="no-print"><input type="checkbox" class="calcCourse" data-fee="${c.monthly_fee}" onchange="calcTotal()"></td></tr>`).join("")}</table></div>` : `<p class="mut">등록된 수강료 정보가 없습니다.</p>`}
-      </div>
-    </div>
+    ${achievementsHtml}
+    <h3>📅 수업 일정</h3>
+    ${scheduleHtml}
+    <h3>💰 수강료 (월 기준)</h3>
+    ${courses?.length ? `<div style="overflow-x:auto"><table><tr><th>과정</th><th>과목</th><th class="num">월 수강료</th><th class="no-print">선택</th></tr>
+      ${courses.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.subject || "")}</td><td class="num">${won(c.monthly_fee)}</td>
+        <td class="no-print"><input type="checkbox" class="calcCourse" data-fee="${c.monthly_fee}" onchange="calcTotal()"></td></tr>`).join("")}</table></div>` : `<p class="mut">등록된 수강료 정보가 없습니다.</p>`}
     ${extra.length ? `<h3>추가 비용</h3><table>${extra.map(e => `<tr><td>${esc(e.label)}</td><td class="num">${won(e.amount)}</td></tr>`).join("")}
       <tr><th>추가 비용 합계</th><th class="num">${won(extraSum)}</th></tr></table>` : ""}
     <div class="card" style="background:#eef2ff;border:none;margin-top:10px">
@@ -1359,6 +1359,7 @@ async function renderOwnInfo(id) {
   const extra = Array.isArray(a.extra_fees) ? a.extra_fees : [];
   document.getElementById("ownBody-" + id).innerHTML = `
     <div class="field"><label>학원 소개</label><textarea id="oi-intro-${id}" rows="2">${esc(a.intro || "")}</textarea></div>
+    <div class="field"><label>🏆 학원 자랑거리 · 수상/실적 (학부모에게 어필됩니다 · 수강료 공개 부담 없이 강점을 보여주세요)</label><textarea id="oi-achv-${id}" rows="3" placeholder="예: 2025 수학경시대회 대상 홍길동 / 피아노 콩쿠르 금상 / 태권도 3단 보유 강사진">${esc(a.achievements || "")}</textarea></div>
     <div class="grid2">
       <div class="field"><label>강사진 소개</label><textarea id="oi-teachers-${id}" rows="2">${esc(a.teachers || "")}</textarea></div>
       <div class="field"><label>시간표</label><textarea id="oi-timetable-${id}" rows="2">${esc(a.timetable || "")}</textarea></div>
@@ -1402,7 +1403,7 @@ async function saveOwnInfo(id) {
     label: d.querySelector('[data-x="label"]').value.trim(), amount: +d.querySelector('[data-x="amount"]').value || 0 })).filter(e => e.label);
   const class_days = {};
   document.querySelectorAll(`.oi-day-${id}`).forEach(s => { if (s.value) class_days[s.dataset.day] = s.value; });
-  const upd = { intro: document.getElementById(`oi-intro-${id}`).value.trim(), teachers: document.getElementById(`oi-teachers-${id}`).value.trim(),
+  const upd = { intro: document.getElementById(`oi-intro-${id}`).value.trim(), achievements: document.getElementById(`oi-achv-${id}`).value.trim(), teachers: document.getElementById(`oi-teachers-${id}`).value.trim(),
     timetable: document.getElementById(`oi-timetable-${id}`).value.trim(), promo: document.getElementById(`oi-promo-${id}`).value.trim(),
     discount_note: document.getElementById(`oi-discount-${id}`).value.trim(),
     time_slots: [...document.querySelectorAll(`.oi-slot-${id}:checked`)].map(c => c.value), class_days,
