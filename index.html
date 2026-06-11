@@ -308,6 +308,14 @@ body{padding-bottom:70px}
   <h2 id="payTitle" style="font-size:17px">지역화폐 결제</h2>
   <div id="payBox" style="margin:14px 0"></div>
 </div></div>
+<!-- 학원 소유권 신청 모달 -->
+<div class="modal-bg" id="m-claim"><div class="modal" style="max-width:420px"><button class="close" onclick="closeModal('m-claim')">×</button>
+  <h2 id="claimTitle">학원 소유권 신청</h2>
+  <p class="mut">사업자등록번호와 사업자등록증을 제출하면 운영자가 확인 후 승인합니다.</p>
+  <div class="field"><label>사업자등록번호</label><input id="clBizNo" placeholder="000-00-00000"></div>
+  <div class="field"><label>사업자등록증 첨부 (이미지·PDF, 5MB 이하)</label><input type="file" id="clBizDoc" accept="image/*,application/pdf"></div>
+  <button class="btn" style="width:100%" id="clSubmit" onclick="submitClaim()">신청하기</button>
+</div></div>
 
 <!-- 하단 고정 바 + 메뉴 시트 -->
 <div class="sheet-bg no-print" id="sheetBg" onclick="closeSheet()"></div>
@@ -1247,15 +1255,42 @@ async function searchClaim() {
   const { data } = await sb.from("academies").select("id,name,dong,owner_id").ilike("name", `%${kw}%`).limit(8);
   document.getElementById("claimResults").innerHTML = (data || []).map(a =>
     `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(a.name)} <span class="mut">${esc(a.dong || "")}</span></span>
-     ${a.owner_id ? `<span class="tag gray right">이미 소유자 있음</span>` : `<button class="btn sm right" onclick="submitClaim(${a.id})">소유권 신청</button>`}</div>`).join("") || `<p class="mut">검색 결과가 없습니다.</p>`;
+     ${a.owner_id ? `<span class="tag gray right">이미 소유자 있음</span>` : `<button class="btn sm right" onclick="openClaimModal(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">소유권 신청</button>`}</div>`).join("") || `<p class="mut">검색 결과가 없습니다.</p>`;
 }
-async function submitClaim(acaId) {
+function openClaimModal(acaId, name) {
   if (needLogin()) return;
-  const biz = prompt("사업자등록번호를 입력하세요 (운영자가 확인 후 승인합니다)");
-  if (!biz) return;
-  const { error } = await sb.from("claims").insert({ academy_id: acaId, user_id: state.user.id, biz_no: biz });
-  toast(error ? "오류: " + error.message : "신청 완료! 운영자 승인 후 관리할 수 있습니다.");
-  loadOwner();
+  state.claimAcademy = { id: acaId, name };
+  document.getElementById("claimTitle").textContent = name + " 소유권 신청";
+  document.getElementById("clBizNo").value = "";
+  document.getElementById("clBizDoc").value = "";
+  openModal("m-claim");
+}
+async function submitClaim() {
+  if (needLogin()) return;
+  const aca = state.claimAcademy; if (!aca) return;
+  const bizNo = document.getElementById("clBizNo").value.trim();
+  if (!bizNo) return toast("사업자등록번호를 입력하세요.");
+  const file = document.getElementById("clBizDoc").files[0];
+  const btn = document.getElementById("clSubmit"); btn.disabled = true; btn.textContent = "제출 중...";
+  try {
+    let docPath = null;
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) throw new Error("첨부 파일은 5MB 이하만 가능합니다.");
+      const ext = (file.name.split(".").pop() || "dat").toLowerCase();
+      docPath = `${state.user.id}/${aca.id}_${Date.now()}.${ext}`;
+      const { error: upErr } = await sb.storage.from("biz-docs").upload(docPath, file, { upsert: false, contentType: file.type });
+      if (upErr) throw new Error("등록증 업로드 실패: " + upErr.message);
+    }
+    const { error } = await sb.from("claims").insert({ academy_id: aca.id, user_id: state.user.id, biz_no: bizNo, biz_doc: docPath });
+    if (error) throw new Error(error.message);
+    closeModal("m-claim"); toast("신청 완료! 운영자 승인 후 관리할 수 있습니다."); loadOwner();
+  } catch (e) { toast("오류: " + e.message); } finally { btn.disabled = false; btn.textContent = "신청하기"; }
+}
+// 관리자: 첨부된 사업자등록증을 서명URL로 열기 (비공개 버킷)
+async function viewBizDoc(path) {
+  const { data, error } = await sb.storage.from("biz-docs").createSignedUrl(path, 600);
+  if (error || !data?.signedUrl) return toast("등록증을 불러올 수 없습니다." + (error ? " (" + error.message + ")" : ""));
+  window.open(data.signedUrl, "_blank");
 }
 async function loadOwner() {
   if (!state.user) { document.getElementById("myAcademies").innerHTML = `<div class="card empty">로그인이 필요합니다.</div>`; return; }
@@ -1476,6 +1511,7 @@ async function loadAdmin() {
   const { data: cls } = await sb.from("claims").select("*, academies(name), profiles:user_id(email,nickname)").eq("status", "대기");
   document.getElementById("adminClaims").innerHTML = (cls || []).map(c => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)">
     <span><b>${esc(c.academies?.name)}</b> ← ${esc(c.profiles?.nickname)} (${esc(c.profiles?.email)}) · 사업자번호: ${esc(c.biz_no || "-")}</span>
+    ${c.biz_doc ? `<button class="btn sm ghost right" onclick="viewBizDoc('${esc(c.biz_doc)}')">📄 등록증 보기</button>` : `<span class="tag gray right">등록증 없음</span>`}
     <button class="btn sm right" onclick="decideClaim(${c.id},true)">승인</button>
     <button class="btn sm gray" onclick="decideClaim(${c.id},false)">거절</button></div>`).join("") || `<p class="mut">대기 중인 클레임이 없습니다.</p>`;
   const { data: rps } = await sb.from("reports").select("*").eq("status", "접수").order("created_at");
