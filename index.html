@@ -155,7 +155,8 @@ body{padding-bottom:70px}
 <section class="view" id="v-compare">
   <div class="card">
     <div class="row"><h2>학원 비교함 <span class="mut">(최대 4곳)</span></h2>
-      <button class="btn sm gray right no-print" onclick="window.print()">PDF로 저장/인쇄</button>
+      <button class="btn sm right no-print" onclick="shareCompare()">🔗 공유하기</button>
+      <button class="btn sm ghost no-print" onclick="window.print()">인쇄</button>
       <button class="btn sm danger no-print" onclick="clearCompare()">비우기</button></div>
     <div id="cmpTable"></div>
   </div>
@@ -1072,6 +1073,29 @@ function toggleCompare(id, name) {
   saveCompare(); loadAcademies();
 }
 function clearCompare() { state.compare = []; saveCompare(); renderCompare(); }
+// 비교함을 링크로 공유 (다른 부모님과 교류·비교)
+async function shareCompare() {
+  if (!state.compare.length) return toast("비교할 학원을 먼저 담아주세요.");
+  const url = APP_URL + "?compare=" + state.compare.join(",");
+  const { data } = await sb.from("academies").select("id,name").in("id", state.compare);
+  const names = state.compare.map(id => (data || []).find(a => a.id === id)?.name).filter(Boolean);
+  const text = `[모아학원] 학원 비교 — ${names.join(", ")}`;
+  if (navigator.share) {
+    try { await navigator.share({ title: "모아학원 학원 비교", text, url }); return; }
+    catch (e) { if (e.name === "AbortError") return; }
+  }
+  try { await navigator.clipboard.writeText(url); toast("공유 링크를 복사했어요! 다른 부모님께 붙여넣어 보내보세요."); }
+  catch (e) { prompt("이 링크를 복사해 공유하세요:", url); }
+}
+// 공유 링크(?compare=)로 들어오면 같은 비교 화면을 띄움
+function handleCompareShare() {
+  const p = new URLSearchParams(location.search).get("compare");
+  if (!p) return false;
+  history.replaceState({}, "", location.pathname);
+  const ids = p.split(",").map(Number).filter(n => Number.isInteger(n) && n > 0).slice(0, 4);
+  if (!ids.length) return false;
+  state.compare = ids; saveCompare(); go("compare"); return true;
+}
 async function renderCompare() {
   const el = document.getElementById("cmpTable");
   if (!state.compare.length) { el.innerHTML = `<div class="empty">검색에서 "비교 담기"로 학원을 추가해 보세요.</div>`; return; }
@@ -1097,7 +1121,7 @@ async function renderCompare() {
   el.innerHTML = `<div style="overflow-x:auto"><table><tr><th></th>${ordered.map(a => `<th>${esc(a.name)}<br>
     <a href="#" class="mut no-print" onclick="toggleCompare(${a.id},'${esc(a.name).replace(/'/g, "\\'")}');renderCompare();return false">제거</a></th>`).join("")}</tr>
     ${rows.map(([label, fn]) => `<tr><th>${label}</th>${ordered.map(a => `<td>${esc(String(fn(a)))}</td>`).join("")}</tr>`).join("")}</table></div>
-    <p class="mut" style="margin-top:8px">※ "PDF로 저장/인쇄" 버튼으로 저장해 가족과 공유해 보세요.</p>`;
+    <p class="mut" style="margin-top:8px">※ "🔗 공유하기"로 링크를 보내면, 다른 부모님도 같은 비교 화면을 열어 함께 비교할 수 있어요.</p>`;
 }
 </script>
 <script id="part4">
@@ -1625,7 +1649,7 @@ async function runSync() {
   document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("on"); }));
   renderBestChips();
   initPush();
-  initAuth().then(() => { handleSocialRedirect(); handleCheckin(); go("search"); loadAcademies(); loadBest(); });
+  initAuth().then(() => { handleSocialRedirect(); handleCheckin(); loadAcademies(); loadBest(); if (!handleCompareShare()) go("search"); });
 })();
 </script>
 </body>
