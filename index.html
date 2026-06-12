@@ -1716,8 +1716,9 @@ async function runSync() {
   } catch (e) { toast("동기화 실패: " + e.message); } finally { btn.disabled = false; btn.textContent = "NEIS 동기화"; }
 }
 
-// ===== 모아 봇 (규칙기반 FAQ + 학원 검색) =====
+// ===== 모아 봇 (규칙기반 FAQ + 학원 검색 + Gemini AI) =====
 let botStarted = false;
+const botHistory = [];
 function toggleBot() {
   const p = document.getElementById("botPanel"), f = document.getElementById("botFab");
   const on = p.classList.toggle("on");
@@ -1738,6 +1739,7 @@ function botAsk(t) { document.getElementById("botInput").value = t; botSend(); }
 async function botSend() {
   const inp = document.getElementById("botInput"); const q = inp.value.trim(); if (!q) return;
   botMsg(esc(q), "me"); inp.value = "";
+  botHistory.push({ role: "me", text: q });
   try { await botReply(q); } catch (e) { botMsg("앗, 잠시 문제가 있었어요. 다시 한 번 물어봐 주세요."); }
 }
 async function botReply(q) {
@@ -1751,7 +1753,21 @@ async function botReply(q) {
   if (has("후기", "리뷰", "익명", "평점")) return botMsg("⭐ <b>후기</b><br>학원 상세 하단에서 별점과 한줄평을 남길 수 있고, '🙈 익명으로 작성'을 체크하면 이름 대신 '익명'으로 표시됩니다.");
   if (has("로그인", "가입", "회원")) return botMsg("🔑 <b>로그인</b><br>더보기 → 로그인에서 카카오·구글로 간편하게 가입/로그인할 수 있어요.");
   if (await botSearch(q)) return;
-  botMsg("제가 도울 수 있는 건요 👇<br>· 등·퇴원 QR / 지역화폐 결제 / 원장 권한 신청<br>· 공부방 등록 / 비교·공유 / 알림 / 후기<br>· 학원 찾기 (예: <b>'천안 수학학원 추천'</b>)<br>아래 버튼을 눌러보거나 키워드로 물어봐 주세요.");
+  await botAI(q); // 규칙으로 안 잡히는 질문은 Gemini가 답변
+}
+async function botAI(q) {
+  const m = document.getElementById("botMsgs");
+  const typing = document.createElement("div"); typing.className = "bot-msg bot"; typing.textContent = "생각 중…";
+  m.appendChild(typing); m.scrollTop = m.scrollHeight;
+  try {
+    const res = await fetch(SUPABASE_URL + "/functions/v1/moa-bot", {
+      method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ANON_KEY },
+      body: JSON.stringify({ question: q, history: botHistory.slice(-6) }) });
+    const j = await res.json();
+    typing.remove();
+    if (j.answer) { botMsg(esc(j.answer).replace(/\n/g, "<br>")); botHistory.push({ role: "bot", text: j.answer }); }
+    else { botMsg("지금은 답을 못 찾았어요 🙏 FAQ 버튼을 눌러보거나, 학원은 '천안 수학학원'처럼 지역+과목으로 물어봐 주세요."); }
+  } catch (e) { typing.remove(); botMsg("연결이 잠시 불안정해요. 다시 시도해 주세요."); }
 }
 async function botSearch(q) {
   const sido = SIDOS.find(s => q.includes(s));
