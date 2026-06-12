@@ -215,6 +215,8 @@ body{padding-bottom:70px}
 <section class="view" id="v-owner">
   <div class="card"><h2>원장센터</h2>
     <div class="notice">학원 소유권을 인증(클레임)하면 학원 소개·수강료·이벤트를 직접 관리하고 상담 신청을 받을 수 있습니다.</div>
+    <div class="row" style="margin-bottom:10px"><span class="mut" style="flex:1">국가 데이터에 없는 가정형 <b>공부방</b>은 직접 등록해 노출할 수 있어요.</span>
+      <button class="btn sm" onclick="openRoomModal()">+ 우리 공부방 직접 등록</button></div>
     <div class="row" style="margin-bottom:6px">
       <input id="claimKw" placeholder="학원명 또는 주소로 검색 (둘 중 하나만 입력해도 됩니다)" style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter')searchClaim()">
       <button class="btn sm" onclick="searchClaim()">검색</button>
@@ -315,6 +317,28 @@ body{padding-bottom:70px}
 <div class="modal-bg" id="m-pay"><div class="modal" style="max-width:380px;text-align:center"><button class="close" onclick="closeModal('m-pay')">×</button>
   <h2 id="payTitle" style="font-size:17px">지역화폐 결제</h2>
   <div id="payBox" style="margin:14px 0"></div>
+</div></div>
+<!-- 공부방 직접 등록 모달 -->
+<div class="modal-bg" id="m-room"><div class="modal" style="max-width:480px"><button class="close" onclick="closeModal('m-room')">×</button>
+  <h2>우리 공부방 직접 등록</h2>
+  <p class="mut">국가 데이터에 없는 가정형 공부방을 직접 등록합니다. 등록 후 원장센터에서 수업요일·자랑거리 등을 더 다듬을 수 있어요.</p>
+  <div class="field"><label>공부방 이름 *</label><input id="rmName" placeholder="예: 햇살수학공부방"></div>
+  <div class="grid2">
+    <div class="field"><label>시/도 *</label><select id="rmSido"></select></div>
+    <div class="field"><label>시/군/구 *</label><input id="rmCity" placeholder="예: 천안시, 강남구"></div>
+  </div>
+  <div class="grid2">
+    <div class="field"><label>동/읍/면</label><input id="rmDong" placeholder="예: 불당동"></div>
+    <div class="field"><label>연락처</label><input id="rmTel" placeholder="010-0000-0000"></div>
+  </div>
+  <div class="field"><label>상세 주소</label><input id="rmAddr" placeholder="도로명/건물/호수 등"></div>
+  <div class="field"><label>과목</label><div id="rmSubjects" class="row" style="flex-wrap:wrap;gap:4px"></div></div>
+  <div class="field"><label>대상 학년</label><div id="rmGrades" class="row" style="flex-wrap:wrap;gap:4px"></div></div>
+  <div class="grid2">
+    <div class="field"><label>월 수강료 (선택)</label><input id="rmFee" type="number" placeholder="예: 200000"></div>
+    <div class="field"><label>한 줄 소개 (선택)</label><input id="rmIntro" placeholder="예: 소수정예 초등수학"></div>
+  </div>
+  <button class="btn" style="width:100%" id="rmSubmit" onclick="submitRoom()">등록하기</button>
 </div></div>
 <!-- 학원 권한 신청 모달 -->
 <div class="modal-bg" id="m-claim"><div class="modal" style="max-width:420px"><button class="close" onclick="closeModal('m-claim')">×</button>
@@ -1367,6 +1391,39 @@ async function admManageAca(id) {
     <div id="ownBody-${a.id}"></div></div>`;
   renderOwnInfo(a.id);
   document.getElementById("admAcaManage").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+// 공부방 직접 등록 (국가 데이터에 없는 가정형 공부방)
+function openRoomModal() {
+  if (needLogin()) return;
+  ["rmName","rmCity","rmDong","rmTel","rmAddr","rmFee","rmIntro"].forEach(id => document.getElementById(id).value = "");
+  const ss = document.getElementById("rmSido");
+  if (!ss.options.length) ss.innerHTML = SIDOS.map(s => `<option>${s}</option>`).join("");
+  document.getElementById("rmSubjects").innerHTML = SUBJECTS.map(s => `<label class="chip" style="margin:0"><input type="checkbox" class="rm-subj" value="${s}" style="width:auto"> ${s}</label>`).join("");
+  document.getElementById("rmGrades").innerHTML = GRADES.map(g => `<label class="chip" style="margin:0"><input type="checkbox" class="rm-grade" value="${g}" style="width:auto"> ${g}</label>`).join("");
+  openModal("m-room");
+}
+async function submitRoom() {
+  if (needLogin()) return;
+  const name = document.getElementById("rmName").value.trim();
+  const sido = document.getElementById("rmSido").value;
+  const city = document.getElementById("rmCity").value.trim();
+  if (!name || !sido || !city) return toast("공부방 이름, 시/도, 시/군/구는 필수입니다.");
+  const subjects = [...document.querySelectorAll(".rm-subj:checked")].map(c => c.value);
+  const grades = [...document.querySelectorAll(".rm-grade:checked")].map(c => c.value);
+  const fee = +document.getElementById("rmFee").value || null;
+  const dong = document.getElementById("rmDong").value.trim() || null;
+  const addr = [sido, city, dong, document.getElementById("rmAddr").value.trim()].filter(Boolean).join(" ");
+  const btn = document.getElementById("rmSubmit"); btn.disabled = true; btn.textContent = "등록 중...";
+  try {
+    const asnum = "self_" + (window.crypto?.randomUUID ? crypto.randomUUID().slice(0, 18) : Date.now() + "_" + Math.floor(Math.random() * 1e6));
+    const { error } = await sb.from("academies").insert({
+      aca_asnum: asnum, name, kind: "공부방", source: "self", owner_id: state.user.id, status: "개원",
+      sido, region_city: city, dong, address: addr, tel: document.getElementById("rmTel").value.trim() || null,
+      subjects, grades, min_monthly: fee, max_monthly: fee, fee_public: fee != null,
+      intro: document.getElementById("rmIntro").value.trim() || null });
+    if (error) throw new Error(error.message);
+    closeModal("m-room"); toast("공부방이 등록되었습니다! 검색에 노출되고, 아래에서 관리할 수 있어요."); loadOwner(); loadAcademies();
+  } catch (e) { toast("오류: " + e.message); } finally { btn.disabled = false; btn.textContent = "등록하기"; }
 }
 async function loadOwner() {
   if (!state.user) { document.getElementById("myAcademies").innerHTML = `<div class="card empty">로그인이 필요합니다.</div>`; return; }
