@@ -1756,15 +1756,20 @@ async function botReply(q) {
 async function botSearch(q) {
   const sido = SIDOS.find(s => q.includes(s));
   const subj = SUBJECTS.find(s => q.includes(s));
-  const places = (q.match(/[가-힣]+(시|군|구|동|읍|면)/g) || []).filter(p => !SIDOS.includes(p));
-  const isSearch = sido || subj || places.length || /학원|추천|찾|어디|어느/.test(q);
+  const stop = ["추천", "학원", "공부방", "교습소", "찾아줘", "찾아", "찾기", "어디", "어느", "좀", "해줘", "알려줘", "근처", "주변"];
+  let place = (q.match(/[가-힣]+(시|군|구|동|읍|면)/g) || []).filter(p => !SIDOS.includes(p))[0] || null;
+  if (!place) { // '시/구' 없이 동네 이름만 입력한 경우 (예: 천안)
+    place = q.split(/\s+/).map(w => w.replace(/(에서|에게|에|의|근처|주변)$/, "").replace(/[^가-힣0-9]/g, ""))
+      .find(w => w.length >= 2 && !SIDOS.includes(w) && !SUBJECTS.includes(w) && !stop.includes(w) && !/추천|학원|공부방|찾|어디|어느/.test(w)) || null;
+  }
+  const isSearch = sido || subj || place || /학원|추천|찾|어디|어느/.test(q);
   if (!isSearch) return false;
   let qq = sb.from("academies").select("id,name,region_city,dong,min_monthly,kind").eq("status", "개원");
   if (sido) qq = qq.eq("sido", sido);
   if (subj) qq = qq.contains("subjects", [subj]);
-  if (places.length) { const p = places[0]; qq = qq.or(`region_city.ilike.%${p}%,dong.ilike.%${p}%`); }
+  if (place) qq = qq.or(`region_city.ilike.%${place}%,dong.ilike.%${place}%`);
   const { data } = await qq.order("is_premium", { ascending: false }).limit(5);
-  const label = [sido, places[0], subj].filter(Boolean).join(" ") || "학원";
+  const label = [sido, place, subj].filter(Boolean).join(" ") || "학원";
   if (!data || !data.length) {
     botMsg(`'${esc(label)}' 조건에 맞는 학원을 못 찾았어요. 지역(예: 천안)이나 과목(예: 수학)을 더 구체적으로 알려주세요.`);
     return true;
