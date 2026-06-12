@@ -1776,7 +1776,7 @@ async function botSearch(q) {
   let place = (q.match(/[가-힣]+(시|군|구|동|읍|면)/g) || []).filter(p => !SIDOS.includes(p))[0] || null;
   if (!place) { // '시/구' 없이 동네 이름만 입력한 경우 (예: 천안)
     place = q.split(/\s+/).map(w => w.replace(/(에서|에게|에|의|근처|주변)$/, "").replace(/[^가-힣0-9]/g, ""))
-      .find(w => w.length >= 2 && !SIDOS.includes(w) && !SUBJECTS.includes(w) && !stop.includes(w) && !/추천|학원|공부방|찾|어디|어느/.test(w)) || null;
+      .find(w => w.length >= 2 && !SIDOS.includes(w) && !SUBJECTS.includes(w) && !GRADES.includes(w) && !stop.includes(w) && !/추천|학원|공부방|찾|어디|어느/.test(w)) || null;
   }
   const isSearch = sido || subj || place || /학원|추천|찾|어디|어느/.test(q);
   if (!isSearch) return false;
@@ -1786,10 +1786,7 @@ async function botSearch(q) {
   if (place) qq = qq.or(`region_city.ilike.%${place}%,dong.ilike.%${place}%`);
   const { data } = await qq.order("is_premium", { ascending: false }).limit(5);
   const label = [sido, place, subj].filter(Boolean).join(" ") || "학원";
-  if (!data || !data.length) {
-    botMsg(`'${esc(label)}' 조건에 맞는 학원을 못 찾았어요. 지역(예: 천안)이나 과목(예: 수학)을 더 구체적으로 알려주세요.`);
-    return true;
-  }
+  if (!data || !data.length) return false; // 검색 결과 없으면 Gemini가 답하도록 넘김
   botMsg(`<b>${esc(label)}</b> 추천 ${data.length}곳이에요:<br>` + data.map(a =>
     `🏫 <b>${esc(a.name)}</b> <span style="color:#64748b">${esc(a.kind || "")} · ${esc(a.region_city || "")} ${esc(a.dong || "")}</span><br>${a.min_monthly ? won(a.min_monthly) + "~/월" : "수강료 비공개"} · <a href="#" onclick="openDetail(${a.id});return false">상세 보기</a>`
   ).join("<br><br>"));
