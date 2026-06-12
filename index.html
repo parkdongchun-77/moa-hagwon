@@ -1321,7 +1321,8 @@ async function loadNoti() {
   const { data } = await sb.from("notifications").select("*").eq("user_id", state.user.id).order("created_at", { ascending: false }).limit(50);
   el.innerHTML = (data || []).map(n => `<div class="review" style="${n.read ? "opacity:.55" : ""}">
     <span class="tag ${n.ntype === "가격변경" ? "" : "gray"}">${esc(n.ntype)}</span> <b>${esc(n.title)}</b>
-    <div class="mut">${esc(n.body || "")} · ${new Date(n.created_at).toLocaleDateString("ko-KR")}</div></div>`).join("") || `<div class="empty">알림이 없습니다.</div>`;
+    <div class="mut">${esc(n.body || "")} · ${new Date(n.created_at).toLocaleDateString("ko-KR")}</div>
+    ${n.ntype === "입금안내" && n.academy_id ? `<button class="btn sm" style="margin-top:6px;background:#16a34a;color:#fff;font-weight:700" onclick="openPay(${n.academy_id})">💳 지역화폐로 결제</button>` : ""}</div>`).join("") || `<div class="empty">알림이 없습니다.</div>`;
   loadWatches();
 }
 async function markAllRead() {
@@ -1419,7 +1420,7 @@ async function admManageAca(id) {
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
       <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
-      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button></div>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button></div>
     <div id="ownBody-${a.id}"></div></div>`;
   renderOwnInfo(a.id);
   document.getElementById("admAcaManage").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1473,7 +1474,7 @@ async function loadOwner() {
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
       <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
-      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button></div>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button></div>
     <div id="ownBody-${a.id}"></div></div>`).join("");
   acas.forEach(a => renderOwnInfo(a.id));
 }
@@ -1485,6 +1486,7 @@ async function ownTab(btn, id, tab) {
   if (tab === "lead") renderOwnLeads(id);
   if (tab === "report") renderOwnReport(id);
   if (tab === "att") renderOwnAtt(id);
+  if (tab === "students") renderOwnStudents(id);
 }
 async function renderOwnAtt(id) {
   const body = document.getElementById("ownBody-" + id);
@@ -1503,6 +1505,96 @@ async function renderOwnAtt(id) {
     ${(data || []).length ? `<table><tr><th>일시</th><th>이름</th><th>위치확인</th></tr>
       ${data.map(r => `<tr><td class="mut">${new Date(r.checked_at).toLocaleString("ko-KR")}</td><td>${esc(r.child_name || "")}</td>
         <td>${r.verified ? `<span style="color:var(--good)">✔ 인정 (${r.distance_m}m)</span>` : r.distance_m != null ? `<span style="color:var(--warn)">미인정 (${r.distance_m}m)</span>` : `<span class="mut">위치 없음</span>`}</td></tr>`).join("")}</table>` : `<p class="mut">아직 출석 기록이 없습니다.</p>`}`;
+}
+// ===== 학생·입금 관리 (원장) =====
+const ownEnr = {}; let stuChart;
+async function renderOwnStudents(id) {
+  const body = document.getElementById("ownBody-" + id);
+  body.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const { data: enr } = await sb.from("child_academies")
+    .select("id,child_id,subject,monthly_total,started_month,ended_month, children(name,grade)").eq("academy_id", id);
+  ownEnr[id] = enr || [];
+  const nowYm = new Date().toISOString().slice(0, 7);
+  const prevYm = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().slice(0, 7);
+  const activeAt = ym => ownEnr[id].filter(e => (!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym)).length;
+  const cur = activeAt(nowYm), diff = cur - activeAt(prevYm);
+  body.innerHTML = `
+    <div class="row" style="margin-bottom:8px">
+      <div class="stat"><b>${cur}명</b><span>현재 등록 학생</span></div>
+      <div class="stat"><b style="color:${diff >= 0 ? "var(--good)" : "var(--bad)"}">${diff >= 0 ? "+" : ""}${diff}명</b><span>지난달 대비</span></div>
+      <div class="stat"><b>${ownEnr[id].length}명</b><span>누적 등록</span></div></div>
+    <div class="row" style="margin:8px 0 4px"><b>📈 등록 학생 추이</b>
+      <select id="stuBucket-${id}" class="right" onchange="renderStudentTrend(${id})">
+        <option value="week">주별</option><option value="month" selected>월별</option>
+        <option value="quarter">분기별</option><option value="half">반기별</option><option value="year">연도별</option></select></div>
+    <canvas id="stuChart-${id}" height="110"></canvas>
+    <div class="row" style="margin:16px 0 4px"><b>💰 월별 입금 관리</b>
+      <input type="month" id="payYm-${id}" value="${nowYm}" class="right" onchange="renderPayRoster(${id})"></div>
+    <div id="payRoster-${id}"></div>`;
+  renderStudentTrend(id);
+  renderPayRoster(id);
+}
+function renderStudentTrend(id) {
+  const list = ownEnr[id] || [];
+  const bucket = document.getElementById("stuBucket-" + id).value;
+  const starts = list.map(e => e.started_month).filter(Boolean).sort();
+  const first = starts[0] || new Date().toISOString().slice(0, 7);
+  const months = []; let d = new Date(first + "-01"); const end = new Date();
+  while (d <= end && months.length < 120) { months.push(d.toISOString().slice(0, 7)); d.setMonth(d.getMonth() + 1); }
+  const activeAt = ym => list.filter(e => (!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym)).length;
+  const lbl = ym => { const [y, m] = ym.split("-").map(Number);
+    if (bucket === "quarter") return `${y} Q${Math.ceil(m / 3)}`;
+    if (bucket === "half") return `${y} ${m < 7 ? "상반기" : "하반기"}`;
+    if (bucket === "year") return `${y}`;
+    return `${y % 100}.${m}`; };
+  const map = new Map();
+  months.forEach(ym => map.set(lbl(ym), activeAt(ym))); // 버킷 마지막 달 스냅샷
+  const labels = [...map.keys()], vals = [...map.values()];
+  stuChart?.destroy();
+  stuChart = new Chart(document.getElementById("stuChart-" + id), {
+    type: "line", data: { labels, datasets: [{ label: "등록 학생 수", data: vals, borderColor: "#4f46e5", backgroundColor: "rgba(79,70,229,.12)", fill: true, tension: .3 }] },
+    options: { layout: { padding: { top: 16 } }, plugins: { legend: { display: false },
+        datalabels: { display: ctx => ctx.dataset.data[ctx.dataIndex] > 0, align: "top", anchor: "end", color: "#4f46e5", font: { size: 10, weight: "bold" } } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+}
+async function renderPayRoster(id) {
+  const list = ownEnr[id] || [];
+  const ym = document.getElementById("payYm-" + id).value || new Date().toISOString().slice(0, 7);
+  const active = list.filter(e => (!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym));
+  const { data: pays } = await sb.from("payments").select("*").eq("academy_id", id).eq("year_month", ym);
+  const el = document.getElementById("payRoster-" + id);
+  if (!active.length) { el.innerHTML = `<p class="mut">이 달에 등록된 학생이 없습니다.</p>`; return; }
+  const paidCnt = active.filter(e => (pays || []).find(p => p.child_academy_id === e.id && p.status === "완료")).length;
+  el.innerHTML = `<p class="mut">입금 완료 ${paidCnt} / ${active.length}명</p><div style="overflow-x:auto"><table>
+    <tr><th>학생</th><th>과목</th><th class="num">월 학원비</th><th>입금</th><th class="no-print">안내</th></tr>
+    ${active.map(e => { const p = (pays || []).find(x => x.child_academy_id === e.id); const paid = p && p.status === "완료";
+      const nm = (e.children?.name || "").replace(/'/g, "\\'");
+      return `<tr><td>${esc(e.children?.name || "")} <span class="mut">${esc(e.children?.grade || "")}</span></td>
+        <td>${esc(e.subject || "")}</td><td class="num">${won(e.monthly_total)}</td>
+        <td><button class="btn sm ${paid ? "" : "gray"}" onclick="togglePay(${id},${e.id},${e.child_id},'${ym}',${e.monthly_total || 0},'${nm}',${paid})">${paid ? "✅ 완료" : "미납"}</button></td>
+        <td class="no-print"><button class="btn sm ghost" onclick="sendPayNotice(${e.id},'${ym}')">🔔 입금 안내</button></td></tr>`;
+    }).join("")}</table></div>
+    <p class="mut" style="margin-top:6px">🔔 입금 안내를 누르면 부모님께 D+3 안내 알림이 가고, 부모님은 알림에서 💳 지역화폐로 결제할 수 있어요.</p>`;
+}
+async function togglePay(aid, caid, childId, ym, amount, name, paid) {
+  const status = paid ? "미납" : "완료";
+  const { error } = await sb.from("payments").upsert({ academy_id: aid, child_academy_id: caid, child_id: childId, student_name: name, year_month: ym, amount, status, paid_at: status === "완료" ? new Date().toISOString() : null }, { onConflict: "child_academy_id,year_month" });
+  if (error) return toast("오류: " + error.message);
+  toast(status === "완료" ? "입금 완료로 표시했어요." : "미납으로 변경했어요.");
+  renderPayRoster(aid);
+}
+async function sendPayNotice(caid, ym) {
+  const due = new Date(); due.setDate(due.getDate() + 3);
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + "/functions/v1/send-notice", {
+      method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (session?.access_token || ANON_KEY) },
+      body: JSON.stringify({ child_academy_id: caid, year_month: ym, due_date: due.toISOString().slice(0, 10) }) });
+    const j = await res.json();
+    if (j.error) throw new Error(j.error);
+    toast(`입금 안내를 보냈어요. (푸시 ${j.sent || 0}건)`);
+  } catch (e) { toast("안내 전송 실패: " + e.message); }
 }
 async function renderOwnInfo(id) {
   const { data: a } = await sb.from("academies").select("*").eq("id", id).single();
