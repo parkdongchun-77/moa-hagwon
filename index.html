@@ -260,6 +260,14 @@ body{padding-bottom:70px}
     </div>
     <div class="row" id="adminStats"></div>
   </div>
+  <div class="card"><div class="row"><h3 style="margin:0">📈 가입자 추이 <span class="mut">(학생·부모님 / 학원장)</span></h3>
+      <select id="suBucket" class="right" onchange="loadSignupChart()">
+        <option value="day">일별</option><option value="week">주별</option>
+        <option value="month" selected>월별</option><option value="quarter">분기별</option>
+        <option value="half">반기별</option><option value="year">연도별</option></select></div>
+    <div class="row" id="suStats" style="margin:8px 0"></div>
+    <canvas id="signupChart" height="110"></canvas>
+  </div>
   <div class="card"><h3>소유권 클레임 승인</h3><div id="adminClaims"></div></div>
   <div class="card"><h3>신고 관리</h3><div id="adminReports"></div></div>
   <div class="card"><h3>프리미엄 노출(광고) 주문</h3><div id="adminAds"></div></div>
@@ -1649,8 +1657,34 @@ async function saveNeisKey() {
   const { error } = await sb.from("app_settings").upsert({ key: "neis_key", value: v, updated_at: new Date().toISOString() });
   toast(error ? "오류: " + error.message : "키가 저장되었습니다. 이제 동기화를 실행하세요.");
 }
+let signupChart;
+async function loadSignupChart() {
+  if (state.profile?.role !== "admin") return;
+  const bucket = document.getElementById("suBucket").value;
+  const { data, error } = await sb.rpc("signup_stats", { p_bucket: bucket });
+  if (error) { document.getElementById("suStats").innerHTML = `<span class="mut">불러오기 실패: ${esc(error.message)}</span>`; return; }
+  const rows = data || [];
+  const labels = rows.map(r => r.label);
+  const parents = rows.map(r => r.parent_cnt);
+  const owners = rows.map(r => r.owner_cnt);
+  const tp = parents.reduce((a, b) => a + b, 0), to = owners.reduce((a, b) => a + b, 0);
+  document.getElementById("suStats").innerHTML = `<div class="stat"><b>${tp}</b><span>학생·부모님</span></div>
+    <div class="stat"><b>${to}</b><span>학원장</span></div><div class="stat"><b>${tp + to}</b><span>전체 가입</span></div>`;
+  signupChart?.destroy();
+  signupChart = new Chart(document.getElementById("signupChart"), {
+    type: "bar",
+    data: { labels, datasets: [
+      { label: "학생·부모님", data: parents, backgroundColor: "#4f46e5" },
+      { label: "학원장", data: owners, backgroundColor: "#16a34a" }] },
+    options: { layout: { padding: { top: 16 } },
+      plugins: { legend: { position: "bottom" },
+        datalabels: { display: ctx => ctx.dataset.data[ctx.dataIndex] > 0, anchor: "end", align: "end", color: "#334155", font: { size: 10, weight: "bold" } } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+}
 async function loadAdmin() {
   if (state.profile?.role !== "admin") return;
+  loadSignupChart();
   const ss = document.getElementById("syncSido");
   if (!ss.options.length) ss.innerHTML = SIDOS.map(s => `<option>${s}</option>`).join("");
   sb.from("app_settings").select("value").eq("key", "neis_key").maybeSingle().then(({ data }) => {
