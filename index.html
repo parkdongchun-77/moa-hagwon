@@ -70,7 +70,21 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
 .field input,.field select,.field textarea{width:100%}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-@media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr}.nav{overflow-x:auto}}
+@media(max-width:640px){
+  .grid2,.grid3{grid-template-columns:1fr}
+  .nav{overflow-x:auto;gap:2px}
+  main{padding:14px 10px 80px}
+  .card{padding:14px}
+  h2{font-size:17px}h3{font-size:15px}
+  .modal{padding:18px}.modal-bg{padding:14px 8px}
+  .stat{min-width:0;padding:10px}
+  table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+  .aca-card{gap:8px}
+  .aca-actions{flex-direction:row;flex-wrap:wrap;width:100%}
+  .logo{font-size:18px;margin-right:4px}
+  .nav-btn{padding:7px 6px;font-size:13px}
+  #map{min-height:170px!important;height:30vh!important}
+}
 .stat{flex:1;min-width:140px;background:#eef2ff;border-radius:12px;padding:14px;text-align:center}
 .stat b{display:block;font-size:22px;color:var(--p)}
 .stat span{font-size:13px;color:var(--mut)}
