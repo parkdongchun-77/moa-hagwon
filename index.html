@@ -282,6 +282,12 @@ body{padding-bottom:70px}
     <div class="row" id="suStats" style="margin:8px 0"></div>
     <canvas id="signupChart" height="110"></canvas>
   </div>
+  <div class="card"><div class="row"><h3 style="margin:0">🤖 모아봇 문의 내역 <span class="mut">(앱 문제·요청 리스트업)</span></h3>
+      <select id="inqFilter" class="right" onchange="loadInquiries()">
+        <option value="all">전체</option><option value="신규">신규</option><option value="확인">확인</option><option value="처리완료">처리완료</option></select></div>
+    <div class="row" id="inqStats" style="margin:8px 0"></div>
+    <div id="inqList"></div>
+  </div>
   <div class="card"><h3>소유권 클레임 승인</h3><div id="adminClaims"></div></div>
   <div class="card"><h3>신고 관리</h3><div id="adminReports"></div></div>
   <div class="card"><h3>프리미엄 노출(광고) 주문</h3><div id="adminAds"></div></div>
@@ -1788,9 +1794,35 @@ async function loadSignupChart() {
       scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
   });
 }
+async function loadInquiries() {
+  if (state.profile?.role !== "admin") return;
+  const filter = document.getElementById("inqFilter").value;
+  let q = sb.from("bot_inquiries").select("*").order("created_at", { ascending: false }).limit(200);
+  if (filter !== "all") q = q.eq("status", filter);
+  const { data } = await q;
+  const { count: total } = await sb.from("bot_inquiries").select("id", { count: "exact", head: true });
+  const { count: nw } = await sb.from("bot_inquiries").select("id", { count: "exact", head: true }).eq("status", "신규");
+  const { count: done } = await sb.from("bot_inquiries").select("id", { count: "exact", head: true }).eq("status", "처리완료");
+  document.getElementById("inqStats").innerHTML = `<div class="stat"><b>${total || 0}</b><span>총 문의</span></div>
+    <div class="stat"><b style="color:var(--bad)">${nw || 0}</b><span>신규</span></div><div class="stat"><b style="color:var(--good)">${done || 0}</b><span>처리완료</span></div>`;
+  const el = document.getElementById("inqList");
+  el.innerHTML = (data || []).length ? `<div style="overflow-x:auto"><table>
+    <tr><th>일시</th><th>문의글</th><th>봇 답변</th><th>상태</th><th>메모</th></tr>
+    ${data.map(r => `<tr><td class="mut" style="white-space:nowrap">${new Date(r.created_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}</td>
+      <td style="min-width:160px;white-space:normal"><b>${esc(r.question)}</b></td>
+      <td class="mut" style="min-width:160px;max-width:260px;white-space:normal">${esc((r.answer || "").slice(0, 140))}</td>
+      <td><select onchange="updateInquiry(${r.id},'status',this.value)">${["신규", "확인", "처리완료"].map(s => `<option ${r.status === s ? "selected" : ""}>${s}</option>`).join("")}</select></td>
+      <td><input value="${esc(r.memo || "")}" placeholder="개선 메모" style="width:130px" onchange="updateInquiry(${r.id},'memo',this.value)"></td></tr>`).join("")}</table></div>`
+    : `<p class="mut">아직 문의가 없습니다. 모아봇에 들어온 질문이 여기에 쌓입니다.</p>`;
+}
+async function updateInquiry(id, field, value) {
+  const { error } = await sb.from("bot_inquiries").update({ [field]: value }).eq("id", id);
+  toast(error ? "오류: " + error.message : "저장되었습니다.");
+  if (field === "status") loadInquiries();
+}
 async function loadAdmin() {
   if (state.profile?.role !== "admin") return;
-  loadSignupChart();
+  loadSignupChart(); loadInquiries();
   const ss = document.getElementById("syncSido");
   if (!ss.options.length) ss.innerHTML = SIDOS.map(s => `<option>${s}</option>`).join("");
   sb.from("app_settings").select("value").eq("key", "neis_key").maybeSingle().then(({ data }) => {
@@ -1881,6 +1913,15 @@ async function botSend() {
   botMsg(esc(q), "me"); inp.value = "";
   botHistory.push({ role: "me", text: q });
   try { await botReply(q); } catch (e) { botMsg("앗, 잠시 문제가 있었어요. 다시 한 번 물어봐 주세요."); }
+  logInquiry(q);
+}
+// 문의글 누적 저장 (관리자 대시보드에서 문제점·요청 리스트업)
+async function logInquiry(q) {
+  try {
+    const msgs = document.querySelectorAll("#botMsgs .bot-msg.bot");
+    const answer = msgs.length ? msgs[msgs.length - 1].innerText.slice(0, 2000) : "";
+    await sb.from("bot_inquiries").insert({ user_id: state.user?.id || null, question: q.slice(0, 1000), answer });
+  } catch (e) {}
 }
 async function botReply(q) {
   const has = (...ks) => ks.some(k => q.includes(k));
