@@ -223,6 +223,10 @@ body{padding-bottom:70px}
   </div>
 </section>
 
+<!-- ===== 알림장·성적 (학부모) ===== -->
+<section class="view" id="v-records">
+  <div class="card"><h2>📓 알림장 · 성적</h2><p class="mut">자녀가 다니는 학원에서 보낸 알림장과 성적이에요.</p><div id="recordsBody"></div></div>
+</section>
 <!-- ===== 공지사항 ===== -->
 <section class="view" id="v-notices">
   <div class="card"><h2>📢 공지사항</h2><div id="noticeList"></div></div>
@@ -380,6 +384,34 @@ body{padding-bottom:70px}
   <h2>내 정보</h2>
   <div id="profileBody"></div>
 </div></div>
+<!-- 알림장 모달 -->
+<div class="modal-bg" id="m-log"><div class="modal" style="max-width:420px"><button class="close" onclick="closeModal('m-log')">×</button>
+  <h2 id="logTitle">알림장</h2>
+  <div class="field"><label>오늘 진도</label><input id="lgProgress" placeholder="예: 3단원 일차방정식"></div>
+  <div class="field"><label>숙제</label><input id="lgHomework" placeholder="예: 워크북 p.40~42"></div>
+  <div class="field"><label>수업 태도 / 한마디</label><textarea id="lgAttitude" rows="2" placeholder="예: 오늘 집중 잘했어요!"></textarea></div>
+  <button class="btn" style="width:100%" onclick="saveLog()">저장하고 학부모에게 전송</button>
+</div></div>
+<!-- 성적 모달 -->
+<div class="modal-bg" id="m-grade"><div class="modal" style="max-width:420px"><button class="close" onclick="closeModal('m-grade')">×</button>
+  <h2 id="gradeTitle">성적 입력</h2>
+  <div class="grid2">
+    <div class="field"><label>시험/평가명</label><input id="gdTitle" placeholder="예: 3월 모의고사"></div>
+    <div class="field"><label>시험일</label><input id="gdDate" type="date"></div>
+  </div>
+  <div class="grid2">
+    <div class="field"><label>점수</label><input id="gdScore" type="number" placeholder="85"></div>
+    <div class="field"><label>만점</label><input id="gdMax" type="number" value="100"></div>
+  </div>
+  <div class="field"><label>코멘트</label><input id="gdMemo" placeholder="예: 계산 실수만 줄이면 우수해요"></div>
+  <button class="btn" style="width:100%" onclick="saveGrade()">저장하고 학부모에게 전송</button>
+</div></div>
+<!-- 1:1 채팅 모달 -->
+<div class="modal-bg" id="m-chat"><div class="modal" style="max-width:440px;padding:0;overflow:hidden"><button class="close" onclick="closeModal('m-chat')" style="z-index:2;color:#fff">×</button>
+  <div style="background:var(--p);color:#fff;padding:14px"><b id="chatTitle">문의 채팅</b></div>
+  <div id="chatMsgs" style="height:320px;overflow-y:auto;padding:12px;background:#f8fafc;display:flex;flex-direction:column;gap:8px"></div>
+  <div style="display:flex;gap:6px;padding:10px;border-top:1px solid var(--line)"><input id="chatInput" placeholder="메시지 입력" style="flex:1" onkeydown="if(event.key==='Enter')sendChat()"><button class="btn sm" onclick="sendChat()">전송</button></div>
+</div></div>
 <!-- 설정 모달 -->
 <div class="modal-bg" id="m-settings"><div class="modal" style="max-width:380px"><button class="close" onclick="closeModal('m-settings')">×</button>
   <h2>⚙️ 설정</h2>
@@ -463,6 +495,7 @@ function go(v) {
   if (v === "attstat") loadAttStat();
   if (v === "notices") loadNotices();
   if (v === "events") loadEvents();
+  if (v === "records") loadRecords();
 }
 function openSettings() {
   if ("Notification" in window && Notification.permission === "granted") {
@@ -489,6 +522,7 @@ const SHEETS = {
   parent: { title: "학생·학부모", items: () => [
     ["📷", "등원·퇴원 QR", "go('attend')"],
     ["📊", "등·퇴원 주간 요약", "go('attstat')"],
+    ["📓", "알림장·성적", "go('records')"],
     ["🔔", "알림", "go('noti')"],
     ["⚖️", "비교함", "go('compare')"],
   ] },
@@ -514,6 +548,94 @@ function openSheet(which) {
 function closeSheet() {
   document.getElementById("sheetBg").classList.remove("on");
   document.getElementById("sheet").classList.remove("on");
+}
+// ===== 알림장 / 성적 (원장 입력 → 부모 푸시) =====
+function openLogModal(aid, caid, childId, name) {
+  state.logCtx = { aid, caid, childId, name };
+  document.getElementById("logTitle").textContent = name + " 알림장";
+  ["lgProgress", "lgHomework", "lgAttitude"].forEach(id => document.getElementById(id).value = "");
+  openModal("m-log");
+}
+async function saveLog() {
+  const c = state.logCtx; if (!c) return;
+  const p = document.getElementById("lgProgress").value.trim(), hw = document.getElementById("lgHomework").value.trim(), at = document.getElementById("lgAttitude").value.trim();
+  if (!p && !hw && !at) return toast("내용을 입력하세요.");
+  const { error } = await sb.from("daily_logs").insert({ academy_id: c.aid, child_academy_id: c.caid, child_id: c.childId, progress: p || null, homework: hw || null, attitude: at || null });
+  if (error) return toast("오류: " + error.message);
+  closeModal("m-log");
+  await callSendMessage({ child_academy_id: c.caid, message: `📓 알림장\n진도: ${p || "-"}\n숙제: ${hw || "-"}${at ? "\n한마디: " + at : ""}` });
+}
+function openGradeModal(aid, caid, childId, name) {
+  state.gradeCtx = { aid, caid, childId, name };
+  document.getElementById("gradeTitle").textContent = name + " 성적 입력";
+  ["gdTitle", "gdScore", "gdMemo"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("gdMax").value = "100";
+  document.getElementById("gdDate").value = new Date().toISOString().slice(0, 10);
+  openModal("m-grade");
+}
+async function saveGrade() {
+  const c = state.gradeCtx; if (!c) return;
+  const title = document.getElementById("gdTitle").value.trim(), score = +document.getElementById("gdScore").value, max = +document.getElementById("gdMax").value || 100;
+  if (!title || !document.getElementById("gdScore").value) return toast("시험명과 점수를 입력하세요.");
+  const memo = document.getElementById("gdMemo").value.trim();
+  const { error } = await sb.from("grades").insert({ academy_id: c.aid, child_academy_id: c.caid, child_id: c.childId, title, score, max_score: max, exam_date: document.getElementById("gdDate").value || null, memo: memo || null });
+  if (error) return toast("오류: " + error.message);
+  closeModal("m-grade");
+  await callSendMessage({ child_academy_id: c.caid, message: `📊 성적 안내\n${title}: ${score}/${max}점${memo ? "\n" + memo : ""}` });
+}
+// 부모: 자녀 알림장·성적 보기 (RLS가 본인 자녀로 필터)
+async function loadRecords() {
+  const el = document.getElementById("recordsBody");
+  if (!state.user) { el.innerHTML = `<div class="card empty">로그인하면 자녀의 알림장·성적을 볼 수 있어요.</div>`; return; }
+  const [{ data: grades }, { data: logs }] = await Promise.all([
+    sb.from("grades").select("*").order("created_at", { ascending: false }).limit(30),
+    sb.from("daily_logs").select("*").order("created_at", { ascending: false }).limit(30),
+  ]);
+  let html = "";
+  if ((grades || []).length) html += `<h3>📊 성적</h3>` + grades.map(g => `<div class="review"><b>${esc(g.title || "")}</b> <span class="stars">${g.score}/${g.max_score}점</span> <span class="mut">${g.exam_date || new Date(g.created_at).toLocaleDateString("ko-KR")}</span>${g.memo ? `<div class="mut">${esc(g.memo)}</div>` : ""}</div>`).join("");
+  if ((logs || []).length) html += `<h3>📓 알림장</h3>` + logs.map(l => `<div class="review"><span class="mut">${l.log_date || new Date(l.created_at).toLocaleDateString("ko-KR")}</span><div>진도: ${esc(l.progress || "-")}</div><div>숙제: ${esc(l.homework || "-")}</div>${l.attitude ? `<div class="mut">💬 ${esc(l.attitude)}</div>` : ""}</div>`).join("");
+  el.innerHTML = html || `<div class="empty">아직 등록된 알림장·성적이 없습니다. 학원에서 등록하면 여기에 표시돼요.</div>`;
+}
+// ===== 1:1 채팅 =====
+async function openChat(academyId, parentId, name) {
+  if (needLogin()) return;
+  const { data: a } = await sb.from("academies").select("owner_id,name").eq("id", academyId).single();
+  const role = (a?.owner_id === state.user.id || state.profile?.role === "admin") ? "owner" : "parent";
+  state.chatCtx = { academyId, parentId: role === "parent" ? state.user.id : parentId, role };
+  document.getElementById("chatTitle").textContent = (name || a?.name || "학원") + " 문의 채팅";
+  openModal("m-chat");
+  loadChat();
+}
+async function loadChat() {
+  const c = state.chatCtx; if (!c) return;
+  const { data } = await sb.from("chat_messages").select("*").eq("academy_id", c.academyId).eq("parent_id", c.parentId).order("created_at");
+  document.getElementById("chatMsgs").innerHTML = (data || []).map(m => `<div class="bot-msg ${m.sender === c.role ? "me" : "bot"}">${esc(m.body)}</div>`).join("") || `<div class="mut" style="text-align:center">대화를 시작해 보세요.</div>`;
+  const box = document.getElementById("chatMsgs"); box.scrollTop = box.scrollHeight;
+}
+async function sendChat() {
+  const c = state.chatCtx; const inp = document.getElementById("chatInput"); const body = inp.value.trim(); if (!body || !c) return;
+  const { error } = await sb.from("chat_messages").insert({ academy_id: c.academyId, parent_id: c.parentId, sender: c.role, body });
+  if (error) return toast("오류: " + error.message);
+  inp.value = ""; loadChat();
+}
+// ===== 학원 사진 갤러리 (원장 업로드) =====
+async function uploadAcademyPhoto(id) {
+  const f = document.getElementById("oi-photo-file-" + id).files[0]; if (!f) return;
+  if (f.size > 5 * 1024 * 1024) return toast("5MB 이하 이미지만 가능해요.");
+  toast("사진 업로드 중...");
+  const path = `${id}/${Date.now()}.${(f.name.split(".").pop() || "jpg").toLowerCase()}`;
+  const { error } = await sb.storage.from("academy-photos").upload(path, f, { contentType: f.type });
+  if (error) return toast("업로드 실패: " + error.message);
+  const { data: { publicUrl } } = sb.storage.from("academy-photos").getPublicUrl(path);
+  const { data: a } = await sb.from("academies").select("photos").eq("id", id).single();
+  await sb.from("academies").update({ photos: [...(a.photos || []), publicUrl] }).eq("id", id);
+  toast("사진을 추가했어요."); renderOwnInfo(id);
+}
+async function delAcademyPhoto(id, url) {
+  const { data: a } = await sb.from("academies").select("photos").eq("id", id).single();
+  await sb.from("academies").update({ photos: (a.photos || []).filter(u => u !== url) }).eq("id", id);
+  try { const p = url.split("/academy-photos/")[1]; if (p) await sb.storage.from("academy-photos").remove([p]); } catch (e) {}
+  renderOwnInfo(id);
 }
 function openProfile() {
   if (!state.user) { openModal("m-auth"); return; }
@@ -1083,10 +1205,12 @@ async function openDetail(id) {
     <div class="mut">${esc(a.address || "")} ${esc(a.address_detail || "")} ${a.tel ? "· ☎ " + esc(a.tel) : ""}</div>
     <div style="margin:6px 0">${(a.subjects || []).map(s => `<span class="tag">${esc(s)}</span>`).join("")}${(a.grades || []).map(g => `<span class="tag gray">${esc(g)}</span>`).join("")}
       ${a.capacity ? `<span class="tag gray">정원 ${a.capacity}명</span>` : ""}${avg ? `<span class="stars">★ ${avg}</span> <span class="mut">(${reviews.length})</span>` : ""}</div>
+    ${(a.photos && a.photos.length) ? `<div class="row" style="overflow-x:auto;flex-wrap:nowrap;gap:8px;margin:8px 0">${a.photos.map(u => `<img src="${esc(u)}" style="height:130px;border-radius:10px;cursor:pointer;flex:0 0 auto" onclick="window.open('${esc(u)}','_blank')">`).join("")}</div>` : ""}
     ${a.intro ? `<p style="margin:8px 0">${esc(a.intro)}</p>` : ""}
     ${a.promo ? `<div class="notice">🎉 ${esc(a.promo)}</div>` : ""}
     <div class="row no-print" style="margin:10px 0">
       <button class="btn sm" style="background:#fae100;color:#3c1e1e;font-weight:700" onclick="openDirections(${a.id})">🧭 길찾기</button>
+      <button class="btn sm" style="background:#0ea5e9;color:#fff;font-weight:700" onclick="openChat(${a.id})">💬 문의 채팅</button>
       ${a.localpay_enabled ? `<button class="btn sm" style="background:#16a34a;color:#fff;font-weight:700" onclick="openPay(${a.id})">💳 지역화폐 결제</button>` : ""}
       <button class="btn sm" onclick="openLead('상담')">상담 신청</button>
       <button class="btn sm ghost" onclick="openLead('체험')">체험 수업 신청</button>
@@ -1496,7 +1620,7 @@ async function admManageAca(id) {
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
       <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
-      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button></div>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button></div>
     <div id="ownBody-${a.id}"></div></div>`;
   renderOwnInfo(a.id);
   document.getElementById("admAcaManage").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1571,7 +1695,7 @@ async function loadOwner() {
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
       <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
-      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button></div>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button></div>
     <div id="ownBody-${a.id}"></div></div>`).join("");
   acas.forEach(a => renderOwnInfo(a.id));
 }
@@ -1584,6 +1708,18 @@ async function ownTab(btn, id, tab) {
   if (tab === "report") renderOwnReport(id);
   if (tab === "att") renderOwnAtt(id);
   if (tab === "students") renderOwnStudents(id);
+  if (tab === "chat") renderOwnChat(id);
+}
+async function renderOwnChat(id) {
+  const body = document.getElementById("ownBody-" + id);
+  body.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const { data } = await sb.from("chat_messages").select("parent_id, body, sender, created_at").eq("academy_id", id).order("created_at", { ascending: false }).limit(300);
+  const seen = new Map();
+  (data || []).forEach(m => { if (!seen.has(m.parent_id)) seen.set(m.parent_id, m); });
+  const threads = [...seen.values()];
+  body.innerHTML = `<p class="mut">학부모가 보낸 문의에 답할 수 있어요.</p>` + (threads.length ? threads.map(m => `<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)">
+    <span style="flex:1;min-width:140px"><b>학부모 문의</b> <span class="mut">${new Date(m.created_at).toLocaleDateString("ko-KR")}</span><br><span class="mut">${esc(m.body.slice(0, 40))}${m.body.length > 40 ? "…" : ""}</span></span>
+    <button class="btn sm right" onclick="openChat(${id},'${m.parent_id}')">열기</button></div>`).join("") : `<p class="mut">아직 문의 채팅이 없습니다.</p>`);
 }
 async function renderOwnAtt(id) {
   const body = document.getElementById("ownBody-" + id);
@@ -1676,7 +1812,7 @@ async function renderPayRoster(id) {
       return `<tr><td>${esc(e.children?.name || "")} <span class="mut">${esc(e.children?.grade || "")}</span></td>
         <td>${esc(e.subject || "")}</td><td class="num">${won(e.monthly_total)}</td>
         <td><button class="btn sm ${paid ? "" : "gray"}" onclick="togglePay(${id},${e.id},${e.child_id},'${ym}',${e.monthly_total || 0},'${nm}',${paid})">${paid ? "✅ 완료" : "미납"}</button></td>
-        <td class="no-print"><button class="btn sm ghost" onclick="sendPayNotice(${e.id},'${ym}')">🔔 입금</button> <button class="btn sm ghost" onclick="sendStudentMessage(${e.id})">📨 소식</button></td></tr>`;
+        <td class="no-print" style="white-space:nowrap"><button class="btn sm ghost" onclick="sendPayNotice(${e.id},'${ym}')">🔔 입금</button> <button class="btn sm ghost" onclick="openLogModal(${id},${e.id},${e.child_id},'${nm}')">📓 알림장</button> <button class="btn sm ghost" onclick="openGradeModal(${id},${e.id},${e.child_id},'${nm}')">📊 성적</button> <button class="btn sm ghost" onclick="sendStudentMessage(${e.id})">📨 소식</button></td></tr>`;
     }).join("")}</table></div>
     <p class="mut" style="margin-top:6px">🔔 입금 안내를 누르면 부모님께 D+3 안내 알림이 가고, 부모님은 알림에서 💳 지역화폐로 결제할 수 있어요.</p>`;
 }
@@ -1728,6 +1864,9 @@ async function renderOwnInfo(id) {
   document.getElementById("ownBody-" + id).innerHTML = `
     <div class="field"><label>학원 소개</label><textarea id="oi-intro-${id}" rows="2">${esc(a.intro || "")}</textarea></div>
     <div class="field"><label>🏆 학원 자랑거리 · 수상/실적 (학부모에게 어필됩니다 · 수강료 공개 부담 없이 강점을 보여주세요)</label><textarea id="oi-achv-${id}" rows="3" placeholder="예: 2025 수학경시대회 대상 홍길동 / 피아노 콩쿠르 금상 / 태권도 3단 보유 강사진">${esc(a.achievements || "")}</textarea></div>
+    <div class="field"><label>📸 학원 사진 (학부모 상세에 보여집니다)</label>
+      <div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:6px">${(a.photos || []).map(u => `<div style="position:relative"><img src="${esc(u)}" style="width:74px;height:74px;object-fit:cover;border-radius:8px"><button onclick="delAcademyPhoto(${id},'${esc(u)}')" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1">×</button></div>`).join("") || `<span class="mut">아직 등록된 사진이 없어요.</span>`}</div>
+      <input type="file" id="oi-photo-file-${id}" accept="image/*" onchange="uploadAcademyPhoto(${id})"></div>
     <div class="grid2">
       <div class="field"><label>강사진 소개</label><textarea id="oi-teachers-${id}" rows="2">${esc(a.teachers || "")}</textarea></div>
       <div class="field"><label>시간표</label><textarea id="oi-timetable-${id}" rows="2">${esc(a.timetable || "")}</textarea></div>
