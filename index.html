@@ -644,8 +644,24 @@ function openProfile() {
     <div class="field"><label>닉네임</label><div><b>${esc(state.profile?.nickname || "-")}</b></div></div>
     <div class="field"><label>이메일</label><div class="mut">${esc(state.user.email || "-")}</div></div>
     <div class="field"><label>회원 유형</label><div><span class="tag">${role}</span></div></div>
-    <button class="btn gray" style="width:100%;margin-top:8px" onclick="closeModal('m-profile');onAuthBtn()">🚪 로그아웃</button>`;
+    <button class="btn gray" style="width:100%;margin-top:8px" onclick="closeModal('m-profile');onAuthBtn()">🚪 로그아웃</button>
+    <button class="btn" style="width:100%;margin-top:8px;background:var(--bad)" onclick="deleteAccount()">회원 탈퇴 (계정 삭제)</button>
+    <p class="mut" style="font-size:12px;margin-top:6px">탈퇴 시 계정과 내 데이터(자녀·후기·알림·채팅 등)가 즉시 삭제되며 되돌릴 수 없습니다.</p>`;
   openModal("m-profile");
+}
+async function deleteAccount() {
+  if (!confirm("정말 회원 탈퇴하시겠어요?\n계정과 내 데이터가 즉시 삭제되며 되돌릴 수 없습니다.")) return;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return toast("로그인이 필요합니다.");
+    const res = await fetch(SUPABASE_URL + "/functions/v1/delete-account", {
+      method: "POST", headers: { "Authorization": "Bearer " + session.access_token, "Content-Type": "application/json" }, body: "{}" });
+    const j = await res.json();
+    if (j.error) throw new Error(j.error);
+    await sb.auth.signOut();
+    toast("회원 탈퇴가 완료되었습니다.");
+    setTimeout(() => location.reload(), 1200);
+  } catch (e) { toast("탈퇴 실패: " + e.message); }
 }
 </script>
 <script id="part2">
