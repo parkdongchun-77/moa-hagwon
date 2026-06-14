@@ -367,11 +367,11 @@ body{padding-bottom:70px}
   <p class="mut">국가 데이터에 없는 가정형 공부방을 직접 등록합니다. 등록 후 원장센터에서 수업요일·자랑거리 등을 더 다듬을 수 있어요.</p>
   <div class="field"><label>공부방 이름 *</label><input id="rmName" placeholder="예: 햇살수학공부방"></div>
   <div class="grid2">
-    <div class="field"><label>시/도 *</label><select id="rmSido"></select></div>
-    <div class="field"><label>시/군/구 *</label><input id="rmCity" placeholder="예: 천안시, 강남구"></div>
+    <div class="field"><label>시/도 *</label><select id="rmSido" onchange="rmLoadCities()"></select></div>
+    <div class="field"><label>시/군/구 *</label><select id="rmCity" onchange="rmLoadDongs()"></select></div>
   </div>
   <div class="grid2">
-    <div class="field"><label>동/읍/면</label><input id="rmDong" placeholder="예: 불당동"></div>
+    <div class="field"><label>동/읍/면</label><select id="rmDong"></select></div>
     <div class="field"><label>연락처</label><input id="rmTel" placeholder="010-0000-0000"></div>
   </div>
   <div class="field"><label>상세 주소</label><input id="rmAddr" placeholder="도로명/건물/호수 등"></div>
@@ -1448,12 +1448,33 @@ async function admManageAca(id) {
 // 공부방 직접 등록 (국가 데이터에 없는 가정형 공부방)
 function openRoomModal() {
   if (needLogin()) return;
-  ["rmName","rmCity","rmDong","rmTel","rmAddr","rmFee","rmIntro"].forEach(id => document.getElementById(id).value = "");
+  ["rmName","rmTel","rmAddr","rmFee","rmIntro"].forEach(id => document.getElementById(id).value = "");
   const ss = document.getElementById("rmSido");
   if (!ss.options.length) ss.innerHTML = SIDOS.map(s => `<option>${s}</option>`).join("");
   document.getElementById("rmSubjects").innerHTML = SUBJECTS.map(s => `<label class="chip" style="margin:0"><input type="checkbox" class="rm-subj" value="${s}" style="width:auto"> ${s}</label>`).join("");
   document.getElementById("rmGrades").innerHTML = GRADES.map(g => `<label class="chip" style="margin:0"><input type="checkbox" class="rm-grade" value="${g}" style="width:auto"> ${g}</label>`).join("");
+  rmLoadCities();
   openModal("m-room");
+}
+// 공부방 등록 모달 지역 드롭다운 연동 (region_list/dong_list 뷰)
+async function rmLoadCities() {
+  const sido = document.getElementById("rmSido").value;
+  const sel = document.getElementById("rmCity");
+  sel.innerHTML = `<option value="">시/군/구 선택</option>`;
+  document.getElementById("rmDong").innerHTML = `<option value="">동/읍/면 선택</option>`;
+  if (!sido) return;
+  const { data } = await sb.from("region_list").select("region_city").eq("sido", sido).order("region_city");
+  sel.innerHTML += (data || []).map(r => `<option>${esc(r.region_city)}</option>`).join("");
+}
+async function rmLoadDongs() {
+  const sido = document.getElementById("rmSido").value, city = document.getElementById("rmCity").value;
+  const sel = document.getElementById("rmDong");
+  sel.innerHTML = `<option value="">동/읍/면 선택</option>`;
+  if (!city) return;
+  let q = sb.from("dong_list").select("dong").eq("region_city", city).order("dong");
+  if (sido) q = q.eq("sido", sido);
+  const { data } = await q;
+  sel.innerHTML += [...new Set((data || []).map(r => r.dong))].map(d => `<option>${esc(d)}</option>`).join("");
 }
 async function submitRoom() {
   if (needLogin()) return;
