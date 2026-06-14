@@ -133,8 +133,7 @@ body{padding-bottom:70px}
   <div class="logo" onclick="go('search')">모아학원</div>
   <button class="nav-btn" data-v="search" onclick="go('search')">학원 검색</button>
   <button class="nav-btn" data-v="compare" onclick="go('compare')">비교함<span class="badge" id="cmpBadge" style="display:none"></span></button>
-  <button class="nav-btn" data-v="dash" onclick="go('dash')">학원비 대시보드</button>
-  <button class="nav-btn" data-v="noti" onclick="go('noti')">알림<span class="badge" id="notiBadge" style="display:none"></span></button>
+  <button class="nav-btn" data-v="dash" onclick="go('dash')">학원비</button>
   <button class="nav-btn" data-v="owner" id="navOwner" onclick="go('owner')" style="display:none">원장센터</button>
   <button class="nav-btn" data-v="admin" id="navAdmin" onclick="go('admin')" style="display:none">운영</button>
   <div class="spacer"></div>
@@ -398,7 +397,7 @@ body{padding-bottom:70px}
 <nav class="botbar no-print">
   <button onclick="openSheet('parent')"><span class="ic">👨‍👩‍👧</span>학생·학부모</button>
   <button onclick="openSheet('owner')"><span class="ic">🏫</span>학원장</button>
-  <button onclick="openSheet('more')"><span class="ic">⋯</span>더보기</button>
+  <button onclick="openSheet('more')" style="position:relative"><span class="ic">⋯</span>더보기<span class="badge" id="notiBadge" style="display:none;top:6px;right:calc(50% - 26px)"></span></button>
 </nav>
 
 <!-- 모아 봇 -->
@@ -451,7 +450,7 @@ const SHEETS = {
     ["📈", "프리미엄 노출·광고 신청", "go('owner')"],
   ] },
   more: { title: "더보기", items: () => {
-    const arr = [["🔔", "푸시 알림 켜기", "enablePush()"]];
+    const arr = [["🔔", "알림", "go('noti')"], ["📳", "푸시 알림 켜기", "enablePush()"]];
     if (state.profile?.role === "admin") arr.push(["🛠", "운영 (관리자)", "go('admin')"]);
     arr.push(state.user ? ["🚪", "로그아웃", "onAuthBtn()"] : ["🔑", "로그인 / 회원가입", "onAuthBtn()"]);
     return arr;
