@@ -360,6 +360,11 @@ body{padding-bottom:70px}
   <h2 id="payTitle" style="font-size:17px">지역화폐 결제</h2>
   <div id="payBox" style="margin:14px 0"></div>
 </div></div>
+<!-- 내 정보 모달 -->
+<div class="modal-bg" id="m-profile"><div class="modal" style="max-width:380px"><button class="close" onclick="closeModal('m-profile')">×</button>
+  <h2>내 정보</h2>
+  <div id="profileBody"></div>
+</div></div>
 <!-- 공부방 직접 등록 모달 -->
 <div class="modal-bg" id="m-room"><div class="modal" style="max-width:480px"><button class="close" onclick="closeModal('m-room')">×</button>
   <h2>우리 공부방 직접 등록</h2>
@@ -450,9 +455,8 @@ const SHEETS = {
     ["📈", "프리미엄 노출·광고 신청", "go('owner')"],
   ] },
   more: { title: "더보기", items: () => {
-    const arr = [["🔔", "알림", "go('noti')"], ["📳", "푸시 알림 켜기", "enablePush()"]];
+    const arr = [["🔔", "알림", "go('noti')"], ["❓", "FAQ · 1:1 문의 (모아봇)", "toggleBot()"], ["👤", "내 정보", "openProfile()"]];
     if (state.profile?.role === "admin") arr.push(["🛠", "운영 (관리자)", "go('admin')"]);
-    arr.push(state.user ? ["🚪", "로그아웃", "onAuthBtn()"] : ["🔑", "로그인 / 회원가입", "onAuthBtn()"]);
     return arr;
   } },
 };
@@ -467,6 +471,16 @@ function openSheet(which) {
 function closeSheet() {
   document.getElementById("sheetBg").classList.remove("on");
   document.getElementById("sheet").classList.remove("on");
+}
+function openProfile() {
+  if (!state.user) { openModal("m-auth"); return; }
+  const role = state.profile?.role === "admin" ? "관리자" : state.profile?.role === "owner" ? "원장" : "학부모/학생";
+  document.getElementById("profileBody").innerHTML = `
+    <div class="field"><label>닉네임</label><div><b>${esc(state.profile?.nickname || "-")}</b></div></div>
+    <div class="field"><label>이메일</label><div class="mut">${esc(state.user.email || "-")}</div></div>
+    <div class="field"><label>회원 유형</label><div><span class="tag">${role}</span></div></div>
+    <button class="btn gray" style="width:100%;margin-top:8px" onclick="closeModal('m-profile');onAuthBtn()">🚪 로그아웃</button>`;
+  openModal("m-profile");
 }
 </script>
 <script id="part2">
