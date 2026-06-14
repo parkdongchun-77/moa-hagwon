@@ -1522,9 +1522,10 @@ async function renderOwnAtt(id) {
     </div>
     <div class="row" style="margin-bottom:8px"><span class="stat" style="flex:0 0 auto"><b>${todayCnt}</b><span>오늘 출석</span></span>
       <span class="stat" style="flex:0 0 auto"><b>${(data || []).length}</b><span>최근 100건</span></span></div>
-    ${(data || []).length ? `<table><tr><th>일시</th><th>이름</th><th>위치확인</th></tr>
+    ${(data || []).length ? `<div style="overflow-x:auto"><table><tr><th>일시</th><th>이름</th><th>구분</th><th>위치확인</th></tr>
       ${data.map(r => `<tr><td class="mut">${new Date(r.checked_at).toLocaleString("ko-KR")}</td><td>${esc(r.child_name || "")}</td>
-        <td>${r.verified ? `<span style="color:var(--good)">✔ 인정 (${r.distance_m}m)</span>` : r.distance_m != null ? `<span style="color:var(--warn)">미인정 (${r.distance_m}m)</span>` : `<span class="mut">위치 없음</span>`}</td></tr>`).join("")}</table>` : `<p class="mut">아직 출석 기록이 없습니다.</p>`}`;
+        <td><span class="tag ${r.status === "퇴원" ? "gray" : ""}">${esc(r.status || "출석")}</span></td>
+        <td>${r.verified ? `<span style="color:var(--good)">✔ 인정 (${r.distance_m}m)</span>` : r.distance_m != null ? `<span style="color:var(--warn)">미인정 (${r.distance_m}m)</span>` : `<span class="mut">위치 없음</span>`}</td></tr>`).join("")}</table></div>` : `<p class="mut">아직 출석 기록이 없습니다.</p>`}`;
 }
 // ===== 학생·입금 관리 (원장) =====
 const ownEnr = {}; let stuChart;
@@ -1543,6 +1544,11 @@ async function renderOwnStudents(id) {
       <div class="stat"><b>${cur}명</b><span>현재 등록 학생</span></div>
       <div class="stat"><b style="color:${diff >= 0 ? "var(--good)" : "var(--bad)"}">${diff >= 0 ? "+" : ""}${diff}명</b><span>지난달 대비</span></div>
       <div class="stat"><b>${ownEnr[id].length}명</b><span>누적 등록</span></div></div>
+    <div class="card" style="background:#f0f9ff;border:1px solid #bae6fd;margin:8px 0;padding:12px">
+      <b>📨 학원 생활 소식 보내기</b> <span class="mut">전체 학부모에게 한 번에</span>
+      <textarea id="msgBox-${id}" rows="2" placeholder="예: 오늘 수업 분위기 정말 좋았어요! 이번 주 숙제는 ○○ 입니다." style="width:100%;margin-top:6px"></textarea>
+      <button class="btn sm" style="margin-top:6px" onclick="sendAcademyMessage(${id})">📨 전체 학부모에게 전송</button>
+    </div>
     <div class="row" style="margin:8px 0 4px"><b>📈 등록 학생 추이</b>
       <select id="stuBucket-${id}" class="right" onchange="renderStudentTrend(${id})">
         <option value="week">주별</option><option value="month" selected>월별</option>
@@ -1593,7 +1599,7 @@ async function renderPayRoster(id) {
       return `<tr><td>${esc(e.children?.name || "")} <span class="mut">${esc(e.children?.grade || "")}</span></td>
         <td>${esc(e.subject || "")}</td><td class="num">${won(e.monthly_total)}</td>
         <td><button class="btn sm ${paid ? "" : "gray"}" onclick="togglePay(${id},${e.id},${e.child_id},'${ym}',${e.monthly_total || 0},'${nm}',${paid})">${paid ? "✅ 완료" : "미납"}</button></td>
-        <td class="no-print"><button class="btn sm ghost" onclick="sendPayNotice(${e.id},'${ym}')">🔔 입금 안내</button></td></tr>`;
+        <td class="no-print"><button class="btn sm ghost" onclick="sendPayNotice(${e.id},'${ym}')">🔔 입금</button> <button class="btn sm ghost" onclick="sendStudentMessage(${e.id})">📨 소식</button></td></tr>`;
     }).join("")}</table></div>
     <p class="mut" style="margin-top:6px">🔔 입금 안내를 누르면 부모님께 D+3 안내 알림이 가고, 부모님은 알림에서 💳 지역화폐로 결제할 수 있어요.</p>`;
 }
@@ -1615,6 +1621,29 @@ async function sendPayNotice(caid, ym) {
     if (j.error) throw new Error(j.error);
     toast(`입금 안내를 보냈어요. (푸시 ${j.sent || 0}건)`);
   } catch (e) { toast("안내 전송 실패: " + e.message); }
+}
+async function sendAcademyMessage(id) {
+  const msg = (document.getElementById("msgBox-" + id).value || "").trim();
+  if (!msg) return toast("보낼 내용을 입력하세요.");
+  if (!confirm("전체 학부모에게 이 소식을 보낼까요?")) return;
+  if (await callSendMessage({ academy_id: id, message: msg })) document.getElementById("msgBox-" + id).value = "";
+}
+async function sendStudentMessage(caid) {
+  const msg = prompt("이 학생의 학부모에게 보낼 소식을 입력하세요.");
+  if (!msg || !msg.trim()) return;
+  await callSendMessage({ child_academy_id: caid, message: msg.trim() });
+}
+async function callSendMessage(payload) {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + "/functions/v1/send-message", {
+      method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (session?.access_token || ANON_KEY) },
+      body: JSON.stringify(payload) });
+    const j = await res.json();
+    if (j.error) throw new Error(j.error);
+    toast(`소식을 보냈어요. (학부모 ${j.recipients || 0}명 · 푸시 ${j.sent || 0}건)`);
+    return true;
+  } catch (e) { toast("전송 실패: " + e.message); return false; }
 }
 async function renderOwnInfo(id) {
   const { data: a } = await sb.from("academies").select("*").eq("id", id).single();
