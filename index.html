@@ -223,6 +223,14 @@ body{padding-bottom:70px}
   </div>
 </section>
 
+<!-- ===== 공지사항 ===== -->
+<section class="view" id="v-notices">
+  <div class="card"><h2>📢 공지사항</h2><div id="noticeList"></div></div>
+</section>
+<!-- ===== 쿠폰·이벤트 ===== -->
+<section class="view" id="v-events">
+  <div class="card"><h2>🎟 쿠폰 · 이벤트</h2><p class="mut">학원들이 진행 중인 이벤트·프로모션이에요. 누르면 학원 상세로 이동합니다.</p><div id="eventList"></div></div>
+</section>
 <!-- ===== 등·퇴원 QR ===== -->
 <section class="view" id="v-attend">
   <div class="card"><h2>등원·퇴원 QR</h2>
@@ -286,6 +294,13 @@ body{padding-bottom:70px}
         <option value="all">전체</option><option value="신규">신규</option><option value="확인">확인</option><option value="처리완료">처리완료</option></select></div>
     <div class="row" id="inqStats" style="margin:8px 0"></div>
     <div id="inqList"></div>
+  </div>
+  <div class="card"><h3>📢 공지사항 작성</h3>
+    <div class="field"><input id="ntTitle" placeholder="공지 제목"></div>
+    <div class="field"><textarea id="ntBody" rows="3" placeholder="공지 내용"></textarea></div>
+    <div class="row"><label class="chip" style="display:inline-flex;gap:5px;margin:0"><input type="checkbox" id="ntPin" style="width:auto"> 상단 고정</label>
+      <button class="btn sm" onclick="postNotice()">등록</button></div>
+    <div id="adminNotices" style="margin-top:10px"></div>
   </div>
   <div class="card"><h3>소유권 클레임 승인</h3><div id="adminClaims"></div></div>
   <div class="card"><h3>신고 관리</h3><div id="adminReports"></div></div>
@@ -365,6 +380,14 @@ body{padding-bottom:70px}
   <h2>내 정보</h2>
   <div id="profileBody"></div>
 </div></div>
+<!-- 설정 모달 -->
+<div class="modal-bg" id="m-settings"><div class="modal" style="max-width:380px"><button class="close" onclick="closeModal('m-settings')">×</button>
+  <h2>⚙️ 설정</h2>
+  <div class="field"><label>푸시 알림</label>
+    <button class="btn sm" id="setPushBtn" onclick="enablePush()">🔔 푸시 알림 켜기</button>
+    <p class="mut">켜면 자녀 등·퇴원, 입금 안내, 학원 소식 등을 휴대폰으로 받습니다. (아이폰은 홈 화면에 추가 후 사용)</p></div>
+  <div class="field"><label>알림 보기</label><button class="btn sm gray" onclick="closeModal('m-settings');go('noti')">받은 알림 열기</button></div>
+</div></div>
 <!-- 공부방 직접 등록 모달 -->
 <div class="modal-bg" id="m-room"><div class="modal" style="max-width:480px"><button class="close" onclick="closeModal('m-room')">×</button>
   <h2>우리 공부방 직접 등록</h2>
@@ -438,6 +461,25 @@ function go(v) {
   if (v === "admin") loadAdmin();
   if (v === "attend") loadAttend();
   if (v === "attstat") loadAttStat();
+  if (v === "notices") loadNotices();
+  if (v === "events") loadEvents();
+}
+function openSettings() {
+  if ("Notification" in window && Notification.permission === "granted") {
+    const b = document.getElementById("setPushBtn"); b.textContent = "🔔 푸시 알림 켜짐"; b.classList.add("gray");
+  }
+  openModal("m-settings");
+}
+async function loadNotices() {
+  const { data } = await sb.from("notices").select("*").order("pinned", { ascending: false }).order("created_at", { ascending: false }).limit(50);
+  document.getElementById("noticeList").innerHTML = (data || []).map(n => `<div class="review">
+    ${n.pinned ? '<span class="tag">📌 고정</span> ' : ""}<b>${esc(n.title)}</b> <span class="mut">${new Date(n.created_at).toLocaleDateString("ko-KR")}</span>
+    ${n.body ? `<div style="white-space:pre-wrap;margin-top:4px">${esc(n.body)}</div>` : ""}</div>`).join("") || `<div class="empty">등록된 공지가 없습니다.</div>`;
+}
+async function loadEvents() {
+  const { data } = await sb.from("academies").select("id,name,region_city,dong,promo").not("promo", "is", null).neq("promo", "").limit(60);
+  document.getElementById("eventList").innerHTML = (data || []).map(a => `<div class="review">
+    🎉 <b>${esc(a.promo)}</b><div class="mut">${esc(a.name)} · ${esc(a.region_city || "")} ${esc(a.dong || "")} · <a href="#" onclick="openDetail(${a.id});return false">상세 보기</a></div></div>`).join("") || `<div class="empty">진행 중인 이벤트가 없습니다.</div>`;
 }
 function closeModal(id) { document.getElementById(id).classList.remove("on"); }
 function openModal(id) { document.getElementById(id).classList.add("on"); }
@@ -455,7 +497,8 @@ const SHEETS = {
     ["📈", "프리미엄 노출·광고 신청", "go('owner')"],
   ] },
   more: { title: "더보기", items: () => {
-    const arr = [["🔔", "알림", "go('noti')"], ["❓", "FAQ · 1:1 문의 (모아봇)", "toggleBot()"], ["👤", "내 정보", "openProfile()"]];
+    const arr = [["📢", "공지사항", "go('notices')"], ["🎟", "쿠폰 · 이벤트", "go('events')"], ["🔔", "알림", "go('noti')"],
+      ["❓", "FAQ · 1:1 문의 (모아봇)", "toggleBot()"], ["⚙️", "설정", "openSettings()"], ["👤", "내 정보", "openProfile()"]];
     if (state.profile?.role === "admin") arr.push(["🛠", "운영 (관리자)", "go('admin')"]);
     return arr;
   } },
@@ -1883,9 +1926,24 @@ async function updateInquiry(id, field, value) {
   toast(error ? "오류: " + error.message : "저장되었습니다.");
   if (field === "status") loadInquiries();
 }
+async function postNotice() {
+  const title = document.getElementById("ntTitle").value.trim();
+  if (!title) return toast("제목을 입력하세요.");
+  const { error } = await sb.from("notices").insert({ title, body: document.getElementById("ntBody").value.trim() || null, pinned: document.getElementById("ntPin").checked });
+  if (error) return toast("오류: " + error.message);
+  document.getElementById("ntTitle").value = ""; document.getElementById("ntBody").value = ""; document.getElementById("ntPin").checked = false;
+  toast("공지를 등록했습니다."); loadAdminNotices();
+}
+async function loadAdminNotices() {
+  const { data } = await sb.from("notices").select("*").order("created_at", { ascending: false }).limit(20);
+  document.getElementById("adminNotices").innerHTML = (data || []).map(n => `<div class="row" style="padding:5px 0;border-bottom:1px solid var(--line)">
+    <span>${n.pinned ? "📌 " : ""}<b>${esc(n.title)}</b> <span class="mut">${new Date(n.created_at).toLocaleDateString("ko-KR")}</span></span>
+    <button class="btn sm gray right" onclick="delNotice(${n.id})">삭제</button></div>`).join("") || `<p class="mut">등록된 공지가 없습니다.</p>`;
+}
+async function delNotice(id) { await sb.from("notices").delete().eq("id", id); loadAdminNotices(); }
 async function loadAdmin() {
   if (state.profile?.role !== "admin") return;
-  loadSignupChart(); loadInquiries();
+  loadSignupChart(); loadInquiries(); loadAdminNotices();
   const ss = document.getElementById("syncSido");
   if (!ss.options.length) ss.innerHTML = SIDOS.map(s => `<option>${s}</option>`).join("");
   sb.from("app_settings").select("value").eq("key", "neis_key").maybeSingle().then(({ data }) => {
