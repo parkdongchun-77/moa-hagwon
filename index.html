@@ -1510,7 +1510,7 @@ async function loadOwner() {
   if (!acas?.length) { wrap.innerHTML = ""; return; }
   wrap.innerHTML = acas.map(a => `<div class="card" id="own-${a.id}">
     <div class="row"><h3 style="margin:0">${esc(a.name)}</h3><span class="mut">${esc(a.dong || "")}</span>
-      ${a.is_premium ? `<span class="tag ad">프리미엄 노출 중</span>` : `<button class="btn sm ghost right" onclick="orderAd(${a.id})">프리미엄 노출 신청 (월 10만원)</button>`}</div>
+      ${a.is_premium ? `<span class="tag ad">프리미엄 노출 중</span>` : `<button class="btn sm ghost right" onclick="orderAd(${a.id})">프리미엄 노출 신청</button>`}</div>
     <div class="tabbar"><button class="tab on" onclick="ownTab(this,${a.id},'info')">학원 정보</button>
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
@@ -1807,7 +1807,7 @@ async function renderOwnReport(id) {
   });
 }
 async function orderAd(aid) {
-  if (!confirm("프리미엄 노출(검색 상단 고정 + AD 라벨)을 신청할까요? 월 100,000원, 운영자 승인 후 적용됩니다.")) return;
+  if (!confirm("프리미엄 노출(검색 상단 고정 + AD 라벨)을 신청할까요? 운영자 승인 후 적용됩니다.")) return;
   const { error } = await sb.from("ad_orders").insert({ academy_id: aid });
   toast(error ? "오류: " + error.message : "신청 완료! 운영자 승인 후 노출이 시작됩니다.");
 }
