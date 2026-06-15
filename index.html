@@ -408,6 +408,7 @@ body{padding-bottom:70px}
   <div style="display:flex;align-items:center;gap:8px;margin:14px 0;color:var(--mut);font-size:13px"><div style="flex:1;height:1px;background:var(--line)"></div>또는<div style="flex:1;height:1px;background:var(--line)"></div></div>
   <button class="btn" style="width:100%;background:#fee500;color:#191600;margin-bottom:8px" onclick="socialLogin('kakao')">카카오로 시작하기</button>
   <button class="btn" style="width:100%;background:#fff;color:#1f2937;border:1px solid var(--line)" onclick="socialLogin('google')">Google로 시작하기</button>
+  <button class="btn" id="appleBtn" style="width:100%;background:#000;color:#fff;margin-top:8px;display:none" onclick="socialLogin('apple')"> Apple로 로그인</button>
   <p class="mut" style="margin-top:10px;text-align:center"><a href="#" onclick="toggleAuthMode();return false" id="authSwitch">처음이신가요? 회원가입</a></p>
 </div></div>
 <!-- 자녀 모달 -->
@@ -896,6 +897,10 @@ function toggleAuthMode() {
 const KAKAO_REST_KEY = "aa2789f17b58a4941235c74b5250a32d";
 const GOOGLE_CLIENT_ID = "332050617570-g404e20aj20nbkjgl5dv9l4dchecsq7g.apps.googleusercontent.com";
 const APP_REDIRECT = "https://parkdongchun-77.github.io/moa-hagwon/";
+// 애플 로그인(iOS 전용). 애플 개발자 키 발급 후 APPLE_SERVICE_ID를 실제 Service ID로 교체.
+const APPLE_SERVICE_ID = "com.moahagwon.web";
+const APPLE_REDIRECT = SUPABASE_URL + "/functions/v1/apple-login";
+function isIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); }
 function socialLogin(provider) {
   if (provider === "kakao") {
     location.href = "https://kauth.kakao.com/oauth/authorize?response_type=code"
@@ -907,7 +912,36 @@ function socialLogin(provider) {
       + "&redirect_uri=" + encodeURIComponent(APP_REDIRECT)
       + "&scope=" + encodeURIComponent("openid email profile")
       + "&state=google&prompt=select_account";
+  } else if (provider === "apple") {
+    // 애플은 form_post로 코드를 apple-login 함수에 POST → 함수가 OTP 발급 후 앱으로 #apple= 리다이렉트
+    location.href = "https://appleid.apple.com/auth/authorize?response_type=code"
+      + "&client_id=" + APPLE_SERVICE_ID
+      + "&redirect_uri=" + encodeURIComponent(APPLE_REDIRECT)
+      + "&scope=" + encodeURIComponent("name email")
+      + "&response_mode=form_post&state=apple";
   }
+}
+// 애플 로그인 리다이렉트(해시 #apple=otp:email 또는 #apple_error=) 처리
+async function handleAppleRedirect() {
+  if (!location.hash || location.hash.indexOf("apple") < 0) return;
+  const h = new URLSearchParams(location.hash.slice(1));
+  const err = h.get("apple_error");
+  if (err) {
+    history.replaceState({}, "", location.pathname);
+    toast(err === "not_configured" ? "애플 로그인은 준비 중입니다." : "애플 로그인 실패: " + err);
+    return;
+  }
+  const ap = h.get("apple");
+  if (!ap) return;
+  history.replaceState({}, "", location.pathname);
+  const i = ap.lastIndexOf(":");
+  const otp = ap.slice(0, i), email = decodeURIComponent(ap.slice(i + 1));
+  toast("애플 로그인 처리 중...");
+  try {
+    const { error } = await sb.auth.verifyOtp({ email, token: otp, type: "email" });
+    if (error) throw new Error(error.message);
+    closeModal("m-auth"); toast("애플로 로그인되었습니다.");
+  } catch (e) { toast("애플 로그인 실패: " + e.message); }
 }
 // 소셜 로그인 인가코드 리다이렉트 처리 (페이지 로드시)
 async function handleSocialRedirect() {
@@ -2679,7 +2713,8 @@ async function promptInstall() {
   renderBestChips();
   initPush();
   initI18n();
-  initAuth().then(() => { handleSocialRedirect(); handleCheckin(); loadAcademies(); loadBest(); if (!handleCompareShare()) go("search"); });
+  if (isIOS()) { const ab = document.getElementById("appleBtn"); if (ab) ab.style.display = "block"; }
+  initAuth().then(() => { handleSocialRedirect(); handleAppleRedirect(); handleCheckin(); loadAcademies(); loadBest(); if (!handleCompareShare()) go("search"); });
 })();
 </script>
 </body>
