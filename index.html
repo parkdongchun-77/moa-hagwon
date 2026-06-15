@@ -3,8 +3,17 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>모아학원 — 우리 동네 학원, 한눈에 비교</title>
+<!-- PWA(설치형 앱) -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4f46e5">
+<meta name="description" content="우리 동네 학원·공부방을 검색·비교하고 출결·성적·알림장까지 한 곳에서 관리하는 학원 플랫폼.">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="모아학원">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
@@ -244,6 +253,66 @@ body{padding-bottom:70px}
 <!-- ===== 쿠폰·이벤트 ===== -->
 <section class="view" id="v-events">
   <div class="card"><h2>🎟 쿠폰 · 이벤트</h2><p class="mut">학원들이 진행 중인 이벤트·프로모션이에요. 누르면 학원 상세로 이동합니다.</p><div id="eventList"></div></div>
+</section>
+<!-- ===== 이용약관 ===== -->
+<section class="view" id="v-terms">
+  <div class="card" style="max-width:760px;margin:0 auto">
+    <h2>📄 이용약관</h2>
+    <p class="mut">시행일 2026년 6월 15일</p>
+    <div style="line-height:1.7;margin-top:10px">
+      <h3>제1조 (목적)</h3>
+      <p>이 약관은 모아학원(이하 "서비스")이 제공하는 학원·공부방 검색·비교 및 학원 운영 관리 기능의 이용 조건과 절차, 이용자와 서비스의 권리·의무를 규정합니다.</p>
+      <h3>제2조 (용어의 정의)</h3>
+      <p>"이용자"란 학부모·학생 등 서비스를 이용하는 자를, "원장(운영자)"이란 학원 권한을 신청·승인받아 학원 정보를 관리하는 자를, "콘텐츠"란 학원 정보·후기·사진·성적·알림장 등 서비스 내 모든 자료를 말합니다.</p>
+      <h3>제3조 (회원가입 및 계정)</h3>
+      <p>이용자는 구글·카카오 등 소셜 로그인으로 가입할 수 있으며, 본인의 계정 정보를 관리할 책임이 있습니다. 타인의 정보를 도용하거나 허위 정보를 등록해서는 안 됩니다.</p>
+      <h3>제4조 (서비스의 제공)</h3>
+      <p>서비스는 학원 검색·비교, 출결(QR)·성적·알림장·셔틀·위치 공유, 알림(푸시) 등을 제공합니다. 일부 기능은 로그인 또는 원장 권한 승인 후 이용할 수 있습니다. 서비스는 운영상·기술상 필요에 따라 기능을 변경·중단할 수 있습니다.</p>
+      <h3>제5조 (학원 정보의 정확성)</h3>
+      <p>학원 정보는 공공데이터 및 원장이 직접 등록한 내용에 기반합니다. 서비스는 정확성을 위해 노력하나 실제 학원과 차이가 있을 수 있으며, 등록·수강 결정 전 학원에 직접 확인할 것을 권장합니다.</p>
+      <h3>제6조 (이용자의 의무)</h3>
+      <p>이용자는 타인을 비방·명예훼손하거나 허위·불법 콘텐츠를 게시해서는 안 되며, 후기는 사실에 기반해 작성해야 합니다. 서비스는 관련 법령·약관을 위반한 콘텐츠를 사전 통지 없이 삭제·블라인드 처리할 수 있습니다.</p>
+      <h3>제7조 (게시물의 권리)</h3>
+      <p>이용자가 작성한 콘텐츠의 권리는 작성자에게 있으며, 서비스는 서비스 운영·노출 목적 범위 내에서 이를 사용할 수 있습니다.</p>
+      <h3>제8조 (회원 탈퇴 및 이용 제한)</h3>
+      <p>이용자는 [더보기 → 내 정보]에서 언제든 회원 탈퇴(계정 삭제)를 할 수 있으며, 탈퇴 시 개인정보는 개인정보처리방침에 따라 처리됩니다. 서비스는 약관 위반 시 이용을 제한할 수 있습니다.</p>
+      <h3>제9조 (면책)</h3>
+      <p>서비스는 천재지변, 이용자 귀책, 제3자 서비스(지도·결제·메시지 등) 장애로 인한 손해에 대해 책임을 지지 않습니다. 학원과 학부모 간 거래·계약은 당사자 간의 책임입니다.</p>
+      <h3>제10조 (약관의 변경)</h3>
+      <p>서비스는 필요 시 약관을 변경할 수 있으며, 변경 시 시행일과 내용을 서비스 내 공지합니다.</p>
+      <p class="mut" style="margin-top:14px">문의: 모아학원 고객센터 (앱 내 모아봇 1:1 문의)</p>
+    </div>
+    <button class="btn gray" style="margin-top:14px" onclick="go('search')">← 홈으로</button>
+  </div>
+</section>
+<!-- ===== 개인정보처리방침 ===== -->
+<section class="view" id="v-privacy">
+  <div class="card" style="max-width:760px;margin:0 auto">
+    <h2>🔒 개인정보처리방침</h2>
+    <p class="mut">시행일 2026년 6월 15일</p>
+    <div style="line-height:1.7;margin-top:10px">
+      <p>모아학원(이하 "서비스")은 이용자의 개인정보를 중요하게 생각하며, 「개인정보 보호법」 등 관련 법령을 준수합니다.</p>
+      <h3>1. 수집하는 개인정보 항목</h3>
+      <p>회원가입·로그인: 이메일, 소셜 로그인 식별자, 닉네임/이름. 서비스 이용: 자녀 이름·학년, 학원 등록 정보, 출결·성적·알림장 기록, 후기·문의 내용. 선택 기능: 위치 정보(안심 위치 공유 시), 푸시 알림 토큰, 사업자등록번호·사업자등록증(원장 권한 신청 시).</p>
+      <h3>2. 개인정보의 수집·이용 목적</h3>
+      <p>회원 식별 및 서비스 제공, 학원-학부모 매칭, 출결·성적·알림 전달, 원장 권한 심사, 고객 문의 응대, 서비스 개선 및 통계 분석에 이용합니다.</p>
+      <h3>3. 보유 및 이용 기간</h3>
+      <p>회원 탈퇴 시 지체 없이 파기합니다. 단, 관련 법령에서 보존을 요구하는 경우 해당 기간 동안 보관합니다. 위치 정보는 공유 목적 달성 후 최소한으로 보관하며, 사업자등록증은 비공개 저장소에 보관하고 운영자·해당 원장만 접근할 수 있습니다.</p>
+      <h3>4. 개인정보의 제3자 제공</h3>
+      <p>서비스는 원칙적으로 이용자의 개인정보를 외부에 제공하지 않습니다. 법령에 근거하거나 이용자가 동의한 경우에만 제공합니다.</p>
+      <h3>5. 처리 위탁</h3>
+      <p>서비스 운영을 위해 클라우드 인프라(Supabase), 지도(카카오/Google), 푸시 알림 발송 등 일부 업무를 위탁할 수 있으며, 위탁 시 안전한 관리를 위해 필요한 조치를 합니다.</p>
+      <h3>6. 이용자의 권리</h3>
+      <p>이용자는 언제든 자신의 개인정보를 조회·수정할 수 있고, [더보기 → 내 정보]에서 회원 탈퇴(계정 및 개인정보 삭제)를 요청할 수 있습니다.</p>
+      <h3>7. 개인정보의 안전성 확보</h3>
+      <p>접근 권한 관리(행 수준 보안, RLS), 전송 구간 암호화, 민감 파일의 비공개 저장 등으로 개인정보를 보호합니다.</p>
+      <h3>8. 만 14세 미만 아동</h3>
+      <p>만 14세 미만 아동의 정보(자녀 정보 등)는 법정대리인(학부모)의 관리하에 등록·이용되는 것을 전제로 합니다.</p>
+      <h3>9. 개인정보 보호책임자</h3>
+      <p>문의: 모아학원 고객센터(앱 내 모아봇 1:1 문의). 처리방침은 변경 시 시행일과 함께 서비스 내 공지합니다.</p>
+    </div>
+    <button class="btn gray" style="margin-top:14px" onclick="go('search')">← 홈으로</button>
+  </div>
 </section>
 <!-- ===== 등·퇴원 QR ===== -->
 <section class="view" id="v-attend">
@@ -544,7 +613,8 @@ const SHEETS = {
   ] },
   more: { title: "더보기", items: () => {
     const arr = [["📢", "공지사항", "go('notices')"], ["🎟", "쿠폰 · 이벤트", "go('events')"], ["🔔", "알림", "go('noti')"],
-      ["❓", "FAQ · 1:1 문의 (모아봇)", "toggleBot()"], ["⚙️", "설정", "openSettings()"], ["👤", "내 정보", "openProfile()"]];
+      ["❓", "FAQ · 1:1 문의 (모아봇)", "toggleBot()"], ["⚙️", "설정", "openSettings()"], ["👤", "내 정보", "openProfile()"],
+      ["📲", "앱 설치 (홈 화면 추가)", "promptInstall()"], ["📄", "이용약관", "go('terms')"], ["🔒", "개인정보처리방침", "go('privacy')"]];
     if (state.profile?.role === "admin") arr.push(["🛠", "운영 (관리자)", "go('admin')"]);
     return arr;
   } },
@@ -1255,11 +1325,12 @@ async function openDetail(id) {
   openModal("m-detail");
   const body = document.getElementById("detailBody");
   body.innerHTML = `<div class="empty">불러오는 중...</div>`;
-  const [{ data: a }, { data: courses }, { data: reviews }, { data: questions }] = await Promise.all([
+  const [{ data: a }, { data: courses }, { data: reviews }, { data: questions }, { data: teachers }] = await Promise.all([
     sb.from("academies").select("*").eq("id", id).single(),
     sb.from("courses").select("*").eq("academy_id", id).order("monthly_fee"),
     sb.from("reviews").select("*, profiles:user_id(nickname)").eq("academy_id", id).eq("hidden", false).order("created_at", { ascending: false }),
     sb.from("questions").select("*, profiles:user_id(nickname), answers(*, profiles:user_id(nickname))").eq("academy_id", id).order("created_at", { ascending: false }).limit(20),
+    sb.from("academy_teachers").select("*").eq("academy_id", id).order("display_order").order("id"),
   ]);
   if (!a) { body.innerHTML = "학원을 찾을 수 없습니다."; return; }
   state.detail = a;
@@ -1279,6 +1350,16 @@ async function openDetail(id) {
   const localpayHtml = a.localpay_enabled ? `<p style="margin:8px 0"><b style="color:#16a34a">💳 지역화폐 결제 가능</b>${lpTypes.length ? " — " + lpTypes.map(esc).join(", ") : ""}</p>` : "";
   const achievementsHtml = (a.achievements && a.achievements.trim())
     ? `<div class="card" style="background:#fffbeb;border:1px solid #fcd34d;margin:10px 0"><h3 style="margin:0 0 6px;color:#92400e">🏆 학원 자랑거리 · 수상/실적</h3><div style="white-space:pre-wrap">${esc(a.achievements)}</div></div>` : "";
+  const teachersHtml = (teachers && teachers.length)
+    ? `<h3>👨‍🏫 강사진</h3><div class="row" style="flex-wrap:wrap;gap:8px">${teachers.map(t => `
+        <div class="card" style="flex:1 1 220px;min-width:200px;margin:0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:40px;height:40px;border-radius:50%;background:#eef2ff;color:var(--p);font-weight:800;display:flex;align-items:center;justify-content:center;flex:0 0 auto">${esc((t.name || "?").slice(0, 1))}</div>
+            <div><b>${esc(t.name)}</b>${t.subject ? `<div class="mut" style="font-size:13px">${esc(t.subject)}</div>` : ""}</div>
+          </div>
+          ${t.intro ? `<div style="white-space:pre-wrap;margin-top:6px;font-size:13px">${esc(t.intro)}</div>` : ""}
+        </div>`).join("")}</div>`
+    : (a.teachers ? `<h3>강사진</h3><p>${esc(a.teachers)}</p>` : "");
   body.innerHTML = `
     <h2>${a.is_premium ? `<span class="tag ad">AD</span>` : ""}${esc(a.name)} <span class="tag gray">${esc(a.kind || "")}</span></h2>
     <div class="mut">${esc(a.address || "")} ${esc(a.address_detail || "")} ${a.tel ? "· ☎ " + esc(a.tel) : ""}</div>
@@ -1314,7 +1395,7 @@ async function openDetail(id) {
       <div style="font-size:22px;font-weight:800;color:var(--p)" id="calcOut">${won(extraSum)}</div>
     </div>
     ${a.discount_note ? `<p class="mut">💡 할인: ${esc(a.discount_note)}</p>` : ""}
-    ${a.teachers ? `<h3>강사진</h3><p>${esc(a.teachers)}</p>` : ""}
+    ${teachersHtml}
     ${a.timetable ? `<h3>시간표</h3><p style="white-space:pre-wrap">${esc(a.timetable)}</p>` : ""}
     ${(a.time_slots || []).length ? `<p class="mut">수업 시간대: ${a.time_slots.join(", ")}</p>` : ""}
     <h3>후기 ${avg ? `<span class="stars">★ ${avg}</span>` : ""}</h3>
@@ -1736,7 +1817,7 @@ async function admManageAca(id) {
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
       <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
-      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button><button class="tab" onclick="ownTab(this,${a.id},'stats')">📈 통계</button></div>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button><button class="tab" onclick="ownTab(this,${a.id},'teachers')">👨‍🏫 강사</button><button class="tab" onclick="ownTab(this,${a.id},'stats')">📈 통계</button></div>
     <div id="ownBody-${a.id}"></div></div>`;
   renderOwnInfo(a.id);
   document.getElementById("admAcaManage").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1811,7 +1892,7 @@ async function loadOwner() {
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
       <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
-      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button><button class="tab" onclick="ownTab(this,${a.id},'stats')">📈 통계</button></div>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button><button class="tab" onclick="ownTab(this,${a.id},'teachers')">👨‍🏫 강사</button><button class="tab" onclick="ownTab(this,${a.id},'stats')">📈 통계</button></div>
     <div id="ownBody-${a.id}"></div></div>`).join("");
   acas.forEach(a => renderOwnInfo(a.id));
 }
@@ -1825,7 +1906,59 @@ async function ownTab(btn, id, tab) {
   if (tab === "att") renderOwnAtt(id);
   if (tab === "students") renderOwnStudents(id);
   if (tab === "chat") renderOwnChat(id);
+  if (tab === "teachers") renderOwnTeachers(id);
   if (tab === "stats") renderOwnStats(id);
+}
+// 원장: 강사 프로필 추가/수정/삭제 (학부모 상세에 카드로 노출)
+async function renderOwnTeachers(id) {
+  const body = document.getElementById("ownBody-" + id);
+  body.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const { data: ts } = await sb.from("academy_teachers").select("*").eq("academy_id", id).order("display_order").order("id");
+  const list = (ts || []).map(t => `
+    <div class="review" id="tch-${t.id}">
+      <b>${esc(t.name)}</b>${t.subject ? ` <span class="tag">${esc(t.subject)}</span>` : ""}
+      ${t.intro ? `<div style="white-space:pre-wrap;margin-top:4px">${esc(t.intro)}</div>` : ""}
+      <div class="row no-print" style="margin-top:6px">
+        <button class="btn sm gray" onclick="editTeacher(${id},${t.id},'${esc(t.name).replace(/'/g, "\\'")}','${esc(t.subject || "").replace(/'/g, "\\'")}')">수정</button>
+        <button class="btn sm gray" onclick="delTeacher(${id},${t.id})">삭제</button>
+      </div>
+    </div>`).join("") || `<p class="mut">아직 등록된 강사가 없어요. 아래에서 추가하세요.</p>`;
+  body.innerHTML = `
+    <h3>👨‍🏫 강사진 관리</h3>
+    <p class="mut">강사 이름·담당 과목·소개를 등록하면 학부모 상세 화면에 카드로 보여집니다.</p>
+    <div id="tchList-${id}">${list}</div>
+    <div class="card" style="background:#f8fafc;margin-top:10px">
+      <b>강사 추가</b>
+      <div class="field" style="margin-top:6px"><input id="tchName-${id}" placeholder="이름 (예: 김선생)"></div>
+      <div class="field"><input id="tchSubj-${id}" placeholder="담당 과목 (예: 중등 수학)"></div>
+      <div class="field"><textarea id="tchIntro-${id}" rows="2" placeholder="경력·소개 (예: 〇〇대 수학과 / 10년 경력 / 내신·수능 전문)"></textarea></div>
+      <button class="btn sm" onclick="addTeacher(${id})">강사 등록</button>
+    </div>`;
+}
+async function addTeacher(id) {
+  const name = document.getElementById(`tchName-${id}`).value.trim();
+  if (!name) return toast("강사 이름을 입력하세요.");
+  const subject = document.getElementById(`tchSubj-${id}`).value.trim() || null;
+  const intro = document.getElementById(`tchIntro-${id}`).value.trim() || null;
+  const { error } = await sb.from("academy_teachers").insert({ academy_id: id, name, subject, intro });
+  if (error) return toast("오류: " + error.message);
+  toast("강사를 등록했어요."); renderOwnTeachers(id);
+}
+async function editTeacher(id, tid, name, subject) {
+  const nm = prompt("강사 이름", name); if (nm === null) return;
+  const sj = prompt("담당 과목", subject || ""); if (sj === null) return;
+  const it = prompt("경력·소개 (생략 가능)", "");
+  const upd = { name: nm.trim(), subject: sj.trim() || null };
+  if (it !== null && it.trim()) upd.intro = it.trim();
+  const { error } = await sb.from("academy_teachers").update(upd).eq("id", tid);
+  if (error) return toast("오류: " + error.message);
+  toast("수정했어요."); renderOwnTeachers(id);
+}
+async function delTeacher(id, tid) {
+  if (!confirm("이 강사를 삭제할까요?")) return;
+  const { error } = await sb.from("academy_teachers").delete().eq("id", tid);
+  if (error) return toast("오류: " + error.message);
+  renderOwnTeachers(id);
 }
 async function renderOwnStats(id) {
   const body = document.getElementById("ownBody-" + id);
@@ -2423,6 +2556,23 @@ async function botSearch(q) {
   return true;
 }
 // ===== 초기화 =====
+// ===== PWA 홈 화면 추가(설치) =====
+let deferredInstall = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); deferredInstall = e; });
+function isStandalone() { return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true; }
+async function promptInstall() {
+  if (isStandalone()) return toast("이미 설치된 앱에서 실행 중이에요.");
+  if (deferredInstall) {
+    deferredInstall.prompt();
+    const { outcome } = await deferredInstall.userChoice;
+    deferredInstall = null;
+    toast(outcome === "accepted" ? "홈 화면에 추가되었어요! 📲" : "설치를 취소했어요.");
+    return;
+  }
+  const iOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (iOS) return toast("Safari 하단 '공유' → '홈 화면에 추가'를 눌러 설치하세요.");
+  toast("브라우저 메뉴에서 '앱 설치' 또는 '홈 화면에 추가'를 선택하세요.");
+}
 (function init() {
   renderFilterChips(); refreshCmpBadge();
   const opts = SUBJECTS.map(s => `<option>${s}</option>`).join("");
