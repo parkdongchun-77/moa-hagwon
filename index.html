@@ -147,6 +147,7 @@ body{padding-bottom:70px}
   <button class="nav-btn" data-v="admin" id="navAdmin" onclick="go('admin')" style="display:none">운영</button>
   <div class="spacer"></div>
   <span class="mut" id="userInfo"></span>
+  <button class="btn sm gray" id="langBtn" onclick="toggleLang()" title="Language / 언어" style="min-width:54px">EN</button>
   <button class="btn sm ghost" id="authBtn" onclick="onAuthBtn()">로그인</button>
 </div></header>
 <main>
@@ -561,6 +562,70 @@ const won = n => n == null ? "-" : Number(n).toLocaleString("ko-KR") + "원";
 const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let state = { user: null, profile: null, page: 1, total: 0, signupMode: false, detail: null, leadAcademy: null, enrollChild: null, compare: JSON.parse(localStorage.getItem("moa_cmp") || "[]") };
 function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2600); }
+// ===== 다국어(한/영) — 기본 한국어, DOM 자동 번역(핵심 UI만) =====
+const I18N_EN = {
+  // 헤더/하단바
+  "학원 검색":"Search","비교함":"Compare","학원비":"Tuition","원장센터":"Owner Center","운영":"Admin",
+  "로그인":"Log in","로그아웃":"Log out","학생·학부모":"Students · Parents","학원장":"Academy Owner","더보기":"More",
+  // 더보기/시트 항목
+  "공지사항":"Notices","쿠폰 · 이벤트":"Coupons · Events","알림":"Notifications","설정":"Settings","내 정보":"My Info",
+  "앱 설치 (홈 화면 추가)":"Install App (Add to Home)","이용약관":"Terms of Service","개인정보처리방침":"Privacy Policy",
+  "원장센터 (내 학원 관리)":"Owner Center (My Academy)","프리미엄 노출·광고 신청":"Premium Listing · Ads",
+  "등원·퇴원 QR":"Check-in/out QR","등·퇴원 주간 요약":"Weekly Attendance Summary","알림장·성적":"Notes · Grades",
+  "안심 위치":"Safe Location","운영 (관리자)":"Admin","FAQ · 1:1 문의 (모아봇)":"FAQ · Chat (MoaBot)",
+  // 검색
+  "우리 동네 학원 찾기":"Find Academies Near You","전국":"Nationwide","전체 시/군/구":"All Districts","전체 동/읍/면":"All Neighborhoods",
+  "학원명 검색":"Search by name","검색":"Search","초기화":"Reset","학년:":"Grade:","우리 동네 베스트 학원":"Best Academies Nearby",
+  "이전":"Prev","다음":"Next","과목 전체":"All subjects","비교 담기":"Add to compare","비교함 ✓":"In compare ✓","♥ 관심":"♥ Save",
+  // 비교함
+  "학원 비교함":"Academy Compare","(최대 4곳)":"(up to 4)","공유하기":"Share","인쇄":"Print","비우기":"Clear",
+  // 대시보드
+  "우리 집 학원비 대시보드":"My Tuition Dashboard","+ 자녀 추가":"+ Add Child","갱신":"Update",
+  // 알림
+  "푸시 알림 켜기":"Enable push","푸시 알림 켜짐":"Push enabled","모두 읽음":"Mark all read","등록":"Register",
+  // 위치/기록
+  "내 위치 공유 시작":"Start sharing location","위치 공유 중지":"Stop sharing",
+  // 약관 등
+  "홈으로":"Home","← 홈으로":"← Home",
+  // 공통 버튼/라벨
+  "저장":"Save","취소":"Cancel","확인":"OK","닫기":"Close","삭제":"Delete","수정":"Edit","신청":"Apply","공개":"Public","상세 보기":"Details",
+  "상담 신청":"Request consult","체험 수업 신청":"Request trial","문의 채팅":"Chat","길찾기":"Directions","관심 등록":"Save","출석 QR":"Attendance QR",
+  // 원장 탭
+  "정보 관리":"Info","수강료 관리":"Tuition","상담 리드":"Leads","가격 리포트":"Price Report","출석(QR)":"Attendance (QR)",
+  "학생·입금":"Students · Payments","채팅":"Chat","강사":"Teachers","통계":"Stats",
+  // 입력 placeholder
+  "시/군/구 (예: 천안시, 강남구)":"District (e.g. Gangnam-gu)","동/읍/면 (선택)":"Neighborhood (optional)",
+};
+function curLang() { try { return localStorage.getItem("moa_lang") || "ko"; } catch (e) { return "ko"; } }
+function trEN(raw) {
+  const s = raw.trim(); if (!s) return raw;
+  let out = I18N_EN[s];
+  if (!out) { const m = s.match(/^([^가-힣]+?\s*)([가-힣].*)$/); if (m && I18N_EN[m[2].trim()]) out = m[1] + I18N_EN[m[2].trim()]; }
+  if (!out) return raw;
+  return raw.replace(s, out);
+}
+let i18nObs = null;
+function applyI18n() {
+  if (curLang() !== "en") return;
+  if (i18nObs) i18nObs.disconnect();
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let n; while ((n = w.nextNode())) { const v = n.nodeValue; if (v && /[가-힣]/.test(v)) { const t = trEN(v); if (t !== v) n.nodeValue = t; } }
+  document.querySelectorAll("input[placeholder],textarea[placeholder]").forEach(el => { const t = trEN(el.placeholder); if (t !== el.placeholder) el.placeholder = t; });
+  if (i18nObs) i18nObs.observe(document.body, { childList: true, subtree: true, characterData: true });
+}
+function initI18n() {
+  const btn = document.getElementById("langBtn"); if (btn) btn.textContent = curLang() === "en" ? "한국어" : "EN";
+  if (curLang() === "en") {
+    let pend = null;
+    i18nObs = new MutationObserver(() => { clearTimeout(pend); pend = setTimeout(applyI18n, 200); });
+    applyI18n();
+  }
+}
+function toggleLang() {
+  const next = curLang() === "en" ? "ko" : "en";
+  try { localStorage.setItem("moa_lang", next); } catch (e) {}
+  location.reload();
+}
 function go(v) {
   document.querySelectorAll(".view").forEach(e => e.classList.remove("on"));
   document.getElementById("v-" + v).classList.add("on");
@@ -2612,6 +2677,7 @@ async function promptInstall() {
   document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("on"); }));
   renderBestChips();
   initPush();
+  initI18n();
   initAuth().then(() => { handleSocialRedirect(); handleCheckin(); loadAcademies(); loadBest(); if (!handleCompareShare()) go("search"); });
 })();
 </script>
