@@ -1350,8 +1350,9 @@ async function openDetail(id) {
   const localpayHtml = a.localpay_enabled ? `<p style="margin:8px 0"><b style="color:#16a34a">💳 지역화폐 결제 가능</b>${lpTypes.length ? " — " + lpTypes.map(esc).join(", ") : ""}</p>` : "";
   const achievementsHtml = (a.achievements && a.achievements.trim())
     ? `<div class="card" style="background:#fffbeb;border:1px solid #fcd34d;margin:10px 0"><h3 style="margin:0 0 6px;color:#92400e">🏆 학원 자랑거리 · 수상/실적</h3><div style="white-space:pre-wrap">${esc(a.achievements)}</div></div>` : "";
-  const teachersHtml = (a.show_teachers === false) ? "" : (teachers && teachers.length)
-    ? `<h3>👨‍🏫 강사진</h3><div class="row" style="flex-wrap:wrap;gap:8px">${teachers.map(t => `
+  const visTeachers = (teachers || []).filter(t => t.is_active !== false);
+  const teachersHtml = (a.show_teachers === false) ? "" : (visTeachers.length)
+    ? `<h3>👨‍🏫 강사진</h3><div class="row" style="flex-wrap:wrap;gap:8px">${visTeachers.map(t => `
         <div class="card" style="flex:1 1 220px;min-width:200px;margin:0">
           <div style="display:flex;align-items:center;gap:8px">
             <div style="width:40px;height:40px;border-radius:50%;background:#eef2ff;color:var(--p);font-weight:800;display:flex;align-items:center;justify-content:center;flex:0 0 auto">${esc((t.name || "?").slice(0, 1))}</div>
@@ -1918,22 +1919,27 @@ async function renderOwnTeachers(id) {
     sb.from("academies").select("show_teachers").eq("id", id).single(),
   ]);
   const on = aca ? aca.show_teachers !== false : true;
-  const list = (ts || []).map(t => `
-    <div class="review" id="tch-${t.id}">
-      <b>${esc(t.name)}</b>${t.subject ? ` <span class="tag">${esc(t.subject)}</span>` : ""}
+  const list = (ts || []).map(t => {
+    const act = t.is_active !== false;
+    return `
+    <div class="review" id="tch-${t.id}" style="${act ? "" : "opacity:.55"}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div><b>${esc(t.name)}</b>${t.subject ? ` <span class="tag">${esc(t.subject)}</span>` : ""}${act ? "" : ` <span class="tag gray">비공개</span>`}</div>
+        <label class="chip" style="display:inline-flex;align-items:center;gap:5px;flex:0 0 auto"><input type="checkbox" ${act ? "checked" : ""} style="width:auto" onchange="toggleTeacher(${id},${t.id},this.checked)"> 공개</label>
+      </div>
       ${t.intro ? `<div style="white-space:pre-wrap;margin-top:4px">${esc(t.intro)}</div>` : ""}
       <div class="row no-print" style="margin-top:6px">
         <button class="btn sm gray" onclick="editTeacher(${id},${t.id},'${esc(t.name).replace(/'/g, "\\'")}','${esc(t.subject || "").replace(/'/g, "\\'")}')">수정</button>
         <button class="btn sm gray" onclick="delTeacher(${id},${t.id})">삭제</button>
       </div>
-    </div>`).join("") || `<p class="mut">아직 등록된 강사가 없어요. 아래에서 추가하세요.</p>`;
+    </div>`; }).join("") || `<p class="mut">아직 등록된 강사가 없어요. 아래에서 추가하세요.</p>`;
   body.innerHTML = `
     <h3>👨‍🏫 강사진 관리</h3>
     <div class="card" style="background:#eef2ff;border:none;display:flex;align-items:center;justify-content:space-between;gap:10px">
       <div><b>강사진 학부모 공개</b><div class="mut" style="font-size:13px">끄면 등록한 강사가 학부모 화면에 보이지 않아요. (원장님이 직접 선택)</div></div>
       <label class="chip" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="tchShow-${id}" ${on ? "checked" : ""} style="width:auto" onchange="toggleShowTeachers(${id},this.checked)"> 공개</label>
     </div>
-    <p class="mut">강사 이름·담당 과목·소개를 등록하면, 공개를 켰을 때 학부모 상세 화면에 카드로 보여집니다.</p>
+    <p class="mut">강사 이름·담당 과목·소개를 등록하세요. 위 토글로 전체를 끄거나, 강사마다 옆의 '공개' 토글로 일부만 보이게 할 수 있어요. (강사 1명~여러 명 자유롭게 관리)</p>
     <div id="tchList-${id}">${list}</div>
     <div class="card" style="background:#f8fafc;margin-top:10px">
       <b>강사 추가</b>
@@ -1948,6 +1954,12 @@ async function toggleShowTeachers(id, on) {
   if (error) { toast("오류: " + error.message); return; }
   toast(on ? "강사진을 학부모에게 공개합니다." : "강사진을 비공개로 전환했어요.");
   if (state.detail && state.detail.id === id) state.detail.show_teachers = on;
+}
+async function toggleTeacher(id, tid, on) {
+  const { error } = await sb.from("academy_teachers").update({ is_active: on }).eq("id", tid);
+  if (error) { toast("오류: " + error.message); return; }
+  toast(on ? "이 강사를 공개합니다." : "이 강사를 비공개로 전환했어요.");
+  renderOwnTeachers(id);
 }
 async function addTeacher(id) {
   const name = document.getElementById(`tchName-${id}`).value.trim();
