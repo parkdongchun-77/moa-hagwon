@@ -844,10 +844,22 @@ function openProfile() {
     <div class="field"><label>닉네임</label><div><b>${esc(state.profile?.nickname || "-")}</b></div></div>
     <div class="field"><label>이메일</label><div class="mut">${esc(state.user.email || "-")}</div></div>
     <div class="field"><label>회원 유형</label><div><span class="tag">${role}</span></div></div>
+    <div class="field"><label>휴대폰 번호 <span class="mut" style="font-size:12px">(학원 알림 수신용 · 선택)</span></label>
+      <div class="row"><input id="pfPhone" type="tel" inputmode="numeric" placeholder="01012345678" value="${esc(state.profile?.phone || "")}" style="flex:1">
+      <button class="btn sm" onclick="savePhone()">저장</button></div></div>
     <button class="btn gray" style="width:100%;margin-top:8px" onclick="closeModal('m-profile');onAuthBtn()">🚪 로그아웃</button>
     <button class="btn" style="width:100%;margin-top:8px;background:var(--bad)" onclick="deleteAccount()">회원 탈퇴 (계정 삭제)</button>
     <p class="mut" style="font-size:12px;margin-top:6px">탈퇴 시 계정과 내 데이터(자녀·후기·알림·채팅 등)가 즉시 삭제되며 되돌릴 수 없습니다.</p>`;
   openModal("m-profile");
+}
+async function savePhone() {
+  if (!state.user) return;
+  const raw = document.getElementById("pfPhone").value.replace(/[^0-9]/g, "");
+  if (raw && !/^01[0-9]{8,9}$/.test(raw)) return toast("휴대폰 번호를 정확히 입력하세요. (예: 01012345678)");
+  const { error } = await sb.from("profiles").update({ phone: raw || null }).eq("id", state.user.id);
+  if (error) return toast("저장 실패: " + error.message);
+  if (state.profile) state.profile.phone = raw || null;
+  toast(raw ? "휴대폰 번호를 저장했어요." : "휴대폰 번호를 삭제했어요.");
 }
 async function deleteAccount() {
   if (!confirm("정말 회원 탈퇴하시겠어요?\n계정과 내 데이터가 즉시 삭제되며 되돌릴 수 없습니다.")) return;
