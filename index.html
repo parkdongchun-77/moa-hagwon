@@ -612,8 +612,8 @@ const SHEETS = {
     ["📈", "프리미엄 노출·광고 신청", "go('owner')"],
   ] },
   more: { title: "더보기", items: () => {
-    const arr = [["📢", "공지사항", "go('notices')"], ["🎟", "쿠폰 · 이벤트", "go('events')"], ["🔔", "알림", "go('noti')"],
-      ["❓", "FAQ · 1:1 문의 (모아봇)", "toggleBot()"], ["⚙️", "설정", "openSettings()"], ["👤", "내 정보", "openProfile()"],
+    const arr = [["📢", "공지사항", "go('notices')"], ["🔔", "알림", "go('noti')"],
+      ["⚙️", "설정", "openSettings()"], ["👤", "내 정보", "openProfile()"],
       ["📲", "앱 설치 (홈 화면 추가)", "promptInstall()"], ["📄", "이용약관", "go('terms')"], ["🔒", "개인정보처리방침", "go('privacy')"]];
     if (state.profile?.role === "admin") arr.push(["🛠", "운영 (관리자)", "go('admin')"]);
     return arr;
@@ -2187,7 +2187,7 @@ async function renderOwnInfo(id) {
       <div class="field"><label>시간표</label><textarea id="oi-timetable-${id}" rows="2">${esc(a.timetable || "")}</textarea></div>
     </div>
     <div class="grid2">
-      <div class="field"><label>프로모션/이벤트 (예: 첫 달 50% 할인)</label><input id="oi-promo-${id}" value="${esc(a.promo || "")}"></div>
+      <div class="field"><label>🎟 쿠폰 · 이벤트 / 프로모션 (학부모 상세에 🎉로 노출 · 예: 첫 달 50% 할인, 등록비 면제 쿠폰)</label><input id="oi-promo-${id}" value="${esc(a.promo || "")}" placeholder="예: 신규 등록 시 첫 달 50% 할인"></div>
       <div class="field"><label>할인 안내 (형제/장기등록 등)</label><input id="oi-discount-${id}" value="${esc(a.discount_note || "")}"></div>
     </div>
     <div class="field"><label>수업 시간대</label>
