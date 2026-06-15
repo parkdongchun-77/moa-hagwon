@@ -1350,7 +1350,7 @@ async function openDetail(id) {
   const localpayHtml = a.localpay_enabled ? `<p style="margin:8px 0"><b style="color:#16a34a">💳 지역화폐 결제 가능</b>${lpTypes.length ? " — " + lpTypes.map(esc).join(", ") : ""}</p>` : "";
   const achievementsHtml = (a.achievements && a.achievements.trim())
     ? `<div class="card" style="background:#fffbeb;border:1px solid #fcd34d;margin:10px 0"><h3 style="margin:0 0 6px;color:#92400e">🏆 학원 자랑거리 · 수상/실적</h3><div style="white-space:pre-wrap">${esc(a.achievements)}</div></div>` : "";
-  const teachersHtml = (teachers && teachers.length)
+  const teachersHtml = (a.show_teachers === false) ? "" : (teachers && teachers.length)
     ? `<h3>👨‍🏫 강사진</h3><div class="row" style="flex-wrap:wrap;gap:8px">${teachers.map(t => `
         <div class="card" style="flex:1 1 220px;min-width:200px;margin:0">
           <div style="display:flex;align-items:center;gap:8px">
@@ -1913,7 +1913,11 @@ async function ownTab(btn, id, tab) {
 async function renderOwnTeachers(id) {
   const body = document.getElementById("ownBody-" + id);
   body.innerHTML = `<div class="empty">불러오는 중...</div>`;
-  const { data: ts } = await sb.from("academy_teachers").select("*").eq("academy_id", id).order("display_order").order("id");
+  const [{ data: ts }, { data: aca }] = await Promise.all([
+    sb.from("academy_teachers").select("*").eq("academy_id", id).order("display_order").order("id"),
+    sb.from("academies").select("show_teachers").eq("id", id).single(),
+  ]);
+  const on = aca ? aca.show_teachers !== false : true;
   const list = (ts || []).map(t => `
     <div class="review" id="tch-${t.id}">
       <b>${esc(t.name)}</b>${t.subject ? ` <span class="tag">${esc(t.subject)}</span>` : ""}
@@ -1925,7 +1929,11 @@ async function renderOwnTeachers(id) {
     </div>`).join("") || `<p class="mut">아직 등록된 강사가 없어요. 아래에서 추가하세요.</p>`;
   body.innerHTML = `
     <h3>👨‍🏫 강사진 관리</h3>
-    <p class="mut">강사 이름·담당 과목·소개를 등록하면 학부모 상세 화면에 카드로 보여집니다.</p>
+    <div class="card" style="background:#eef2ff;border:none;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div><b>강사진 학부모 공개</b><div class="mut" style="font-size:13px">끄면 등록한 강사가 학부모 화면에 보이지 않아요. (원장님이 직접 선택)</div></div>
+      <label class="chip" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="tchShow-${id}" ${on ? "checked" : ""} style="width:auto" onchange="toggleShowTeachers(${id},this.checked)"> 공개</label>
+    </div>
+    <p class="mut">강사 이름·담당 과목·소개를 등록하면, 공개를 켰을 때 학부모 상세 화면에 카드로 보여집니다.</p>
     <div id="tchList-${id}">${list}</div>
     <div class="card" style="background:#f8fafc;margin-top:10px">
       <b>강사 추가</b>
@@ -1934,6 +1942,12 @@ async function renderOwnTeachers(id) {
       <div class="field"><textarea id="tchIntro-${id}" rows="2" placeholder="경력·소개 (예: 〇〇대 수학과 / 10년 경력 / 내신·수능 전문)"></textarea></div>
       <button class="btn sm" onclick="addTeacher(${id})">강사 등록</button>
     </div>`;
+}
+async function toggleShowTeachers(id, on) {
+  const { error } = await sb.from("academies").update({ show_teachers: on }).eq("id", id);
+  if (error) { toast("오류: " + error.message); return; }
+  toast(on ? "강사진을 학부모에게 공개합니다." : "강사진을 비공개로 전환했어요.");
+  if (state.detail && state.detail.id === id) state.detail.show_teachers = on;
 }
 async function addTeacher(id) {
   const name = document.getElementById(`tchName-${id}`).value.trim();
