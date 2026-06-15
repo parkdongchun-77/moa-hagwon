@@ -1837,8 +1837,15 @@ async function loadNoti() {
   el.innerHTML = (data || []).map(n => `<div class="review" style="${n.read ? "opacity:.55" : ""}">
     <span class="tag ${n.ntype === "가격변경" ? "" : "gray"}">${esc(n.ntype)}</span> <b>${esc(n.title)}</b>
     <div class="mut">${esc(n.body || "")} · ${new Date(n.created_at).toLocaleDateString("ko-KR")}</div>
-    ${n.ntype === "입금안내" && n.academy_id ? `<button class="btn sm" style="margin-top:6px;background:#16a34a;color:#fff;font-weight:700" onclick="openPay(${n.academy_id},${n.amount || 0})">💳 지역화폐로 결제</button>` : ""}</div>`).join("") || `<div class="empty">알림이 없습니다.</div>`;
+    ${n.ntype === "입금안내" && n.academy_id ? `<div class="row no-print" style="margin-top:6px;gap:6px"><button class="btn sm" style="background:#16a34a;color:#fff;font-weight:700" onclick="openPay(${n.academy_id},${n.amount || 0})">💳 지역화폐로 결제</button>${n.child_academy_id && n.year_month ? `<button class="btn sm gray" onclick="markPaidByParent(${n.child_academy_id},'${esc(n.year_month)}',this)">✅ 결제했어요</button>` : ""}</div>` : ""}</div>`).join("") || `<div class="empty">알림이 없습니다.</div>`;
   loadWatches();
+}
+async function markPaidByParent(caid, ym, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = "처리 중..."; }
+  const { error } = await sb.rpc("mark_paid_by_parent", { p_caid: caid, p_ym: ym });
+  if (error) { if (btn) { btn.disabled = false; btn.textContent = "✅ 결제했어요"; } return toast("처리 실패: " + error.message); }
+  if (btn) { btn.textContent = "✅ 결제 확인 전달됨"; btn.style.background = "#dcfce7"; }
+  toast("결제 확인을 학원에 전달했어요. 감사합니다! 🙏");
 }
 async function markAllRead() {
   if (!state.user) return;
@@ -2231,9 +2238,9 @@ async function renderPayRoster(id) {
   const paidCnt = active.filter(e => (pays || []).find(p => p.child_academy_id === e.id && p.status === "완료")).length;
   el.innerHTML = `<p class="mut">입금 완료 ${paidCnt} / ${active.length}명</p><div style="overflow-x:auto"><table>
     <tr><th>학생</th><th>과목</th><th class="num">월 학원비</th><th>납부일</th><th>입금</th><th class="no-print">안내</th></tr>
-    ${active.map(e => { const p = (pays || []).find(x => x.child_academy_id === e.id); const paid = p && p.status === "완료";
+    ${active.map(e => { const p = (pays || []).find(x => x.child_academy_id === e.id); const paid = p && p.status === "완료"; const selfRep = paid && p.self_reported;
       const nm = (e.children?.name || "").replace(/'/g, "\\'");
-      return `<tr><td>${esc(e.children?.name || "")} <span class="mut">${esc(e.children?.grade || "")}</span></td>
+      return `<tr><td>${esc(e.children?.name || "")} <span class="mut">${esc(e.children?.grade || "")}</span>${selfRep ? ` <span class="tag" style="background:#fef9c3;color:#854d0e">🙋 부모 결제알림</span>` : ""}</td>
         <td>${esc(e.subject || "")}</td><td class="num">${won(e.monthly_total)}</td>
         <td style="white-space:nowrap">매월 <input type="number" min="1" max="31" value="${e.billing_day || ""}" placeholder="-" style="width:54px;padding:4px 6px;text-align:center" onchange="saveBillingDay(${id},${e.id},this.value)">일</td>
         <td><button class="btn sm ${paid ? "" : "gray"}" onclick="togglePay(${id},${e.id},${e.child_id},'${ym}',${e.monthly_total || 0},'${nm}',${paid})">${paid ? "✅ 완료" : "입금 전"}</button></td>
