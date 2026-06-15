@@ -365,6 +365,10 @@ body{padding-bottom:70px}
     </div>
     <div class="row" id="adminStats"></div>
   </div>
+  <div class="card"><h3>📊 오늘 · 최근 7일 현황</h3><div class="row" id="adminKpi"><div class="empty">불러오는 중...</div></div></div>
+  <div class="card"><div class="row"><h3 style="margin:0">🩺 에러 · 시스템 로그 <span class="mut">(최근 50건)</span></h3>
+      <button class="btn sm gray right" onclick="loadAdminErrors()">새로고침</button></div>
+    <div id="adminErrors"><div class="empty">불러오는 중...</div></div></div>
   <div class="card"><div class="row"><h3 style="margin:0">📈 가입자 추이 <span class="mut">(학생·부모님 / 학원장)</span></h3>
       <select id="suBucket" class="right" onchange="loadSignupChart()">
         <option value="day">일별</option><option value="week">주별</option>
@@ -973,7 +977,7 @@ async function handleSocialRedirect() {
     const { error } = await sb.auth.verifyOtp({ email: j.email, token: j.otp, type: "email" });
     if (error) throw new Error(error.message);
     toast(label + "(으)로 로그인되었습니다.");
-  } catch (e) { toast(label + " 로그인 실패: " + e.message); }
+  } catch (e) { toast(label + " 로그인 실패: " + e.message); logError("login:" + state, e.message); }
 }
 async function doAuth() {
   const email = document.getElementById("aEmail").value.trim(), pw = document.getElementById("aPw").value;
@@ -2275,7 +2279,7 @@ async function callSendMessage(payload) {
     if (j.error) throw new Error(j.error);
     toast(`소식을 보냈어요. (학부모 ${j.recipients || 0}명 · 푸시 ${j.sent || 0}건)`);
     return true;
-  } catch (e) { toast("전송 실패: " + e.message); return false; }
+  } catch (e) { toast("전송 실패: " + e.message); logError("send-message", e.message); return false; }
 }
 async function renderOwnInfo(id) {
   const { data: a } = await sb.from("academies").select("*").eq("id", id).single();
@@ -2540,9 +2544,33 @@ async function loadAdminNotices() {
     <button class="btn sm gray right" onclick="delNotice(${n.id})">삭제</button></div>`).join("") || `<p class="mut">등록된 공지가 없습니다.</p>`;
 }
 async function delNotice(id) { await sb.from("notices").delete().eq("id", id); loadAdminNotices(); }
+// 클라이언트 오류를 관리자 로그로 적재 (실패해도 조용히 무시)
+async function logError(source, message, detail) {
+  try { await sb.from("error_logs").insert({ source, message: String(message || "").slice(0, 500), detail: detail || null, user_id: state.user?.id || null }); } catch (e) {}
+}
+async function loadAdminKpi() {
+  const { data, error } = await sb.rpc("admin_dashboard");
+  const el = document.getElementById("adminKpi"); if (!el) return;
+  if (error || !data) { el.innerHTML = `<p class="mut">집계를 불러오지 못했습니다.</p>`; return; }
+  const d = data;
+  const card = (b, s, hl) => `<div class="stat"><b style="${hl ? "color:var(--bad)" : ""}">${(b || 0).toLocaleString()}</b><span>${s}</span></div>`;
+  el.innerHTML =
+    card(d.today_parent, "오늘 가입(학부모)") + card(d.today_owner, "오늘 가입(원장)") + card(d.today_academy, "오늘 신규 학원") +
+    card(d.week_parent, "최근7일 학부모") + card(d.week_owner, "최근7일 원장") + card(d.week_academy, "최근7일 신규학원") +
+    card(d.push_subs, "푸시 구독자") + card(d.sends_7d, "최근7일 발송") + card(d.errors_today, "오늘 에러", d.errors_today > 0);
+}
+async function loadAdminErrors() {
+  const el = document.getElementById("adminErrors"); if (!el) return;
+  const { data, error } = await sb.from("error_logs").select("*").order("created_at", { ascending: false }).limit(50);
+  if (error) { el.innerHTML = `<p class="mut">로그를 불러오지 못했습니다.</p>`; return; }
+  el.innerHTML = (data || []).length ? `<div style="overflow-x:auto"><table><tr><th>일시</th><th>출처</th><th>내용</th></tr>${data.map(r => `<tr>
+    <td class="mut" style="white-space:nowrap">${new Date(r.created_at).toLocaleString("ko-KR")}</td>
+    <td><span class="tag">${esc(r.source || "-")}</span></td>
+    <td>${esc(r.message || "")}</td></tr>`).join("")}</table></div>` : `<p class="mut">최근 오류가 없습니다. 👍</p>`;
+}
 async function loadAdmin() {
   if (state.profile?.role !== "admin") return;
-  loadSignupChart(); loadInquiries(); loadAdminNotices();
+  loadSignupChart(); loadInquiries(); loadAdminNotices(); loadAdminKpi(); loadAdminErrors();
   const ss = document.getElementById("syncSido");
   if (!ss.options.length) ss.innerHTML = SIDOS.map(s => `<option>${s}</option>`).join("");
   sb.from("app_settings").select("value").eq("key", "neis_key").maybeSingle().then(({ data }) => {
@@ -2668,7 +2696,7 @@ async function botAI(q) {
     typing.remove();
     if (j.answer) { botMsg(esc(j.answer).replace(/\n/g, "<br>")); botHistory.push({ role: "bot", text: j.answer }); }
     else { botMsg("지금은 답을 못 찾았어요 🙏 FAQ 버튼을 눌러보거나, 학원은 '천안 수학학원'처럼 지역+과목으로 물어봐 주세요."); }
-  } catch (e) { typing.remove(); botMsg("연결이 잠시 불안정해요. 다시 시도해 주세요."); }
+  } catch (e) { typing.remove(); botMsg("연결이 잠시 불안정해요. 다시 시도해 주세요."); logError("moa-bot", e.message); }
 }
 async function botSearch(q) {
   const sido = SIDOS.find(s => q.includes(s));
