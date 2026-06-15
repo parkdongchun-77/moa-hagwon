@@ -223,6 +223,16 @@ body{padding-bottom:70px}
   </div>
 </section>
 
+<!-- ===== 안심 위치 (학부모) ===== -->
+<section class="view" id="v-location">
+  <div class="card"><h2>📍 안심 위치</h2>
+    <p class="mut">앱이 켜져 있는 동안 아이 기기가 현재 위치를 공유하고, 부모가 지도에서 확인합니다. (브라우저 특성상 앱이 꺼지면 갱신은 멈춥니다. 24시간 추적은 추후 앱 출시 시 지원)</p>
+    <div class="row" style="margin:8px 0"><span class="mut">이 기기 = </span><select id="locChild" style="width:auto"></select>
+      <button class="btn sm" id="locShareBtn" onclick="toggleLocShare()">📍 내 위치 공유 시작</button></div>
+    <div id="locMap" style="height:300px;border-radius:10px;overflow:hidden"></div>
+    <div id="locList" style="margin-top:10px"></div>
+  </div>
+</section>
 <!-- ===== 알림장·성적 (학부모) ===== -->
 <section class="view" id="v-records">
   <div class="card"><h2>📓 알림장 · 성적</h2><p class="mut">자녀가 다니는 학원에서 보낸 알림장과 성적이에요.</p><div id="recordsBody"></div></div>
@@ -496,6 +506,7 @@ function go(v) {
   if (v === "notices") loadNotices();
   if (v === "events") loadEvents();
   if (v === "records") loadRecords();
+  if (v === "location") loadLocation();
 }
 function openSettings() {
   if ("Notification" in window && Notification.permission === "granted") {
@@ -523,6 +534,7 @@ const SHEETS = {
     ["📷", "등원·퇴원 QR", "go('attend')"],
     ["📊", "등·퇴원 주간 요약", "go('attstat')"],
     ["📓", "알림장·성적", "go('records')"],
+    ["📍", "안심 위치", "go('location')"],
     ["🔔", "알림", "go('noti')"],
     ["⚖️", "비교함", "go('compare')"],
   ] },
@@ -582,6 +594,57 @@ async function saveGrade() {
   if (error) return toast("오류: " + error.message);
   closeModal("m-grade");
   await callSendMessage({ child_academy_id: c.caid, message: `📊 성적 안내\n${title}: ${score}/${max}점${memo ? "\n" + memo : ""}` });
+}
+// ===== 안심 위치 (앱 켜져 있을 때 공유) =====
+let locMap = null, locMarkers = {}, locShareTimer = null, locShareChild = null;
+async function loadLocation() {
+  if (!state.user) { document.getElementById("locList").innerHTML = `<div class="card empty">로그인하면 안심 위치를 쓸 수 있어요.</div>`; return; }
+  const { data: kids } = await sb.from("children").select("id,name").eq("user_id", state.user.id).order("id");
+  const sel = document.getElementById("locChild");
+  sel.innerHTML = (kids || []).map(k => `<option value="${k.id}">${esc(k.name)}</option>`).join("") || `<option value="">자녀 없음</option>`;
+  if (!window.L) return;
+  if (!locMap) {
+    locMap = L.map("locMap").setView([36.5, 127.8], 7);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(locMap);
+  }
+  setTimeout(() => locMap.invalidateSize(), 200);
+  refreshLocations();
+  document.getElementById("locShareBtn").textContent = locShareTimer ? "⏹ 위치 공유 중지" : "📍 내 위치 공유 시작";
+}
+async function refreshLocations() {
+  const { data: kids } = await sb.from("children").select("id,name").eq("user_id", state.user.id);
+  const ids = (kids || []).map(k => k.id);
+  if (!ids.length) { document.getElementById("locList").innerHTML = `<p class="mut">먼저 자녀를 등록해 주세요.</p>`; return; }
+  const { data: locs } = await sb.from("child_locations").select("*").in("child_id", ids);
+  const nameOf = id => (kids.find(k => k.id === id) || {}).name || "자녀";
+  const pts = [];
+  Object.values(locMarkers).forEach(m => locMap.removeLayer(m)); locMarkers = {};
+  (locs || []).forEach(l => {
+    if (l.lat && l.lng) {
+      locMarkers[l.child_id] = L.marker([l.lat, l.lng]).addTo(locMap).bindPopup(`${esc(nameOf(l.child_id))}<br>${new Date(l.updated_at).toLocaleString("ko-KR")}`);
+      pts.push([l.lat, l.lng]);
+    }
+  });
+  if (pts.length) locMap.fitBounds(pts, { padding: [40, 40], maxZoom: 16 });
+  document.getElementById("locList").innerHTML = (locs || []).length ? (locs || []).map(l => {
+    const mins = Math.round((Date.now() - new Date(l.updated_at)) / 60000);
+    return `<div class="review"><b>${esc(nameOf(l.child_id))}</b> <span class="mut">${mins < 1 ? "방금 전" : mins + "분 전"} 위치</span>
+      · <a href="#" onclick="window.open('https://www.google.com/maps?q=${l.lat},${l.lng}','_blank');return false">지도 크게 보기</a></div>`;
+  }).join("") : `<p class="mut">아직 공유된 위치가 없어요. 아이 기기에서 '내 위치 공유 시작'을 눌러주세요.</p>`;
+}
+function toggleLocShare() {
+  if (locShareTimer) { clearInterval(locShareTimer); locShareTimer = null; document.getElementById("locShareBtn").textContent = "📍 내 위치 공유 시작"; toast("위치 공유를 중지했어요."); return; }
+  const childId = +document.getElementById("locChild").value;
+  if (!childId) return toast("자녀를 먼저 등록·선택하세요.");
+  if (!navigator.geolocation) return toast("이 브라우저는 위치를 지원하지 않아요.");
+  locShareChild = childId;
+  const tick = () => navigator.geolocation.getCurrentPosition(async p => {
+    await sb.from("child_locations").upsert({ child_id: locShareChild, lat: p.coords.latitude, lng: p.coords.longitude, updated_at: new Date().toISOString() });
+    if (document.getElementById("v-location").classList.contains("on")) refreshLocations();
+  }, () => {}, { enableHighAccuracy: true, timeout: 9000 });
+  tick(); locShareTimer = setInterval(tick, 30000);
+  document.getElementById("locShareBtn").textContent = "⏹ 위치 공유 중지";
+  toast("위치 공유 시작! 앱이 켜져 있는 동안 30초마다 갱신됩니다.");
 }
 // 부모: 자녀 알림장·성적 보기 (RLS가 본인 자녀로 필터)
 async function loadRecords() {
