@@ -1178,7 +1178,7 @@ async function openQr(id) {
     <div class="mut" style="margin-top:6px">${esc(a?.region_city || "")} ${esc(a?.dong || "")}</div>`;
 }
 // 지역화폐 결제 안내 — 가맹점 QR/안내 표시 (실제 결제는 학부모의 지역화폐 앱에서)
-async function openPay(id) {
+async function openPay(id, amount) {
   openModal("m-pay");
   document.getElementById("payBox").innerHTML = `<div class="empty">불러오는 중...</div>`;
   const { data: a } = await sb.from("academies").select("name,localpay_enabled,localpay_types,localpay_qr,localpay_note").eq("id", id).single();
@@ -1187,6 +1187,7 @@ async function openPay(id) {
   const types = (a.localpay_types || []).map(esc).join(", ");
   const qr = a.localpay_qr ? `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(a.localpay_qr)}" width="220" height="220" alt="지역화폐 결제 QR" style="background:#fff;border-radius:10px">` : "";
   document.getElementById("payBox").innerHTML = `
+    ${amount ? `<div class="card" style="background:#ecfdf5;border:1px solid #6ee7b7;text-align:center;margin-bottom:10px"><span class="mut">결제하실 금액</span><div style="font-size:26px;font-weight:800;color:#047857">${won(amount)}</div></div>` : ""}
     ${types ? `<p><b>결제 가능한 지역화폐</b><br>${types}</p>` : ""}
     ${qr ? `<div style="margin:10px 0">${qr}<div class="mut" style="margin-top:6px">본인의 지역화폐 앱(카카오페이·네이버페이·비플 등)으로 이 QR을 스캔해 결제하세요.</div></div>` : ""}
     ${a.localpay_note ? `<div class="notice" style="text-align:left">${esc(a.localpay_note)}</div>` : ""}
@@ -1836,7 +1837,7 @@ async function loadNoti() {
   el.innerHTML = (data || []).map(n => `<div class="review" style="${n.read ? "opacity:.55" : ""}">
     <span class="tag ${n.ntype === "가격변경" ? "" : "gray"}">${esc(n.ntype)}</span> <b>${esc(n.title)}</b>
     <div class="mut">${esc(n.body || "")} · ${new Date(n.created_at).toLocaleDateString("ko-KR")}</div>
-    ${n.ntype === "입금안내" && n.academy_id ? `<button class="btn sm" style="margin-top:6px;background:#16a34a;color:#fff;font-weight:700" onclick="openPay(${n.academy_id})">💳 지역화폐로 결제</button>` : ""}</div>`).join("") || `<div class="empty">알림이 없습니다.</div>`;
+    ${n.ntype === "입금안내" && n.academy_id ? `<button class="btn sm" style="margin-top:6px;background:#16a34a;color:#fff;font-weight:700" onclick="openPay(${n.academy_id},${n.amount || 0})">💳 지역화폐로 결제</button>` : ""}</div>`).join("") || `<div class="empty">알림이 없습니다.</div>`;
   loadWatches();
 }
 async function markAllRead() {
@@ -2169,7 +2170,7 @@ async function renderOwnStudents(id) {
   const body = document.getElementById("ownBody-" + id);
   body.innerHTML = `<div class="empty">불러오는 중...</div>`;
   const { data: enr } = await sb.from("child_academies")
-    .select("id,child_id,subject,monthly_total,started_month,ended_month, children(name,grade)").eq("academy_id", id);
+    .select("id,child_id,subject,monthly_total,billing_day,started_month,ended_month, children(name,grade)").eq("academy_id", id);
   ownEnr[id] = enr || [];
   const nowYm = new Date().toISOString().slice(0, 7);
   const prevYm = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().slice(0, 7);
@@ -2229,15 +2230,16 @@ async function renderPayRoster(id) {
   if (!active.length) { el.innerHTML = `<p class="mut">이 달에 등록된 학생이 없습니다.</p>`; return; }
   const paidCnt = active.filter(e => (pays || []).find(p => p.child_academy_id === e.id && p.status === "완료")).length;
   el.innerHTML = `<p class="mut">입금 완료 ${paidCnt} / ${active.length}명</p><div style="overflow-x:auto"><table>
-    <tr><th>학생</th><th>과목</th><th class="num">월 학원비</th><th>입금</th><th class="no-print">안내</th></tr>
+    <tr><th>학생</th><th>과목</th><th class="num">월 학원비</th><th>납부일</th><th>입금</th><th class="no-print">안내</th></tr>
     ${active.map(e => { const p = (pays || []).find(x => x.child_academy_id === e.id); const paid = p && p.status === "완료";
       const nm = (e.children?.name || "").replace(/'/g, "\\'");
       return `<tr><td>${esc(e.children?.name || "")} <span class="mut">${esc(e.children?.grade || "")}</span></td>
         <td>${esc(e.subject || "")}</td><td class="num">${won(e.monthly_total)}</td>
+        <td style="white-space:nowrap">매월 <input type="number" min="1" max="31" value="${e.billing_day || ""}" placeholder="-" style="width:54px;padding:4px 6px;text-align:center" onchange="saveBillingDay(${id},${e.id},this.value)">일</td>
         <td><button class="btn sm ${paid ? "" : "gray"}" onclick="togglePay(${id},${e.id},${e.child_id},'${ym}',${e.monthly_total || 0},'${nm}',${paid})">${paid ? "✅ 완료" : "미납"}</button></td>
         <td class="no-print" style="white-space:nowrap"><button class="btn sm ghost" onclick="sendPayNotice(${e.id},'${ym}')">🔔 입금</button> <button class="btn sm ghost" onclick="openLogModal(${id},${e.id},${e.child_id},'${nm}')">📓 알림장</button> <button class="btn sm ghost" onclick="openGradeModal(${id},${e.id},${e.child_id},'${nm}')">📊 성적</button> <button class="btn sm ghost" onclick="sendStudentMessage(${e.id})">📨 소식</button></td></tr>`;
     }).join("")}</table></div>
-    <p class="mut" style="margin-top:6px">🔔 입금 안내를 누르면 부모님께 D+3 안내 알림이 가고, 부모님은 알림에서 💳 지역화폐로 결제할 수 있어요.</p>`;
+    <p class="mut" style="margin-top:6px">💡 학생마다 <b>납부일</b>(매월 N일)을 입력하면, 🔔 입금 안내가 그 학생의 납부일 기준으로 발송됩니다. 부모님은 알림에서 금액과 함께 💳 지역화폐로 결제할 수 있어요.</p>`;
 }
 async function togglePay(aid, caid, childId, ym, amount, name, paid) {
   const status = paid ? "미납" : "완료";
@@ -2246,8 +2248,24 @@ async function togglePay(aid, caid, childId, ym, amount, name, paid) {
   toast(status === "완료" ? "입금 완료로 표시했어요." : "미납으로 변경했어요.");
   renderPayRoster(aid);
 }
+async function saveBillingDay(aid, caid, val) {
+  let d = parseInt(val, 10);
+  if (val === "" || isNaN(d)) d = null;
+  else if (d < 1 || d > 31) return toast("납부일은 1~31 사이로 입력하세요.");
+  const { error } = await sb.from("child_academies").update({ billing_day: d }).eq("id", caid);
+  if (error) return toast("저장 실패: " + error.message);
+  const e = (ownEnr[aid] || []).find(x => x.id === caid); if (e) e.billing_day = d;
+  toast(d ? `납부일을 매월 ${d}일로 저장했어요.` : "납부일을 비웠어요.");
+}
 async function sendPayNotice(caid, ym) {
-  const due = new Date(); due.setDate(due.getDate() + 3);
+  // 학생 납부일이 있으면 해당 월의 그 날짜를, 없으면 오늘+3일을 안내 기준으로 사용
+  const e = Object.values(ownEnr).flat().find(x => x.id === caid);
+  let due;
+  if (e && e.billing_day) {
+    const [y, m] = ym.split("-").map(Number);
+    const day = Math.min(e.billing_day, new Date(y, m, 0).getDate()); // 말일 보정
+    due = new Date(y, m - 1, day);
+  } else { due = new Date(); due.setDate(due.getDate() + 3); }
   try {
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + "/functions/v1/send-notice", {
