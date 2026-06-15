@@ -1736,7 +1736,7 @@ async function admManageAca(id) {
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
       <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
-      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button></div>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button><button class="tab" onclick="ownTab(this,${a.id},'stats')">📈 통계</button></div>
     <div id="ownBody-${a.id}"></div></div>`;
   renderOwnInfo(a.id);
   document.getElementById("admAcaManage").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1811,7 +1811,7 @@ async function loadOwner() {
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
       <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
-      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button></div>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button><button class="tab" onclick="ownTab(this,${a.id},'stats')">📈 통계</button></div>
     <div id="ownBody-${a.id}"></div></div>`).join("");
   acas.forEach(a => renderOwnInfo(a.id));
 }
@@ -1825,6 +1825,38 @@ async function ownTab(btn, id, tab) {
   if (tab === "att") renderOwnAtt(id);
   if (tab === "students") renderOwnStudents(id);
   if (tab === "chat") renderOwnChat(id);
+  if (tab === "stats") renderOwnStats(id);
+}
+async function renderOwnStats(id) {
+  const body = document.getElementById("ownBody-" + id);
+  body.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const since = new Date(Date.now() - 30 * 864e5).toISOString();
+  const [{ data: enr }, { data: atts }, { data: grs }, { data: aca }] = await Promise.all([
+    sb.from("child_academies").select("child_id, children(name)").eq("academy_id", id),
+    sb.from("attendances").select("child_id,status,checked_at").eq("academy_id", id).gte("checked_at", since),
+    sb.from("grades").select("child_id,score,max_score,created_at,title").eq("academy_id", id),
+    sb.from("academies").select("name").eq("id", id).single(),
+  ]);
+  const map = {};
+  const ensure = (cid, nm) => (map[cid] = map[cid] || { name: nm || "학생", inn: 0, out: 0, last: null, scores: [] });
+  (enr || []).forEach(e => ensure(e.child_id, e.children?.name));
+  (atts || []).forEach(a => { const m = ensure(a.child_id); if (a.status === "퇴원") m.out++; else m.inn++; if (!m.last || a.checked_at > m.last) m.last = a.checked_at; });
+  (grs || []).forEach(g => { const m = ensure(g.child_id); m.scores.push({ pct: g.max_score ? g.score / g.max_score * 100 : g.score, score: g.score, max: g.max_score, t: g.title, at: g.created_at }); });
+  const rows = Object.values(map);
+  const totalIn = (atts || []).filter(a => a.status !== "퇴원").length;
+  body.innerHTML = `
+    <h3 class="print-only" style="display:none">${esc(aca?.name || "학원")} 출석·성적 리포트</h3>
+    <div class="row" style="margin-bottom:8px">
+      <div class="stat"><b>${rows.length}명</b><span>학생</span></div>
+      <div class="stat"><b>${totalIn}회</b><span>최근 30일 등원</span></div>
+      <div class="stat"><b>${(grs || []).length}건</b><span>성적 기록</span></div></div>
+    <div class="row no-print" style="margin-bottom:8px"><button class="btn sm gray" onclick="window.print()">🖨 인쇄 / PDF 저장</button></div>
+    ${rows.length ? `<div style="overflow-x:auto"><table>
+      <tr><th>학생</th><th class="num">등원(30일)</th><th class="num">퇴원</th><th>최근 출석</th><th class="num">성적 평균</th><th>최근 성적</th></tr>
+      ${rows.map(r => { const avg = r.scores.length ? Math.round(r.scores.reduce((a, b) => a + b.pct, 0) / r.scores.length) : null; const last = r.scores.length ? [...r.scores].sort((a, b) => (b.at || "").localeCompare(a.at || ""))[0] : null;
+        return `<tr><td>${esc(r.name)}</td><td class="num">${r.inn}</td><td class="num">${r.out}</td><td class="mut">${r.last ? new Date(r.last).toLocaleDateString("ko-KR") : "-"}</td><td class="num">${avg != null ? avg + "점" : "-"}</td><td class="mut">${last ? esc(last.t || "") + " " + last.score + "/" + last.max : "-"}</td></tr>`;
+      }).join("")}</table></div>
+    <p class="mut" style="margin-top:6px">※ 등원은 최근 30일, 성적은 전체 기록 기준 요약입니다. 성적 평균은 만점 대비 백분율입니다.</p>` : `<p class="mut">아직 학생·출석·성적 데이터가 없습니다.</p>`}`;
 }
 async function renderOwnChat(id) {
   const body = document.getElementById("ownBody-" + id);
