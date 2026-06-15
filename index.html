@@ -2236,10 +2236,11 @@ async function renderPayRoster(id) {
       return `<tr><td>${esc(e.children?.name || "")} <span class="mut">${esc(e.children?.grade || "")}</span></td>
         <td>${esc(e.subject || "")}</td><td class="num">${won(e.monthly_total)}</td>
         <td style="white-space:nowrap">매월 <input type="number" min="1" max="31" value="${e.billing_day || ""}" placeholder="-" style="width:54px;padding:4px 6px;text-align:center" onchange="saveBillingDay(${id},${e.id},this.value)">일</td>
-        <td><button class="btn sm ${paid ? "" : "gray"}" onclick="togglePay(${id},${e.id},${e.child_id},'${ym}',${e.monthly_total || 0},'${nm}',${paid})">${paid ? "✅ 완료" : "미납"}</button></td>
+        <td><button class="btn sm ${paid ? "" : "gray"}" onclick="togglePay(${id},${e.id},${e.child_id},'${ym}',${e.monthly_total || 0},'${nm}',${paid})">${paid ? "✅ 완료" : "입금 전"}</button></td>
         <td class="no-print" style="white-space:nowrap"><button class="btn sm ghost" onclick="sendPayNotice(${e.id},'${ym}')">🔔 입금</button> <button class="btn sm ghost" onclick="openLogModal(${id},${e.id},${e.child_id},'${nm}')">📓 알림장</button> <button class="btn sm ghost" onclick="openGradeModal(${id},${e.id},${e.child_id},'${nm}')">📊 성적</button> <button class="btn sm ghost" onclick="sendStudentMessage(${e.id})">📨 소식</button></td></tr>`;
     }).join("")}</table></div>
-    <p class="mut" style="margin-top:6px">💡 학생마다 <b>납부일</b>(매월 N일)을 입력하면, 🔔 입금 안내가 그 학생의 납부일 기준으로 발송됩니다. 부모님은 알림에서 금액과 함께 💳 지역화폐로 결제할 수 있어요.</p>`;
+    <button class="btn sm" style="margin-top:8px;background:#0ea5e9;color:#fff" onclick="sendBulkPayNotice(${id},'${ym}')">💌 입금 안내 한 번에 보내기</button>
+    <p class="mut" style="margin-top:6px">💡 학생마다 <b>납부일</b>(매월 N일)을 입력하면, 🔔 입금 안내가 그 학생의 납부일 기준으로 발송됩니다. 위 버튼은 아직 입금이 확인되지 않은 분들께만 정중히 한 번에 안내해요. 부모님은 알림에서 금액과 함께 💳 지역화폐로 결제할 수 있어요.</p>`;
 }
 async function togglePay(aid, caid, childId, ym, amount, name, paid) {
   const status = paid ? "미납" : "완료";
@@ -2257,7 +2258,7 @@ async function saveBillingDay(aid, caid, val) {
   const e = (ownEnr[aid] || []).find(x => x.id === caid); if (e) e.billing_day = d;
   toast(d ? `납부일을 매월 ${d}일로 저장했어요.` : "납부일을 비웠어요.");
 }
-async function sendPayNotice(caid, ym) {
+async function sendPayNotice(caid, ym, silent) {
   // 학생 납부일이 있으면 해당 월의 그 날짜를, 없으면 오늘+3일을 안내 기준으로 사용
   const e = Object.values(ownEnr).flat().find(x => x.id === caid);
   let due;
@@ -2273,8 +2274,22 @@ async function sendPayNotice(caid, ym) {
       body: JSON.stringify({ child_academy_id: caid, year_month: ym, due_date: due.toISOString().slice(0, 10) }) });
     const j = await res.json();
     if (j.error) throw new Error(j.error);
-    toast(`입금 안내를 보냈어요. (푸시 ${j.sent || 0}건)`);
-  } catch (e) { toast("안내 전송 실패: " + e.message); }
+    if (!silent) toast(`입금 안내를 보냈어요. (푸시 ${j.sent || 0}건)`);
+    return true;
+  } catch (e) { if (!silent) toast("안내 전송 실패: " + e.message); logError("send-notice", e.message); return false; }
+}
+// 아직 입금이 확인되지 않은 분들께 정중히 한 번에 안내
+async function sendBulkPayNotice(id, ym) {
+  const list = ownEnr[id] || [];
+  const active = list.filter(e => (!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym));
+  const { data: pays } = await sb.from("payments").select("child_academy_id,status").eq("academy_id", id).eq("year_month", ym);
+  const targets = active.filter(e => !(pays || []).find(p => p.child_academy_id === e.id && p.status === "완료"));
+  if (!targets.length) return toast("모든 학생의 입금이 확인되었어요. 보낼 안내가 없습니다. 👍");
+  if (!confirm(`아직 입금이 확인되지 않은 ${targets.length}명의 학부모님께 정중한 입금 안내를 보낼까요?`)) return;
+  toast("안내를 보내는 중...");
+  let ok = 0;
+  for (const e of targets) { if (await sendPayNotice(e.id, ym, true)) ok++; }
+  toast(`${ok}명의 학부모님께 입금 안내를 보냈어요.`);
 }
 async function sendAcademyMessage(id) {
   const msg = (document.getElementById("msgBox-" + id).value || "").trim();
@@ -2345,6 +2360,10 @@ async function renderOwnInfo(id) {
       </div>
       <p class="mut" style="margin:0">실제 결제는 학부모가 본인 지역화폐 앱(카카오페이·네이버페이·비플 등)으로 진행합니다. 학원이 해당 지역화폐 가맹점이어야 합니다.</p>
     </div>
+    <div class="field" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px">
+      <label class="chip" style="display:inline-flex;align-items:center;gap:6px"><input type="checkbox" id="oi-autopay-${id}" ${a.auto_pay_reminder ? "checked" : ""} style="width:auto"> <b>자동 입금 안내 보내기</b></label>
+      <p class="mut" style="margin:4px 0 0">켜두면 학생별 <b>납부일 3일 전</b>에 학부모님께 정중한 입금 안내가 자동으로 발송됩니다. (납부일이 입력된 학생만, 이미 입금 확인된 학생은 제외)</p>
+    </div>
     <div class="field"><label>추가 비용 항목 (재료비·차량비·모의고사비 등)</label><div id="oi-extra-${id}">
       ${extra.map((e, i) => `<div class="row" style="margin-bottom:4px"><input value="${esc(e.label)}" placeholder="항목" style="width:140px" data-x="label"><input value="${e.amount}" type="number" placeholder="금액" style="width:110px" data-x="amount"><button class="btn sm gray" onclick="this.parentElement.remove()">✕</button></div>`).join("")}
     </div><button class="btn sm gray" onclick="addExtraRow(${id})">+ 항목 추가</button></div>
@@ -2400,6 +2419,7 @@ async function saveOwnInfo(id) {
     localpay_types: [...document.querySelectorAll(`.oi-lp-type-${id}:checked`)].map(c => c.value),
     localpay_qr: document.getElementById(`oi-lp-qr-${id}`).value.trim(),
     localpay_note: document.getElementById(`oi-lp-note-${id}`).value.trim(),
+    auto_pay_reminder: document.getElementById(`oi-autopay-${id}`).checked,
     extra_fees: extra, updated_at: new Date().toISOString() };
   const { error } = await sb.from("academies").update(upd).eq("id", id);
   toast(error ? "오류: " + error.message : "저장되었습니다.");
