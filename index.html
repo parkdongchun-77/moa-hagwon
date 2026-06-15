@@ -1302,6 +1302,7 @@ async function openDetail(id) {
     <h3>📅 수업 일정</h3>
     ${scheduleHtml}
     <div id="cal-${a.id}" style="margin-top:10px"></div>
+    <div id="shuttle-${a.id}"></div>
     <h3>💰 수강료 (월 기준)</h3>
     ${courses?.length ? `<div style="overflow-x:auto"><table><tr><th>과정</th><th>과목</th><th class="num">월 수강료</th><th class="no-print">선택</th></tr>
       ${courses.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.subject || "")}</td><td class="num">${won(c.monthly_fee)}</td>
@@ -1336,7 +1337,13 @@ async function openDetail(id) {
       ${(q.answers || []).filter(an => !an.hidden).map(an => `<div style="margin:4px 0 0 16px"><b style="color:var(--p)">A.</b> ${esc(an.content)} <span class="mut">— ${esc(an.profiles?.nickname || "")}${an.is_owner ? " (원장)" : ""}</span></div>`).join("")}
       <div class="row no-print" style="margin:4px 0 0 16px"><input id="ans-${q.id}" placeholder="답변 달기" style="flex:1;font-size:13px;padding:5px 8px"><button class="btn sm gray" onclick="submitAnswer(${q.id})">답변</button></div>
     </div>`).join("") || `<p class="mut">아직 질문이 없습니다.</p>`}</div>`;
-  const now = new Date(); renderCalendar(a.id, now.getFullYear(), now.getMonth());
+  const now = new Date(); renderCalendar(a.id, now.getFullYear(), now.getMonth()); loadShuttleInfo(a.id);
+}
+async function loadShuttleInfo(id) {
+  const el = document.getElementById("shuttle-" + id); if (!el) return;
+  const { data } = await sb.from("shuttles").select("*").eq("academy_id", id).order("id");
+  if (!data || !data.length) { el.innerHTML = ""; return; }
+  el.innerHTML = `<h3>🚌 차량(셔틀) 운행</h3>` + data.map(s => `<div class="review"><b>${esc(s.route_name || "노선")}</b> <span class="tag gray">${esc(s.direction || "")}</span>${s.schedule ? `<div style="white-space:pre-wrap;margin-top:3px">${esc(s.schedule)}</div>` : ""}${s.note ? `<div class="mut">${esc(s.note)}</div>` : ""}</div>`).join("");
 }
 let calState = {};
 async function renderCalendar(id, y, m) {
@@ -1979,6 +1986,11 @@ async function renderOwnInfo(id) {
     <div class="field"><label>📅 일정 (휴원·보강·시험 — 학부모 캘린더에 표시)</label>
       <div class="row"><input type="date" id="oi-ev-date-${id}"><select id="oi-ev-kind-${id}" style="width:auto"><option>휴원</option><option>보강</option><option>시험</option><option>행사</option></select><input id="oi-ev-title-${id}" placeholder="제목(선택)" style="flex:1;min-width:90px"><button class="btn sm" onclick="addScheduleEvent(${id})">추가</button></div>
       <div id="oi-sched-${id}" style="margin-top:6px"></div></div>
+    <div class="field"><label>🚌 차량(셔틀) 운행 (학원마다 운영시간이 다르니 직접 입력하세요)</label>
+      <div class="row"><input id="oi-sh-name-${id}" placeholder="노선/차량명 (예: A코스)" style="width:140px"><select id="oi-sh-dir-${id}" style="width:auto"><option>등원</option><option>하원</option><option>등하원</option></select></div>
+      <textarea id="oi-sh-sched-${id}" rows="2" placeholder="정류장·시간 (예: 08:30 ○○아파트 / 08:40 △△사거리 / 08:50 학원 도착)" style="width:100%;margin-top:4px"></textarea>
+      <div class="row" style="margin-top:4px"><button class="btn sm" onclick="addShuttle(${id})">노선 추가</button><button class="btn sm ghost" onclick="sendShuttleAlert(${id})">🚌 차량 출발 알림 보내기</button></div>
+      <div id="oi-sh-list-${id}" style="margin-top:6px"></div></div>
     <div class="grid2">
       <div class="field"><label>강사진 소개</label><textarea id="oi-teachers-${id}" rows="2">${esc(a.teachers || "")}</textarea></div>
       <div class="field"><label>시간표</label><textarea id="oi-timetable-${id}" rows="2">${esc(a.timetable || "")}</textarea></div>
@@ -2012,7 +2024,26 @@ async function renderOwnInfo(id) {
       ${extra.map((e, i) => `<div class="row" style="margin-bottom:4px"><input value="${esc(e.label)}" placeholder="항목" style="width:140px" data-x="label"><input value="${e.amount}" type="number" placeholder="금액" style="width:110px" data-x="amount"><button class="btn sm gray" onclick="this.parentElement.remove()">✕</button></div>`).join("")}
     </div><button class="btn sm gray" onclick="addExtraRow(${id})">+ 항목 추가</button></div>
     <button class="btn" onclick="saveOwnInfo(${id})">저장</button>`;
-  loadOwnSchedule(id);
+  loadOwnSchedule(id); loadOwnShuttles(id);
+}
+async function addShuttle(id) {
+  const name = document.getElementById("oi-sh-name-" + id).value.trim(), sched = document.getElementById("oi-sh-sched-" + id).value.trim();
+  if (!name && !sched) return toast("노선명 또는 운행 정보를 입력하세요.");
+  const { error } = await sb.from("shuttles").insert({ academy_id: id, route_name: name || null, direction: document.getElementById("oi-sh-dir-" + id).value, schedule: sched || null });
+  if (error) return toast("오류: " + error.message);
+  document.getElementById("oi-sh-name-" + id).value = ""; document.getElementById("oi-sh-sched-" + id).value = "";
+  toast("차량 노선을 추가했어요."); loadOwnShuttles(id);
+}
+async function loadOwnShuttles(id) {
+  const { data } = await sb.from("shuttles").select("*").eq("academy_id", id).order("id");
+  const el = document.getElementById("oi-sh-list-" + id); if (!el) return;
+  el.innerHTML = (data || []).map(s => `<div class="row" style="padding:3px 0;border-bottom:1px solid var(--line)"><span><b>${esc(s.route_name || "노선")}</b> <span class="mut">${esc(s.direction || "")}</span> ${esc((s.schedule || "").slice(0, 40))}</span><button class="btn sm gray right" onclick="delShuttle(${s.id},${id})">삭제</button></div>`).join("") || `<p class="mut">등록된 차량 노선이 없어요.</p>`;
+}
+async function delShuttle(sid, id) { await sb.from("shuttles").delete().eq("id", sid); loadOwnShuttles(id); }
+async function sendShuttleAlert(id) {
+  const msg = prompt("학부모에게 보낼 차량 알림을 입력하세요.", "차량이 곧 출발합니다. 정류장에서 대기해 주세요.");
+  if (!msg || !msg.trim()) return;
+  await callSendMessage({ academy_id: id, message: "🚌 " + msg.trim() });
 }
 async function addScheduleEvent(id) {
   const date = document.getElementById("oi-ev-date-" + id).value;
