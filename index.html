@@ -1301,6 +1301,7 @@ async function openDetail(id) {
     ${achievementsHtml}
     <h3>📅 수업 일정</h3>
     ${scheduleHtml}
+    <div id="cal-${a.id}" style="margin-top:10px"></div>
     <h3>💰 수강료 (월 기준)</h3>
     ${courses?.length ? `<div style="overflow-x:auto"><table><tr><th>과정</th><th>과목</th><th class="num">월 수강료</th><th class="no-print">선택</th></tr>
       ${courses.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(c.subject || "")}</td><td class="num">${won(c.monthly_fee)}</td>
@@ -1335,6 +1336,35 @@ async function openDetail(id) {
       ${(q.answers || []).filter(an => !an.hidden).map(an => `<div style="margin:4px 0 0 16px"><b style="color:var(--p)">A.</b> ${esc(an.content)} <span class="mut">— ${esc(an.profiles?.nickname || "")}${an.is_owner ? " (원장)" : ""}</span></div>`).join("")}
       <div class="row no-print" style="margin:4px 0 0 16px"><input id="ans-${q.id}" placeholder="답변 달기" style="flex:1;font-size:13px;padding:5px 8px"><button class="btn sm gray" onclick="submitAnswer(${q.id})">답변</button></div>
     </div>`).join("") || `<p class="mut">아직 질문이 없습니다.</p>`}</div>`;
+  const now = new Date(); renderCalendar(a.id, now.getFullYear(), now.getMonth());
+}
+let calState = {};
+async function renderCalendar(id, y, m) {
+  calState = { id, y, m };
+  const el = document.getElementById("cal-" + id); if (!el) return;
+  const cd = (state.detail && state.detail.id === id && state.detail.class_days) ? state.detail.class_days : {};
+  const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+  const startDow = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
+  const ymStr = `${y}-${String(m + 1).padStart(2, "0")}`;
+  const { data: evs } = await sb.from("schedule_events").select("*").eq("academy_id", id).gte("event_date", ymStr + "-01").lte("event_date", ymStr + "-31");
+  const evBy = {}; (evs || []).forEach(e => { const d = +e.event_date.slice(8, 10); (evBy[d] = evBy[d] || []).push(e); });
+  const col = k => k === "휴원" ? "#dc2626" : k === "시험" ? "#7c3aed" : k === "보강" ? "#0891b2" : "#16a34a";
+  let cells = "";
+  for (let i = 0; i < startDow; i++) cells += `<div></div>`;
+  for (let d = 1; d <= days; d++) {
+    const dow = new Date(y, m, d).getDay(), v = cd[dayNames[dow]];
+    const evHtml = (evBy[d] || []).map(e => `<div style="font-size:9px;border-radius:3px;padding:0 2px;margin-top:1px;color:#fff;background:${col(e.kind)}">${esc(e.kind)}${e.title ? " " + esc(e.title) : ""}</div>`).join("");
+    cells += `<div style="min-height:46px;border:1px solid var(--line);border-radius:6px;padding:3px;background:${v === "수업" ? "#eef2ff" : "#fff"}">
+      <div style="font-size:12px;color:${dow === 0 ? "#dc2626" : dow === 6 ? "#2563eb" : "var(--txt)"}">${d}${v === "대체" ? ' <span style="font-size:8px;color:#0891b2">대체</span>' : ""}</div>${evHtml}</div>`;
+  }
+  el.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px">
+      <button class="btn sm gray" onclick="renderCalendar(${id},${m === 0 ? y - 1 : y},${(m + 11) % 12})">‹</button>
+      <b>${y}년 ${m + 1}월</b>
+      <button class="btn sm gray" onclick="renderCalendar(${id},${m === 11 ? y + 1 : y},${(m + 1) % 12})">›</button></div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center">
+      ${dayNames.map((n, i) => `<div style="font-size:11px;color:${i === 0 ? "#dc2626" : i === 6 ? "#2563eb" : "var(--mut)"};font-weight:600">${n}</div>`).join("")}
+      ${cells}</div>
+    <div class="mut" style="font-size:11px;margin-top:6px">파란 칸=정규수업 · 빨강=휴원 · 보라=시험 · 청록=보강</div>`;
 }
 function calcTotal() {
   const a = state.detail;
@@ -1946,6 +1976,9 @@ async function renderOwnInfo(id) {
     <div class="field"><label>📸 학원 사진 (학부모 상세에 보여집니다)</label>
       <div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:6px">${(a.photos || []).map(u => `<div style="position:relative"><img src="${esc(u)}" style="width:74px;height:74px;object-fit:cover;border-radius:8px"><button onclick="delAcademyPhoto(${id},'${esc(u)}')" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1">×</button></div>`).join("") || `<span class="mut">아직 등록된 사진이 없어요.</span>`}</div>
       <input type="file" id="oi-photo-file-${id}" accept="image/*" onchange="uploadAcademyPhoto(${id})"></div>
+    <div class="field"><label>📅 일정 (휴원·보강·시험 — 학부모 캘린더에 표시)</label>
+      <div class="row"><input type="date" id="oi-ev-date-${id}"><select id="oi-ev-kind-${id}" style="width:auto"><option>휴원</option><option>보강</option><option>시험</option><option>행사</option></select><input id="oi-ev-title-${id}" placeholder="제목(선택)" style="flex:1;min-width:90px"><button class="btn sm" onclick="addScheduleEvent(${id})">추가</button></div>
+      <div id="oi-sched-${id}" style="margin-top:6px"></div></div>
     <div class="grid2">
       <div class="field"><label>강사진 소개</label><textarea id="oi-teachers-${id}" rows="2">${esc(a.teachers || "")}</textarea></div>
       <div class="field"><label>시간표</label><textarea id="oi-timetable-${id}" rows="2">${esc(a.timetable || "")}</textarea></div>
@@ -1979,7 +2012,21 @@ async function renderOwnInfo(id) {
       ${extra.map((e, i) => `<div class="row" style="margin-bottom:4px"><input value="${esc(e.label)}" placeholder="항목" style="width:140px" data-x="label"><input value="${e.amount}" type="number" placeholder="금액" style="width:110px" data-x="amount"><button class="btn sm gray" onclick="this.parentElement.remove()">✕</button></div>`).join("")}
     </div><button class="btn sm gray" onclick="addExtraRow(${id})">+ 항목 추가</button></div>
     <button class="btn" onclick="saveOwnInfo(${id})">저장</button>`;
+  loadOwnSchedule(id);
 }
+async function addScheduleEvent(id) {
+  const date = document.getElementById("oi-ev-date-" + id).value;
+  if (!date) return toast("날짜를 선택하세요.");
+  const { error } = await sb.from("schedule_events").insert({ academy_id: id, event_date: date, kind: document.getElementById("oi-ev-kind-" + id).value, title: document.getElementById("oi-ev-title-" + id).value.trim() || null });
+  if (error) return toast("오류: " + error.message);
+  document.getElementById("oi-ev-title-" + id).value = ""; toast("일정을 추가했어요."); loadOwnSchedule(id);
+}
+async function loadOwnSchedule(id) {
+  const { data } = await sb.from("schedule_events").select("*").eq("academy_id", id).gte("event_date", new Date().toISOString().slice(0, 10)).order("event_date").limit(30);
+  const el = document.getElementById("oi-sched-" + id); if (!el) return;
+  el.innerHTML = (data || []).map(e => `<div class="row" style="padding:3px 0;border-bottom:1px solid var(--line)"><span>${e.event_date} · <b>${esc(e.kind)}</b> ${esc(e.title || "")}</span><button class="btn sm gray right" onclick="delScheduleEvent(${e.id},${id})">삭제</button></div>`).join("") || `<p class="mut">예정된 일정이 없어요.</p>`;
+}
+async function delScheduleEvent(eid, id) { await sb.from("schedule_events").delete().eq("id", eid); loadOwnSchedule(id); }
 function addExtraRow(id) {
   document.getElementById("oi-extra-" + id).insertAdjacentHTML("beforeend",
     `<div class="row" style="margin-bottom:4px"><input placeholder="항목 (예: 차량비)" style="width:140px" data-x="label"><input type="number" placeholder="금액" style="width:110px" data-x="amount"><button class="btn sm gray" onclick="this.parentElement.remove()">✕</button></div>`);
