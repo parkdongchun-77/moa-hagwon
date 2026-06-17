@@ -1,12 +1,11 @@
 {
-  "id": "/?source=pwa",
+  "id": "/",
   "name": "모아학원 — 우리 동네 학원, 한눈에 비교",
   "short_name": "모아학원",
   "description": "우리 동네 학원·공부방을 검색하고 비교하며, 출결·성적·알림장까지 한 곳에서 관리하는 학원 플랫폼.",
-  "start_url": "./?source=pwa",
-  "scope": "./",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#4f46e5",
@@ -18,9 +17,5 @@
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ],
-  "shortcuts": [
-    { "name": "학원 검색", "short_name": "검색", "url": "./?source=pwa#search", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
-    { "name": "비교함", "short_name": "비교함", "url": "./?source=pwa#compare", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
   ]
 }
