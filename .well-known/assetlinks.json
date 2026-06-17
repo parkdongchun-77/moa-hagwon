@@ -1,1 +1,12 @@
-
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "kr.moahagwon.app",
+      "sha256_cert_fingerprints": [
+        "8F:FA:BF:BD:41:65:D8:A4:8B:D9:4D:8D:33:74:E8:D6:0E:FF:D8:08:EF:F6:93:41:1C:53:0D:3A:D7:CD:41:8E"
+      ]
+    }
+  }
+]
