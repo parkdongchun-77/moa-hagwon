@@ -1113,7 +1113,7 @@ function feeRange(a) {
   return a.min_monthly === a.max_monthly ? won(a.min_monthly) + "/월" : `${won(a.min_monthly)} ~ ${won(a.max_monthly)}/월`;
 }
 // ===== QR (출석용) =====
-const APP_URL = "https://parkdongchun-77.github.io/moa-hagwon/";
+const APP_URL = "https://moahagwon.com/";
 function checkinUrl(id) { return APP_URL + "?checkin=" + id; }
 function qrImg(id, size) {
   const s = size || 56;

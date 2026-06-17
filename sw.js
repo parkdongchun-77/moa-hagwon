@@ -24,19 +24,19 @@ self.addEventListener("fetch", (event) => {
   );
 });
 self.addEventListener("push", (event) => {
-  let d = { title: "모아학원", body: "", url: "https://parkdongchun-77.github.io/moa-hagwon/" };
+  let d = { title: "모아학원", body: "", url: "https://moahagwon.com/" };
   try { d = Object.assign(d, event.data.json()); } catch (e) { if (event.data) d.body = event.data.text(); }
   event.waitUntil(self.registration.showNotification(d.title, {
     body: d.body,
-    icon: "https://parkdongchun-77.github.io/moa-hagwon/icon-192.png",
-    badge: "https://parkdongchun-77.github.io/moa-hagwon/icon-192.png",
+    icon: "https://moahagwon.com/icon-192.png",
+    badge: "https://moahagwon.com/icon-192.png",
     data: { url: d.url },
     tag: "moa-att",
   }));
 });
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || "https://parkdongchun-77.github.io/moa-hagwon/";
+  const url = event.notification.data?.url || "https://moahagwon.com/";
   event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((cs) => {
     for (const c of cs) { if (c.url.includes("moa-hagwon") && "focus" in c) return c.focus(); }
     return clients.openWindow(url);
