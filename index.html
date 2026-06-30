@@ -1095,7 +1095,7 @@ async function loadBest() {
   const lists = await Promise.all(kinds.map(async k => {
     let q = sb.from("academies").select("id,name,total_students,is_premium")
       .eq("status", "개원").eq("kind", k).contains("subjects", [bestSubject])
-      .order("is_premium", { ascending: false }).order("weekly_students", { ascending: false, nullsFirst: false }).order("total_students", { ascending: false, nullsFirst: false }).limit(5);
+      .order("is_premium", { ascending: false }).order("weekly_students", { ascending: false, nullsFirst: false }).order("total_students", { ascending: false, nullsFirst: false }).limit(10);
     if (sido) q = q.eq("sido", sido);
     if (city) q = q.eq("region_city", city);
     if (dong) q = q.eq("dong", dong);
@@ -1116,10 +1116,11 @@ async function loadBest() {
     const pct = Math.round(d / p * 100);
     return d > 0 ? `<span style="color:var(--good)">▲${pct}%</span>` : `<span style="color:#dc2626">▼${Math.abs(pct)}%</span>`;
   };
+  const medal = i => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `<span style="display:inline-block;width:24px;height:24px;line-height:24px;border-radius:50%;background:#eef2ff;color:var(--p);font-weight:700;font-size:13px;text-align:center">${i + 1}</span>`;
   const panel = (title, rows) => `<div style="flex:1;min-width:230px">
-    <div class="row mut" style="font-size:12px;font-weight:600;padding:0 4px 4px"><span style="width:22px;text-align:center">#</span><span style="flex:1">${title}</span><span style="width:54px;text-align:right">등락률</span></div>
+    <div class="row mut" style="font-size:12px;font-weight:600;padding:0 4px 4px"><span style="width:28px;text-align:center">#</span><span style="flex:1">${title}</span><span style="width:54px;text-align:right">등락률</span></div>
     ${rows.length ? rows.map((a, i) => `<div onclick="openDetail(${a.id})" style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-top:1px solid #f1f5f9;cursor:pointer">
-        <div style="width:22px;text-align:center;font-weight:700;color:${i < 3 ? "var(--p)" : "#94a3b8"}">${i + 1}</div>
+        <div style="width:28px;text-align:center;font-size:17px;line-height:1">${medal(i)}</div>
         <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.is_premium ? `<span class="tag ad">AD</span>` : ""}${esc(a.name)}</div>
         <div style="width:54px;text-align:right;font-size:13px">${delta(a)}</div>
       </div>`).join("") : `<div class="empty" style="padding:12px 4px">해당 조건의 학원이 없습니다.</div>`}
