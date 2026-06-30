@@ -1126,7 +1126,7 @@ async function loadBest() {
       </div>`).join("") : `<div class="empty" style="padding:12px 4px">해당 조건의 학원이 없습니다.</div>`}
   </div>`;
   wrap.innerHTML = `<div class="row" style="gap:18px;align-items:flex-start;flex-wrap:wrap">${panel("학원", lists[0])}${panel("교습소", lists[1])}</div>
-    <div class="mut" style="font-size:12px;margin-top:8px">순위는 수강생 규모 기준이며, 등락률은 직전 기록 대비 수강생 증감입니다(이력이 쌓이면 표시됩니다).</div>`;
+    ${isAdmin() ? `<div class="mut" style="font-size:12px;margin-top:8px">순위는 수강생 규모 기준이며, 등락률은 직전 기록 대비 수강생 증감입니다(이력이 쌓이면 표시됩니다).</div>` : ""}`;
 }
 function feeRange(a) {
   if (a.min_monthly == null) return `<span class="mut">수강료 비공개</span>`;
