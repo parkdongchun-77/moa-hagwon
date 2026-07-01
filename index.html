@@ -1116,13 +1116,21 @@ async function loadBest() {
     const pct = Math.round(d / p * 100);
     return d > 0 ? `<span style="color:var(--good)">▲${pct}%</span>` : `<span style="color:#dc2626">▼${Math.abs(pct)}%</span>`;
   };
-  const medal = i => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `<span style="display:inline-block;width:24px;height:24px;line-height:24px;border-radius:50%;background:#eef2ff;color:var(--p);font-weight:700;font-size:13px;text-align:center">${i + 1}</span>`;
+  const TIERS = [
+    { n: "Ambassador", bg: "linear-gradient(135deg,#7c3aed,#c026d3)", fg: "#fff", gem: "#f5d0fe" },
+    { n: "Titanium", bg: "linear-gradient(135deg,#334155,#64748b)", fg: "#fff", gem: "#cbd5e1" },
+    { n: "Platinum", bg: "linear-gradient(135deg,#8592a6,#e2e8f0)", fg: "#0f172a", gem: "#f8fafc" },
+    { n: "Diamond", bg: "linear-gradient(135deg,#0891b2,#22d3ee)", fg: "#083344", gem: "#cffafe" },
+    { n: "Gold", bg: "linear-gradient(135deg,#d97706,#fbbf24)", fg: "#3b2f00", gem: "#fef3c7" },
+    { n: "Silver", bg: "linear-gradient(135deg,#9ca3af,#d1d5db)", fg: "#111827", gem: "#f3f4f6" },
+  ];
+  const tierBadge = i => { const t = TIERS[Math.min(i, TIERS.length - 1)]; return `<span title="${t.n} · ${i + 1}위" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:${t.bg};color:${t.fg};font-size:11px;font-weight:800;letter-spacing:.2px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.18)"><svg width="12" height="12" viewBox="0 0 24 24" style="flex:none"><path d="M12 2l7 6-7 14L5 8z" fill="${t.gem}" stroke="rgba(0,0,0,.28)" stroke-width="1.2"/></svg>${t.n}</span>`; };
   const panel = (title, rows) => `<div style="flex:1;min-width:230px">
-    <div class="row mut" style="font-size:12px;font-weight:600;padding:0 4px 4px"><span style="width:28px;text-align:center">#</span><span style="flex:1">${title}</span><span style="width:54px;text-align:right">등락률</span></div>
+    <div class="row mut" style="font-size:12px;font-weight:600;padding:0 4px 4px"><span style="width:104px">등급</span><span style="flex:1">${title}</span><span style="width:40px;text-align:right">등락률</span></div>
     ${rows.length ? rows.map((a, i) => `<div onclick="openDetail(${a.id})" style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-top:1px solid #f1f5f9;cursor:pointer">
-        <div style="width:28px;text-align:center;font-size:17px;line-height:1">${medal(i)}</div>
+        <div style="width:104px;flex:none">${tierBadge(i)}</div>
         <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.is_premium ? `<span class="tag ad">AD</span>` : ""}${esc(a.name)}</div>
-        <div style="width:54px;text-align:right;font-size:13px">${delta(a)}</div>
+        <div style="width:40px;text-align:right;font-size:13px">${delta(a)}</div>
       </div>`).join("") : `<div class="empty" style="padding:12px 4px">해당 조건의 학원이 없습니다.</div>`}
   </div>`;
   wrap.innerHTML = `<div class="row" style="gap:18px;align-items:flex-start;flex-wrap:wrap">${panel("학원", lists[0])}${panel("교습소", lists[1])}</div>
