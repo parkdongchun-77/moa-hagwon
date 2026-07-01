@@ -1094,8 +1094,9 @@ async function loadBest() {
   const kinds = ["학원", "교습소"];
   const lists = await Promise.all(kinds.map(async k => {
     let q = sb.from("academies").select("id,name,total_students,is_premium")
-      .eq("status", "개원").eq("kind", k).contains("subjects", [bestSubject])
-      .order("is_premium", { ascending: false }).order("weekly_students", { ascending: false, nullsFirst: false }).order("total_students", { ascending: false, nullsFirst: false }).limit(10);
+      .eq("status", "개원").contains("subjects", [bestSubject]);
+    q = k === "학원" ? q.eq("kind", "학원") : q.neq("kind", "학원");
+    q = q.order("is_premium", { ascending: false }).order("weekly_students", { ascending: false, nullsFirst: false }).order("total_students", { ascending: false, nullsFirst: false }).limit(10);
     if (sido) q = q.eq("sido", sido);
     if (city) q = q.eq("region_city", city);
     if (dong) q = q.eq("dong", dong);
