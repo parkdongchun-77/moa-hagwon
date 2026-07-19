@@ -1602,6 +1602,7 @@ async function toggleFav(id) {
 <script id="part3">
 // ===== 학원 상세 =====
 async function openDetail(id) {
+  if (needLogin()) return;
   openModal("m-detail");
   const body = document.getElementById("detailBody");
   body.innerHTML = `<div class="empty">불러오는 중...</div>`;
@@ -1800,6 +1801,7 @@ function refreshCmpBadge() {
   b.style.display = state.compare.length ? "" : "none"; b.textContent = state.compare.length;
 }
 function toggleCompare(id, name) {
+  if (needLogin()) return;
   const i = state.compare.indexOf(id);
   if (i >= 0) { state.compare.splice(i, 1); toast(`'${name}' 비교함에서 제거`); }
   else if (state.compare.length >= 4) return toast("비교함은 최대 4곳까지 담을 수 있어요.");
