@@ -1,0 +1,45 @@
+# Codemagic 클라우드 빌드 — 모아학원 안드로이드 TWA (targetSdk 36)
+# 사전: Codemagic > Code signing identities > Android keystores 에 upload-keystore.keystore 업로드
+#       reference name: moa_keystore / keystore pw: e1BetmvcBoSn / alias: my-key-alias / key pw: e1BetmvcBoSn
+workflows:
+  android-twa-api36:
+    name: 모아학원 Android TWA (API 36)
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      android_signing:
+        - moa_keystore
+      node: 20
+      java: 17
+    scripts:
+      - name: Bubblewrap 설치
+        script: npm install -g @bubblewrap/cli
+      - name: Bubblewrap을 Codemagic JDK/SDK에 연결
+        script: |
+          mkdir -p $HOME/.bubblewrap
+          printf '{ "jdkPath": "%s", "androidSdkPath": "%s" }\n' "$JAVA_HOME" "$ANDROID_SDK_ROOT" > $HOME/.bubblewrap/config.json
+          cat $HOME/.bubblewrap/config.json
+      - name: 안드로이드 프로젝트 생성 (twa-manifest.json 기반)
+        script: |
+          bubblewrap update --skipVersionUpgrade
+      - name: compileSdk / targetSdk 36 강제
+        script: |
+          sed -i -E 's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 36/' app/build.gradle || true
+          sed -i -E 's/targetSdkVersion[[:space:]]+[0-9]+/targetSdkVersion 36/' app/build.gradle || true
+          echo "----- SDK 설정 확인 -----"
+          grep -E 'compileSdk|targetSdk|minSdk' app/build.gradle || true
+      - name: AAB 빌드 (서명 없이)
+        script: |
+          chmod +x ./gradlew
+          ./gradlew bundleRelease --stacktrace
+      - name: AAB 서명 (Codemagic 업로드 키)
+        script: |
+          AAB=$(find . -path '*/bundle/release/*.aab' | head -1)
+          echo "unsigned aab: $AAB"
+          jarsigner -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" \
+            -keypass "$CM_KEY_PASSWORD" "$AAB" "$CM_KEY_ALIAS"
+          cp "$AAB" "$CM_BUILD_DIR/모아학원-v3-api36.aab"
+    artifacts:
+      - $CM_BUILD_DIR/*.aab
+      - app/build/outputs/**/*.aab
