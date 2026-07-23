@@ -3,9 +3,10 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "kr.moahagwon.app",
+      "package_name": "com.moahagwon.myapp",
       "sha256_cert_fingerprints": [
-        "8F:FA:BF:BD:41:65:D8:A4:8B:D9:4D:8D:33:74:E8:D6:0E:FF:D8:08:EF:F6:93:41:1C:53:0D:3A:D7:CD:41:8E"
+        "FC:C0:13:A0:D4:D3:DC:3B:90:8F:AC:2A:5A:89:38:61:6D:89:D8:C9:AF:69:BB:9F:0F:93:F1:AC:15:01:84:B6",
+        "96:BE:C6:F9:13:56:B9:D1:AB:E4:97:79:9C:3E:3C:B0:4A:A7:44:17:46:76:1A:FB:65:CB:27:1E:D8:FB:0E:CF"
       ]
     }
   }
