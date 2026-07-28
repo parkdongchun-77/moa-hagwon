@@ -147,7 +147,7 @@ body{padding-bottom:70px}
   <button class="nav-btn" id="navPremium" onclick="go('owner')" style="display:none">📈 프리미엄</button>
   <button class="nav-btn" data-v="admin" id="navAdmin" onclick="go('admin')" style="display:none">운영</button>
   <div class="spacer"></div>
-  <span class="mut" id="userInfo"></span>
+  <span class="mut" id="userInfo" style="display:none"></span>
   <button class="btn sm gray" id="langBtn" onclick="toggleLang()" title="Language / 언어" style="min-width:54px">EN</button>
   <button class="btn sm ghost" id="authBtn" onclick="onAuthBtn()">로그인</button>
 </div></header>
@@ -1085,8 +1085,9 @@ async function handleAppleRedirect() {
   const otp = ap.slice(0, i), email = decodeURIComponent(ap.slice(i + 1));
   toast("애플 로그인 처리 중...");
   try {
-    const { error } = await sb.auth.verifyOtp({ email, token: otp, type: "email" });
+    const { data, error } = await sb.auth.verifyOtp({ email, token: otp, type: "email" });
     if (error) throw new Error(error.message);
+    if (data?.user) await setUser(data.user);
     closeModal("m-auth"); toast("애플로 로그인되었습니다.");
   } catch (e) { toast("애플 로그인 실패: " + e.message); }
 }
@@ -1105,8 +1106,10 @@ async function handleSocialRedirect() {
     });
     const j = await res.json();
     if (j.error) throw new Error(j.error);
-    const { error } = await sb.auth.verifyOtp({ email: j.email, token: j.otp, type: "email" });
+    const { data, error } = await sb.auth.verifyOtp({ email: j.email, token: j.otp, type: "email" });
     if (error) throw new Error(error.message);
+    if (data?.user) await setUser(data.user);
+    closeModal("m-auth");
     toast(label + "(으)로 로그인되었습니다.");
   } catch (e) { toast(label + " 로그인 실패: " + e.message); logError("login:" + state, e.message); }
 }
@@ -1123,8 +1126,9 @@ async function doAuth() {
       const j = await res.json();
       if (j.error) throw new Error(j.error);
     }
-    const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
     if (error) throw new Error(error.message.includes("Invalid") ? "이메일 또는 비밀번호가 올바르지 않습니다." : error.message);
+    if (data?.user) await setUser(data.user);
     closeModal("m-auth"); toast(state.signupMode ? "가입 완료! 환영합니다." : "로그인되었습니다.");
   } catch (e) { toast(e.message); } finally { btn.disabled = false; }
 }
