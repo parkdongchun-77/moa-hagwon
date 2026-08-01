@@ -2986,9 +2986,17 @@ async function logError(source, message, detail) {
   try { await sb.from("error_logs").insert({ source, message: String(message || "").slice(0, 500), detail: detail || null, user_id: state.user?.id || null }); } catch (e) {}
 }
 async function loadAdminKpi() {
-  const { data, error } = await sb.rpc("admin_dashboard");
   const el = document.getElementById("adminKpi"); if (!el) return;
-  if (error || !data) { el.innerHTML = `<p class="mut">집계를 불러오지 못했습니다.</p>`; return; }
+  el.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const { data, error } = await sb.rpc("admin_dashboard");
+  if (error || !data) {
+    const msg = /forbidden/i.test(error?.message || "")
+      ? "관리자 권한이 필요합니다. 관리자 계정으로 로그인했는지 확인해 주세요."
+      : `집계를 불러오지 못했습니다.${error?.message ? " (" + esc(error.message) + ")" : ""}`;
+    el.innerHTML = `<div style="width:100%"><p class="mut" style="margin:0 0 8px">${msg}</p>
+      <button class="btn sm gray" onclick="loadAdminKpi()">🔄 다시 시도</button></div>`;
+    return;
+  }
   const d = data;
   const card = (b, s, hl) => `<div class="stat"><b style="${hl ? "color:var(--bad)" : ""}">${(b || 0).toLocaleString()}</b><span>${s}</span></div>`;
   el.innerHTML =
@@ -2999,7 +3007,11 @@ async function loadAdminKpi() {
 async function loadAdminErrors() {
   const el = document.getElementById("adminErrors"); if (!el) return;
   const { data, error } = await sb.from("error_logs").select("*").order("created_at", { ascending: false }).limit(50);
-  if (error) { el.innerHTML = `<p class="mut">로그를 불러오지 못했습니다.</p>`; return; }
+  if (error) {
+    el.innerHTML = `<p class="mut" style="margin:0 0 8px">로그를 불러오지 못했습니다.${error.message ? " (" + esc(error.message) + ")" : ""}</p>
+      <button class="btn sm gray" onclick="loadAdminErrors()">🔄 다시 시도</button>`;
+    return;
+  }
   el.innerHTML = (data || []).length ? `<div style="overflow-x:auto"><table><tr><th>일시</th><th>출처</th><th>내용</th></tr>${data.map(r => `<tr>
     <td class="mut" style="white-space:nowrap">${new Date(r.created_at).toLocaleString("ko-KR")}</td>
     <td><span class="tag">${esc(r.source || "-")}</span></td>
