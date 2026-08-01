@@ -691,6 +691,16 @@ function go(v) {
   if (v === "records") loadRecords();
   if (v === "location") loadLocation();
 }
+// 자녀 등록·학원 연결: 대시보드의 자녀 영역으로 바로 이동 (자녀가 없으면 추가 모달 안내)
+async function goChildren() {
+  if (needLogin()) return;
+  go("dash");
+  setTimeout(async () => {
+    document.getElementById("childrenArea")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const { data } = await sb.from("children").select("id").eq("user_id", state.user.id).limit(1);
+    if (!data?.length) openChildModal();
+  }, 400);
+}
 function openSettings() {
   if ("Notification" in window && Notification.permission === "granted") {
     const b = document.getElementById("setPushBtn"); b.textContent = "🔔 푸시 알림 켜짐"; b.classList.add("gray");
@@ -714,6 +724,7 @@ function needLogin() { if (!state.user) { toast("로그인이 필요합니다.")
 // ===== 하단 고정 바 + 메뉴 시트 =====
 const SHEETS = {
   parent: { title: "학생·학부모", items: () => [
+    ["👨‍👩‍👧", "자녀 등록 · 학원 연결", "goChildren()"],
     ["📷", "등원·퇴원 QR", "go('attend')"],
     ["📊", "등·퇴원 주간 요약", "go('attstat')"],
     ["📓", "알림장·성적", "go('records')"],
@@ -1893,7 +1904,11 @@ async function loadDash() {
       ${ch.child_academies.map(e => `<tr ${activeNow(e) ? "" : 'style="opacity:.45"'}><td>${esc(e.academy_name)}</td><td>${esc(e.subject || "")}</td>
         <td class="num">${won(e.monthly_total)}</td><td class="mut">${e.started_date || e.started_month || "?"} ~ ${e.ended_month || "현재"}</td><td class="mut">${esc(e.memo || "")}</td>
         <td><button class="btn sm gray" onclick="delEnroll(${e.id})">삭제</button></td></tr>`).join("")}</table>` : `<p class="mut" style="margin-top:8px">등록된 학원이 없습니다.</p>`}
-  </div>`).join("") || `<div class="card empty">자녀를 추가하고 다니는 학원을 등록해 보세요.</div>`;
+  </div>`).join("") || `<div class="card" style="border:1px solid #c7d2fe;background:#f5f7ff;text-align:center;padding:22px">
+    <div style="font-size:34px">👨‍👩‍👧</div>
+    <h3 style="margin:6px 0 4px">자녀를 등록하고 학원과 연결해 보세요</h3>
+    <p class="mut" style="margin:0 0 12px">연결하면 등·퇴원 알림, 알림장·성적, 학원비 관리를 받아볼 수 있어요.</p>
+    <button class="btn" onclick="openChildModal()">👨‍👩‍👧 자녀 등록하기</button></div>`;
   renderTrend(children || []); renderAvgChart(children || []);
 }
 function renderTrend(children) {
