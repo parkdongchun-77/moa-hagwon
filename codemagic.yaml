@@ -70,9 +70,31 @@ workflows:
           ls -la www
       - name: 의존성 설치
         script: npm install
+      # 네이티브 플러그인은 npm 패키지라 번들이 필요하다. 앱용 www에만 넣고 웹(moahagwon.com)은 건드리지 않는다.
+      - name: 네이티브 기능 번들 생성 + index.html에 주입
+        script: |
+          npm run build:native
+          test -s www/capacitor-native.js || { echo "번들 생성 실패"; exit 1; }
+          node -e '
+            const fs=require("fs");
+            const p="www/index.html";
+            let s=fs.readFileSync(p,"utf8");
+            const tag="<script src=\"capacitor-native.js\"></script>\n";
+            if(!s.includes("capacitor-native.js")){
+              if(!s.includes("</head>")) { console.error("</head> 없음"); process.exit(1); }
+              s=s.replace("</head>", tag+"</head>");
+              fs.writeFileSync(p,s);
+            }
+            console.log("주입 확인:", s.split("capacitor-native.js").length-1);
+          '
+      # Capacitor 8은 SPM이 기본이지만 두 가지 이유로 CocoaPods를 쓴다.
+      #  1) SPM 템플릿에는 App.xcworkspace 가 없어 build-ipa --workspace 가 실패한다
+      #  2) apple-sign-in 7.1.0 의 Package.swift 는 capacitor-swift-pm "from 7.0.0"(=<8.0.0) 이라
+      #     CLI가 고정하는 exact 8.4.1 과 교집합이 없어 SPM 해석이 실패한다
       - name: iOS 네이티브 프로젝트 생성 + 자산 동기화
         script: |
-          npx cap add ios
+          npx cap add ios --packagemanager CocoaPods
+          test -d ios/App/App.xcworkspace || { echo "App.xcworkspace 없음 — CocoaPods 템플릿 실패"; exit 1; }
           npx @capacitor/assets generate --ios --iconBackgroundColor '#4f46e5' --splashBackgroundColor '#ffffff' || true
           npx cap sync ios
       - name: Info.plist 권한 문구 추가 (위치·카메라)
@@ -80,6 +102,36 @@ workflows:
           PLIST=ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string '내 주변 학원 검색과 안심 위치 공유, QR 출석 위치 확인에 사용됩니다.'" "$PLIST" || true
           /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string '출석 QR 코드를 스캔할 때 카메라를 사용합니다.'" "$PLIST" || true
+          echo "----- Info.plist 확인 -----"
+          /usr/libexec/PlistBuddy -c "Print :NSCameraUsageDescription" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Print :NSLocationWhenInUseUsageDescription" "$PLIST"
+      # 푸시(APNs)와 Sign in with Apple 은 entitlements 가 있어야 동작한다. cap add ios 가 만들어주지 않으므로 직접 넣는다.
+      - name: entitlements 추가 (푸시 · Apple 로그인)
+        script: |
+          ENT=ios/App/App/App.entitlements
+          if [ ! -f "$ENT" ]; then
+            /usr/libexec/PlistBuddy -c "Save" "$ENT"
+          fi
+          /usr/libexec/PlistBuddy -c "Delete :aps-environment" "$ENT" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :aps-environment string production" "$ENT"
+          /usr/libexec/PlistBuddy -c "Delete :com.apple.developer.applesignin" "$ENT" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.applesignin array" "$ENT"
+          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.applesignin:0 string Default" "$ENT"
+          echo "----- entitlements 확인 -----"
+          /usr/libexec/PlistBuddy -c "Print" "$ENT"
+          # Xcode 프로젝트가 entitlements 파일을 참조하도록 연결
+          python3 - <<'PY'
+          import re
+          p = "ios/App/App.xcodeproj/project.pbxproj"
+          s = open(p).read()
+          if "CODE_SIGN_ENTITLEMENTS" not in s:
+              s = s.replace("PRODUCT_BUNDLE_IDENTIFIER =",
+                            "CODE_SIGN_ENTITLEMENTS = App/App.entitlements;\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER =")
+              open(p, "w").write(s)
+              print("CODE_SIGN_ENTITLEMENTS 추가함")
+          else:
+              print("CODE_SIGN_ENTITLEMENTS 이미 있음")
+          PY
       - name: 인증서·프로파일 적용
         script: xcode-project use-profiles
       - name: 빌드 번호 자동 증가

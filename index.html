@@ -339,6 +339,7 @@ body{padding-bottom:70px}
 <section class="view" id="v-attend">
   <div class="card"><h2>등원·퇴원 QR</h2>
     <p class="mut">학원 입구에 붙은 QR을 휴대폰으로 찍으면 등원·퇴원이 기록됩니다. 학원에 도착·하원할 때 아래 버튼으로도 바로 체크할 수 있어요. (위치가 학원 근처일 때만 인정)</p>
+    <button class="btn" id="qrScanBtn" onclick="scanCheckinQr()" style="display:none;margin-top:10px">📷 QR 스캔해서 출석</button>
   </div>
   <div id="attendBody"></div>
 </section>
@@ -1071,6 +1072,8 @@ function socialLogin(provider) {
       + "&scope=" + encodeURIComponent("openid email profile")
       + "&state=google&prompt=select_account";
   } else if (provider === "apple") {
+    // 네이티브 앱: 시스템 시트로 바로 로그인 (리다이렉트가 없어 앱 origin·세션이 유지됨)
+    if (window.MoaNative?.isNative) return appleNativeLogin();
     // 애플은 form_post로 코드를 apple-login 함수에 POST → 함수가 OTP 발급 후 앱으로 #apple= 리다이렉트
     location.href = "https://appleid.apple.com/auth/authorize?response_type=code"
       + "&client_id=" + APPLE_SERVICE_ID
@@ -1078,6 +1081,18 @@ function socialLogin(provider) {
       + "&scope=" + encodeURIComponent("name email")
       + "&response_mode=form_post&state=apple";
   }
+}
+// 앱 전용: 네이티브 Sign in with Apple → identityToken 으로 바로 Supabase 세션 발급
+// (iOS에서 aud는 번들 ID kr.moahagwon.app 이므로 Supabase Auth > Apple 의 Client IDs에 이 값이 있어야 한다)
+async function appleNativeLogin() {
+  try {
+    const token = await window.MoaNative.appleSignIn(APPLE_SERVICE_ID, APPLE_REDIRECT);
+    if (!token) return;
+    const { data, error } = await sb.auth.signInWithIdToken({ provider: "apple", token });
+    if (error) throw new Error(error.message);
+    if (data?.user) await setUser(data.user);
+    closeModal("m-auth"); toast("애플로 로그인되었습니다.");
+  } catch (e) { toast("애플 로그인 실패: " + e.message); }
 }
 // 애플 로그인 리다이렉트(해시 #apple=otp:email 또는 #apple_error=) 처리
 async function handleAppleRedirect() {
@@ -1313,19 +1328,44 @@ function urlB64ToU8(s) {
   return Uint8Array.from([...b].map(c => c.charCodeAt(0)));
 }
 let swReg = null;
+let nativePushOn = false; // 네이티브 앱에서 디바이스 토큰 등록이 끝났는지
 async function initPush() {
+  // 네이티브 앱은 Service Worker·Web Push를 쓰지 않는다 (WKWebView 미지원)
+  if (window.MoaNative?.isNative) { refreshPushBtn(); return; }
   if (!("serviceWorker" in navigator) || !location.protocol.startsWith("http")) return;
   try { swReg = await navigator.serviceWorker.register(location.pathname.replace(/[^/]*$/, "") + "sw.js"); } catch (e) {}
   refreshPushBtn();
 }
 function refreshPushBtn() {
   const btn = document.getElementById("pushBtn"); if (!btn) return;
+  if (window.MoaNative?.isNative) {
+    btn.style.display = "";
+    if (nativePushOn) { btn.textContent = "🔔 푸시 알림 켜짐"; btn.classList.add("gray"); }
+    else { btn.textContent = "🔔 푸시 알림 켜기"; btn.classList.remove("gray"); }
+    return;
+  }
   if (!("Notification" in window)) { btn.style.display = "none"; return; }
   if (Notification.permission === "granted") { btn.textContent = "🔔 푸시 알림 켜짐"; btn.classList.add("gray"); }
   else { btn.textContent = "🔔 푸시 알림 켜기"; btn.classList.remove("gray"); }
 }
 async function enablePush() {
   if (needLogin()) return;
+  // 네이티브 앱: APNs/FCM 디바이스 토큰을 같은 표에 platform 구분해 저장
+  if (window.MoaNative?.isNative) {
+    try {
+      const granted = await window.MoaNative.registerPush(async (token) => {
+        const { error } = await sb.from("push_subscriptions").upsert(
+          { user_id: state.user.id, endpoint: token, platform: window.MoaNative.platform },
+          { onConflict: "endpoint" });
+        if (error) return toast("푸시 등록 실패: " + error.message);
+        nativePushOn = true;
+        toast("푸시 알림이 켜졌습니다. 자녀 출석 시 휴대폰으로 알려드려요.");
+        refreshPushBtn();
+      });
+      if (!granted) toast("알림 권한이 거부되었습니다. 설정 > 모아학원 > 알림에서 허용해 주세요.");
+    } catch (e) { toast("푸시 등록 실패: " + e.message); }
+    return;
+  }
   if (!("Notification" in window) || !swReg) return toast("이 브라우저는 푸시를 지원하지 않습니다.");
   const perm = await Notification.requestPermission();
   if (perm !== "granted") return toast("알림 권한이 거부되었습니다. 브라우저 설정에서 허용해 주세요.");
@@ -1425,6 +1465,17 @@ async function handleCheckin() {
   history.replaceState({}, "", location.pathname);
   if (!state.user) { sessionStorage.setItem("pendingCheckin", id); toast("출석하려면 로그인이 필요합니다."); openModal("m-auth"); return; }
   await doCheckin(+id);
+}
+// 앱 전용: 카메라로 출석 QR을 스캔해 등·퇴원 기록 (웹에서는 버튼이 보이지 않음)
+async function scanCheckinQr() {
+  if (needLogin()) return;
+  try {
+    const text = await window.MoaNative.scanQr();
+    if (!text) return;
+    const id = (text.match(/[?&]checkin=(\d+)/) || [])[1];
+    if (!id) return toast("모아학원 출석 QR이 아닙니다.");
+    await doCheckin(+id);
+  } catch (e) { toast("스캔 실패: " + e.message); }
 }
 // dir: '등원'|'퇴원' 명시(수동 버튼) / 미지정이면 오늘 마지막 기록 기준 자동 토글(QR 스캔)
 async function doCheckin(id, dir) {
@@ -3204,6 +3255,8 @@ async function promptInstall() {
   initPush();
   initI18n();
   if (isIOS()) { const ab = document.getElementById("appleBtn"); if (ab) ab.style.display = "block"; }
+  // 네이티브 앱에서만 QR 스캔 버튼 노출 (capacitor-native.js가 주입된 환경)
+  if (window.MoaNative?.isNative) { const qb = document.getElementById("qrScanBtn"); if (qb) qb.style.display = ""; }
   initAuth().then(() => { handleSocialRedirect(); handleAppleRedirect(); handleCheckin(); loadAcademies(); loadBest(); if (!handleCompareShare()) go("search");
     // 비로그인 상태로 앱 실행 시 로그인 안내 (딥링크·OAuth 콜백 진행 중이면 건너뜀)
     const q = new URLSearchParams(location.search);
