@@ -1,6 +1,4 @@
-# Codemagic 클라우드 빌드 — 모아학원 안드로이드 TWA (targetSdk 36)
-# 사전: Codemagic > Code signing identities > Android keystores 에 upload-keystore.keystore 업로드
-#       reference name: moa_keystore / keystore pw: e1BetmvcBoSn / alias: my-key-alias / key pw: e1BetmvcBoSn
+# Codemagic 클라우드 빌드 — 모아학원 (Android TWA / iOS App Store)
 workflows:
   android-twa-api36:
     name: 모아학원 Android TWA (API 36)
@@ -43,3 +41,63 @@ workflows:
     artifacts:
       - $CM_BUILD_DIR/*.aab
       - app/build/outputs/**/*.aab
+
+  ios-appstore:
+    name: 모아학원 iOS App Store 빌드·TestFlight 업로드
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    working_directory: capacitor
+    integrations:
+      # Codemagic 웹 UI → Teams > Integrations > App Store Connect 에 등록한 키 이름과 일치해야 함
+      app_store_connect: moahagwon_asc_key
+    environment:
+      vars:
+        BUNDLE_ID: "kr.moahagwon.app"
+        XCODE_SCHEME: "App"
+      node: 20
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: kr.moahagwon.app
+    scripts:
+      # 저장소 루트의 배포본을 그대로 www로 복사 — 웹과 앱의 내용 불일치를 원천 차단
+      - name: 웹 자산을 저장소 루트에서 가져오기
+        script: |
+          rm -rf www && mkdir -p www
+          cp ../index.html ../manifest.json ../sw.js ../privacy.html ../terms.html www/
+          cp ../icon-192.png ../icon-512.png ../icon-maskable-512.png www/
+          ls -la www
+      - name: 의존성 설치
+        script: npm install
+      - name: iOS 네이티브 프로젝트 생성 + 자산 동기화
+        script: |
+          npx cap add ios
+          npx @capacitor/assets generate --ios --iconBackgroundColor '#4f46e5' --splashBackgroundColor '#ffffff' || true
+          npx cap sync ios
+      - name: Info.plist 권한 문구 추가 (위치·카메라)
+        script: |
+          PLIST=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string '내 주변 학원 검색과 안심 위치 공유, QR 출석 위치 확인에 사용됩니다.'" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string '출석 QR 코드를 스캔할 때 카메라를 사용합니다.'" "$PLIST" || true
+      - name: 인증서·프로파일 적용
+        script: xcode-project use-profiles
+      - name: 빌드 번호 자동 증가
+        script: |
+          cd ios/App
+          LATEST=$(app-store-connect get-latest-app-store-build-number "$BUNDLE_ID" || echo 0)
+          agvtool new-version -all $((LATEST + 1))
+      - name: 아카이브(IPA) 빌드
+        script: |
+          xcode-project build-ipa \
+            --workspace ios/App/App.xcworkspace \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - capacitor/build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # 첫 심사 제출은 App Store Connect 웹에서 수동으로 진행
+        submit_to_app_store: false
