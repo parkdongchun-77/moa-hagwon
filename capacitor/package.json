@@ -4,23 +4,24 @@
   "description": "모아학원 — 우리 동네 학원 검색·비교·관리",
   "private": true,
   "scripts": {
+    "build:native": "esbuild native-src/native.js --bundle --format=iife --target=es2020 --minify --alias:html5-qrcode=./native-src/empty-web.js --outfile=www/capacitor-native.js",
     "sync": "cap sync",
     "open:ios": "cap open ios",
     "open:android": "cap open android"
   },
   "dependencies": {
-    "@capacitor/app": "^6.0.0",
-    "@capacitor/browser": "^6.0.0",
-    "@capacitor/core": "^6.1.0",
-    "@capacitor/geolocation": "^6.0.0",
-    "@capacitor/push-notifications": "^6.0.0",
-    "@capacitor/splash-screen": "^6.0.0",
-    "@capacitor/status-bar": "^6.0.0"
+    "@capacitor-community/apple-sign-in": "^7.1.0",
+    "@capacitor/barcode-scanner": "^3.1.0",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/geolocation": "^8.2.2",
+    "@capacitor/push-notifications": "^8.1.2",
+    "@capacitor/splash-screen": "^8.0.2"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.1.0",
+    "@capacitor/android": "^8.4.1",
     "@capacitor/assets": "^3.0.5",
-    "@capacitor/android": "^6.1.0",
-    "@capacitor/ios": "^6.1.0"
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
+    "esbuild": "^0.25.0"
   }
 }
