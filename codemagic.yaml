@@ -135,13 +135,26 @@ workflows:
           PY
       # 서명 파일이 Apple 계정에 없으면 --create 가 인증서와 프로파일을 새로 만든다.
       # integrations.app_store_connect 가 APP_STORE_CONNECT_* 환경변수를 자동으로 넣어준다.
+      # 인증서 생성에는 개인키가 필요하다. CERTIFICATE_PRIVATE_KEY 환경변수(Codemagic UI에 저장)를 쓰고,
+      # 없으면 이 빌드에서 새로 만든다. Apple은 Distribution 인증서를 3개까지만 허용하므로
+      # 매 빌드마다 새 키를 만들면 곧 한도에 걸린다 → 처음 생성된 키를 로그에 남겨 UI에 등록할 수 있게 한다.
       - name: 서명 인증서·프로파일 확보 (없으면 생성)
         script: |
+          set -e
           keychain initialize
+          if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
+            echo "CERTIFICATE_PRIVATE_KEY 없음 — 이번 빌드에서 새 개인키를 생성합니다."
+            openssl genrsa -out /tmp/cert_key.pem 2048
+            export CERTIFICATE_PRIVATE_KEY="$(cat /tmp/cert_key.pem)"
+            echo "===== 아래 PEM 전체를 Codemagic 환경변수 CERTIFICATE_PRIVATE_KEY 로 저장하세요 (secure 체크) ====="
+            cat /tmp/cert_key.pem
+            echo "===== 여기까지 ====="
+          fi
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
             --strict-match-identifier \
+            --certificate-key "@env:CERTIFICATE_PRIVATE_KEY" \
             --create
           keychain add-certificates
       - name: 인증서·프로파일 적용
