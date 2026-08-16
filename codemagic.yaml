@@ -51,6 +51,10 @@ workflows:
       # Codemagic 웹 UI → Teams > Integrations > App Store Connect 에 등록한 키 이름과 일치해야 함
       app_store_connect: moahagwon_asc_key
     environment:
+      # Codemagic UI에 등록한 변수 그룹. 그룹에 속한 변수는 여기에 적어야 빌드에 주입된다.
+      # ios_signing 그룹에는 CERTIFICATE_PRIVATE_KEY(secure) 가 들어 있다.
+      groups:
+        - ios_signing
       vars:
         BUNDLE_ID: "kr.moahagwon.app"
         XCODE_SCHEME: "App"
@@ -135,21 +139,18 @@ workflows:
           PY
       # 서명 파일이 Apple 계정에 없으면 --create 가 인증서와 프로파일을 새로 만든다.
       # integrations.app_store_connect 가 APP_STORE_CONNECT_* 환경변수를 자동으로 넣어준다.
-      # 인증서 생성에는 개인키가 필요하다. CERTIFICATE_PRIVATE_KEY 환경변수(Codemagic UI에 저장)를 쓰고,
-      # 없으면 이 빌드에서 새로 만든다. Apple은 Distribution 인증서를 3개까지만 허용하므로
-      # 매 빌드마다 새 키를 만들면 곧 한도에 걸린다 → 처음 생성된 키를 로그에 남겨 UI에 등록할 수 있게 한다.
-      - name: 서명 인증서·프로파일 확보 (없으면 생성)
+      # 인증서 생성에는 개인키가 필요하다. Codemagic 환경변수 CERTIFICATE_PRIVATE_KEY(secure)에 저장해 두고 재사용한다.
+      # Apple은 Distribution 인증서를 3개까지만 허용하므로 빌드마다 새 키를 만들면 곧 한도에 걸린다.
+      # 키는 로컬에서 openssl genrsa 로 만들어 환경변수에 넣는다. 로그로는 절대 출력하지 않는다.
+      - name: 서명 인증서·프로파일 확보
         script: |
           set -e
-          keychain initialize
           if [ -z "$CERTIFICATE_PRIVATE_KEY" ]; then
-            echo "CERTIFICATE_PRIVATE_KEY 없음 — 이번 빌드에서 새 개인키를 생성합니다."
-            openssl genrsa -out /tmp/cert_key.pem 2048
-            export CERTIFICATE_PRIVATE_KEY="$(cat /tmp/cert_key.pem)"
-            echo "===== 아래 PEM 전체를 Codemagic 환경변수 CERTIFICATE_PRIVATE_KEY 로 저장하세요 (secure 체크) ====="
-            cat /tmp/cert_key.pem
-            echo "===== 여기까지 ====="
+            echo "환경변수 CERTIFICATE_PRIVATE_KEY 가 없습니다."
+            echo "Codemagic > App settings > Environment variables 에 secure 로 등록하세요."
+            exit 1
           fi
+          keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
@@ -169,8 +170,10 @@ workflows:
           xcode-project build-ipa \
             --workspace ios/App/App.xcworkspace \
             --scheme "$XCODE_SCHEME"
+    # 아티팩트 경로는 working_directory(capacitor) 기준이다.
+    # 빌드 로그 확인: "Successfully exported ipa to build/ios/ipa/App.ipa"
     artifacts:
-      - capacitor/build/ios/ipa/*.ipa
+      - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
