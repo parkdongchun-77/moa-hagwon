@@ -54,7 +54,8 @@ workflows:
       vars:
         BUNDLE_ID: "kr.moahagwon.app"
         XCODE_SCHEME: "App"
-      node: 20
+      # Capacitor 8 CLI는 NodeJS >=22 를 요구한다 (node:20 이면 cap add ios 가 [fatal] 로 죽음)
+      node: 22
       xcode: latest
       cocoapods: default
       # ios_signing(distribution_type + bundle_identifier)은 Codemagic UI에 "이미 업로드된" 서명 파일을 가져오는 방식이라
