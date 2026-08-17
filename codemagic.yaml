@@ -107,6 +107,9 @@ workflows:
           PLIST=ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string '내 주변 학원 검색과 안심 위치 공유, QR 출석 위치 확인에 사용됩니다.'" "$PLIST" || true
           /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string '출석 QR 코드를 스캔할 때 카메라를 사용합니다.'" "$PLIST" || true
+          # 앱이 자체 암호화를 구현하지 않고 OS의 HTTPS만 쓰므로 수출 규정 면제 대상이다.
+          # 이 키가 없으면 업로드할 때마다 App Store Connect에서 수출 규정 문서를 요구한다.
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" || true
           echo "----- Info.plist 확인 -----"
           /usr/libexec/PlistBuddy -c "Print :NSCameraUsageDescription" "$PLIST"
           /usr/libexec/PlistBuddy -c "Print :NSLocationWhenInUseUsageDescription" "$PLIST"
@@ -136,6 +139,26 @@ workflows:
               print("CODE_SIGN_ENTITLEMENTS 추가함")
           else:
               print("CODE_SIGN_ENTITLEMENTS 이미 있음")
+          PY
+      # iPad 레이아웃을 검증한 적이 없어 1.0은 iPhone 전용으로 출시한다.
+      # 이 설정이 없으면 App Store가 13" iPad 스크린샷을 필수로 요구한다.
+      - name: iPhone 전용으로 설정 (iPad 미지원)
+        script: |
+          python3 - <<'PY'
+          import re, sys
+          p = "ios/App/App.xcodeproj/project.pbxproj"
+          s = open(p).read()
+          before = s
+          s = re.sub(r'TARGETED_DEVICE_FAMILY = "?[0-9,]+"?;', 'TARGETED_DEVICE_FAMILY = "1";', s)
+          if s == before:
+              # 키가 아예 없으면 PRODUCT_BUNDLE_IDENTIFIER 앞에 넣는다
+              s = s.replace("PRODUCT_BUNDLE_IDENTIFIER =",
+                            'TARGETED_DEVICE_FAMILY = "1";\n\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER =')
+          open(p, "w").write(s)
+          n = s.count('TARGETED_DEVICE_FAMILY = "1";')
+          print("TARGETED_DEVICE_FAMILY=1 설정 건수:", n)
+          if n == 0 or 'TARGETED_DEVICE_FAMILY = "1,2"' in s:
+              sys.exit("iPhone 전용 설정 실패")
           PY
       # 서명 파일이 Apple 계정에 없으면 --create 가 인증서와 프로파일을 새로 만든다.
       # integrations.app_store_connect 가 APP_STORE_CONNECT_* 환경변수를 자동으로 넣어준다.
