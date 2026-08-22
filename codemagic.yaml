@@ -85,12 +85,14 @@ workflows:
             const p="www/index.html";
             let s=fs.readFileSync(p,"utf8");
             const tag="<script src=\"capacitor-native.js\"></script>\n";
-            if(!s.includes("capacitor-native.js")){
+            // index.html 주석에도 파일명이 들어 있어 파일명만 검사하면 이미 주입된 것으로 오판한다. 태그 자체로 검사한다.
+            if(!s.includes(tag.trim())){
               if(!s.includes("</head>")) { console.error("</head> 없음"); process.exit(1); }
               s=s.replace("</head>", tag+"</head>");
               fs.writeFileSync(p,s);
             }
-            console.log("주입 확인:", s.split("capacitor-native.js").length-1);
+            if(!fs.readFileSync(p,"utf8").includes(tag.trim())) { console.error("주입 실패: script 태그 없음"); process.exit(1); }
+            console.log("주입 확인: script 태그 있음");
           '
       # Capacitor 8은 SPM이 기본이지만 두 가지 이유로 CocoaPods를 쓴다.
       #  1) SPM 템플릿에는 App.xcworkspace 가 없어 build-ipa --workspace 가 실패한다
