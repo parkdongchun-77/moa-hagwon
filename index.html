@@ -155,6 +155,16 @@ body{padding-bottom:70px}
 
 <!-- ===== 검색 ===== -->
 <section class="view" id="v-search">
+  <!-- 앱 다운로드 배너 — 네이티브 앱 안에서는 숨김, 닫으면 기억함 -->
+  <div class="card no-print" id="appDlBanner" style="display:none;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;position:relative">
+    <button onclick="dismissAppBanner()" aria-label="배너 닫기"
+      style="position:absolute;top:8px;right:10px;background:transparent;border:0;color:#c7d2fe;font-size:20px;line-height:1;cursor:pointer">×</button>
+    <div style="font-size:17px;font-weight:800;margin-bottom:4px">📱 모아학원 앱으로 더 편하게</div>
+    <div style="font-size:13px;color:#e0e7ff;margin-bottom:10px">등·하원 QR 출석과 실시간 알림은 앱에서 쓸 수 있어요.</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <button class="btn sm" style="background:#fff;color:#4f46e5;font-weight:700" onclick="openAppDownload()">앱 다운로드</button>
+    </div>
+  </div>
   <div class="card no-print" style="padding:0;overflow:hidden;position:relative">
     <div id="map" style="height:33vh;min-height:240px"></div>
     <div class="mut" style="position:absolute;bottom:6px;left:8px;z-index:500;background:rgba(255,255,255,.85);border-radius:6px;padding:2px 8px;font-size:12px">
@@ -433,8 +443,8 @@ body{padding-bottom:70px}
   </div>
   <button class="btn" style="width:100%" id="authGo" onclick="doAuth()">로그인</button>
   <div style="display:flex;align-items:center;gap:8px;margin:14px 0;color:var(--mut);font-size:13px"><div style="flex:1;height:1px;background:var(--line)"></div>또는<div style="flex:1;height:1px;background:var(--line)"></div></div>
-  <button class="btn" style="width:100%;background:#fee500;color:#191600;margin-bottom:8px" onclick="socialLogin('kakao')">카카오로 시작하기</button>
-  <button class="btn" style="width:100%;background:#fff;color:#1f2937;border:1px solid var(--line)" onclick="socialLogin('google')">Google로 시작하기</button>
+  <button class="btn" id="kakaoBtn" style="width:100%;background:#fee500;color:#191600;margin-bottom:8px" onclick="socialLogin('kakao')">카카오로 시작하기</button>
+  <button class="btn" id="googleBtn" style="width:100%;background:#fff;color:#1f2937;border:1px solid var(--line)" onclick="socialLogin('google')">Google로 시작하기</button>
   <button class="btn" id="appleBtn" style="width:100%;background:#000;color:#fff;margin-top:8px;display:none" onclick="socialLogin('apple')"> Apple로 로그인</button>
   <p class="mut" style="margin-top:10px;text-align:center"><a href="#" onclick="toggleAuthMode();return false" id="authSwitch">처음이신가요? 회원가입</a></p>
 </div></div>
@@ -482,6 +492,14 @@ body{padding-bottom:70px}
   <p class="mut">학생이 이 QR을 스캔하면 출석됩니다. 학원 입구에 출력해 붙여두세요.</p>
   <p class="mut" style="font-size:12px">※ 스캔 시 위치(GPS)가 학원 근처일 때만 출석으로 인정됩니다.</p>
   <button class="btn ghost no-print" style="width:100%;margin-top:8px" onclick="window.print()">QR 인쇄</button>
+</div></div>
+<!-- 앱 다운로드 모달 -->
+<div class="modal-bg" id="m-appdl"><div class="modal" style="max-width:400px"><button class="close" onclick="closeModal('m-appdl')">×</button>
+  <h2 style="font-size:18px">모아학원 앱 다운로드</h2>
+  <p class="mut" style="font-size:13px;margin-top:6px">스마트폰에 설치하면 등·하원 QR 출석과 푸시 알림을 쓸 수 있습니다.</p>
+  <div id="appDlBox" style="margin-top:14px;display:flex;flex-direction:column;gap:10px"></div>
+  <p class="mut" style="font-size:12px;margin-top:14px">
+    설치가 어려우시면 <a href="#" onclick="closeModal('m-appdl');promptInstall();return false">홈 화면에 바로가기 추가</a>로도 쓸 수 있습니다.</p>
 </div></div>
 <!-- 지역화폐 결제 안내 모달 -->
 <div class="modal-bg" id="m-pay"><div class="modal" style="max-width:380px;text-align:center"><button class="close" onclick="closeModal('m-pay')">×</button>
@@ -721,6 +739,38 @@ async function loadEvents() {
 }
 function closeModal(id) { document.getElementById(id).classList.remove("on"); }
 function openModal(id) { document.getElementById(id).classList.add("on"); }
+// ===== 앱 다운로드 안내 =====
+// 스토어 심사가 끝나면 아래 READY 값만 true 로 바꾸면 링크가 살아납니다.
+const ANDROID_READY = true, IOS_READY = false;
+const PLAY_URL = "https://play.google.com/store/apps/details?id=com.moahagwon.myapp";
+const APPSTORE_URL = "https://apps.apple.com/app/id6801823750";
+function storeBtn(ready, url, icon, label, sub) {
+  const style = "width:100%;text-align:left;padding:12px 14px;display:flex;align-items:center;gap:12px";
+  if (!ready) return `<button class="btn gray" style="${style};opacity:.65;cursor:default" disabled>
+      <span style="font-size:22px">${icon}</span>
+      <span><b>${label}</b><br><span class="mut" style="font-size:12px">출시 준비 중입니다</span></span></button>`;
+  return `<a class="btn" href="${url}" target="_blank" rel="noopener" style="${style};background:var(--p);color:#fff;text-decoration:none">
+      <span style="font-size:22px">${icon}</span>
+      <span><b>${label}</b><br><span style="font-size:12px;color:#e0e7ff">${sub}</span></span></a>`;
+}
+function openAppDownload() {
+  document.getElementById("appDlBox").innerHTML =
+    storeBtn(ANDROID_READY, PLAY_URL, "🤖", "Android — Google Play", "Play 스토어에서 받기") +
+    storeBtn(IOS_READY, APPSTORE_URL, "🍎", "iPhone — App Store", "App Store에서 받기");
+  openModal("m-appdl");
+}
+function dismissAppBanner() {
+  try { localStorage.setItem("moa_appdl_dismissed", "1"); } catch (_e) {}
+  const b = document.getElementById("appDlBanner"); if (b) b.style.display = "none";
+}
+// 네이티브 앱 안에서는 스토어 안내를 띄우지 않는다 (앱에서 앱을 받으라는 꼴이 됨)
+function initAppBanner() {
+  if (window.MoaNative?.isNative) return;
+  let dismissed = false;
+  try { dismissed = localStorage.getItem("moa_appdl_dismissed") === "1"; } catch (_e) {}
+  if (dismissed) return;
+  const b = document.getElementById("appDlBanner"); if (b) b.style.display = "";
+}
 function needLogin() { if (!state.user) { toast("로그인이 필요합니다."); openModal("m-auth"); return true; } return false; }
 // ===== 하단 고정 바 + 메뉴 시트 =====
 const SHEETS = {
@@ -741,7 +791,9 @@ const SHEETS = {
   more: { title: "더보기", items: () => {
     const arr = [["📢", "공지사항", "go('notices')"], ["🔔", "알림", "go('noti')"],
       ["⚙️", "설정", "openSettings()"], ["👤", "내 정보", "openProfile()"],
-      ["📲", "앱 설치 (홈 화면 추가)", "promptInstall()"], ["📄", "이용약관", "go('terms')"], ["🔒", "개인정보처리방침", "go('privacy')"]];
+      ["📄", "이용약관", "go('terms')"], ["🔒", "개인정보처리방침", "go('privacy')"]];
+    if (!window.MoaNative?.isNative) arr.splice(4, 0,
+      ["📱", "앱 다운로드", "openAppDownload()"], ["📲", "앱 설치 (홈 화면 추가)", "promptInstall()"]);
     if (state.profile?.role === "admin") arr.push(["🛠", "운영 (관리자)", "go('admin')"]);
     return arr;
   } },
@@ -1074,6 +1126,8 @@ function socialLogin(provider) {
   } else if (provider === "apple") {
     // 네이티브 앱: 시스템 시트로 바로 로그인 (리다이렉트가 없어 앱 origin·세션이 유지됨)
     if (window.MoaNative?.isNative) return appleNativeLogin();
+    // 앱인데 네이티브 브리지가 없으면 아래 웹 폴백이 외부 Safari를 띄워 가이드라인 4에 걸린다. 나가지 않고 멈춘다.
+    if (isIosApp()) return toast("애플 로그인을 사용할 수 없습니다. 이메일로 로그인해 주세요.");
     // 애플은 form_post로 코드를 apple-login 함수에 POST → 함수가 OTP 발급 후 앱으로 #apple= 리다이렉트
     location.href = "https://appleid.apple.com/auth/authorize?response_type=code"
       + "&client_id=" + APPLE_SERVICE_ID
@@ -3255,8 +3309,12 @@ async function promptInstall() {
   initPush();
   initI18n();
   if (isIOS()) { const ab = document.getElementById("appleBtn"); if (ab) ab.style.display = "block"; }
+  // iOS 앱: 카카오·구글은 외부 Safari로 나가 앱으로 돌아오지 못한다(App Store 가이드라인 4 반려 사유).
+  // 앱 안에서 끝나는 이메일·Apple 로그인만 남긴다. 웹·안드로이드는 그대로 노출.
+  if (isIosApp()) ["kakaoBtn", "googleBtn"].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = "none"; });
   // 네이티브 앱에서만 QR 스캔 버튼 노출 (capacitor-native.js가 주입된 환경)
   if (window.MoaNative?.isNative) { const qb = document.getElementById("qrScanBtn"); if (qb) qb.style.display = ""; }
+  initAppBanner();
   initAuth().then(() => { handleSocialRedirect(); handleAppleRedirect(); handleCheckin(); loadAcademies(); loadBest(); if (!handleCompareShare()) go("search");
     // 비로그인 상태로 앱 실행 시 로그인 안내 (딥링크·OAuth 콜백 진행 중이면 건너뜀)
     const q = new URLSearchParams(location.search);
