@@ -501,6 +501,12 @@ body{padding-bottom:70px}
   <p class="mut" style="font-size:12px;margin-top:14px">
     설치가 어려우시면 <a href="#" onclick="closeModal('m-appdl');promptInstall();return false">홈 화면에 바로가기 추가</a>로도 쓸 수 있습니다.</p>
 </div></div>
+<!-- 길찾기 지도 앱 선택 모달 (App Store 가이드라인 4: Apple 지도 선택지 제공) -->
+<div class="modal-bg" id="m-mapchoose"><div class="modal" style="max-width:360px"><button class="close" onclick="closeModal('m-mapchoose')">×</button>
+  <h2 style="font-size:17px">길찾기</h2>
+  <p class="mut" id="mapChooseDest" style="font-size:13px;margin-top:6px"></p>
+  <div id="mapChooseBox" style="margin-top:14px;display:flex;flex-direction:column;gap:8px"></div>
+</div></div>
 <!-- 지역화폐 결제 안내 모달 -->
 <div class="modal-bg" id="m-pay"><div class="modal" style="max-width:380px;text-align:center"><button class="close" onclick="closeModal('m-pay')">×</button>
   <h2 id="payTitle" style="font-size:17px">지역화폐 결제</h2>
@@ -1494,6 +1500,12 @@ async function openDirections(id, ev) {
   // 도착지 = 학원 주소, 출발지 = 내 위치. 경로가 바로 계산돼 나옴.
   const gmap = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}&travelmode=transit`;
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  // iOS는 지도 앱을 사용자가 고르게 한다. Apple 지도 선택지가 없으면 App Store 가이드라인 4로 반려된다.
+  if (isIOS()) {
+    let lat = a.lat, lng = a.lng;
+    if (!lat || !lng) { const c = await geocodeAcademy(a); if (c) { lat = c[0]; lng = c[1]; } }
+    return openMapChooser(a.name, dest, lat, lng, gmap);
+  }
   if (isMobile) {
     toast("길찾기를 여는 중...");
     let lat = a.lat, lng = a.lng;
@@ -1511,6 +1523,31 @@ async function openDirections(id, ev) {
   } else {
     window.open(gmap, "_blank"); // 데스크톱: 구글 지도가 내 위치→학원 주소 경로를 자동 표시
   }
+}
+// iOS 길찾기 — Apple 지도를 첫 번째 선택지로 두고 사용자가 지도 앱을 고르게 한다.
+// 좌표를 못 구한 경우에도 주소 문자열로 Apple 지도를 열 수 있게 daddr을 분기한다.
+function openMapChooser(name, dest, lat, lng, gmap) {
+  const hasCoord = !!(lat && lng);
+  const appleUrl = hasCoord
+    ? `https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`
+    : `https://maps.apple.com/?daddr=${encodeURIComponent(dest)}&dirflg=d`;
+  const opts = [
+    ["🗺️", "Apple 지도", appleUrl, "#000", "#fff"],
+    ["🌐", "구글 지도", gmap, "#fff", "#1f2937"],
+  ];
+  if (hasCoord) opts.splice(1, 0,
+    ["🟡", "카카오맵", `kakaomap://route?ep=${lat},${lng}&by=CAR`, "#fae100", "#3c1e1e"]);
+  document.getElementById("mapChooseDest").textContent = `${name} · ${dest}`;
+  document.getElementById("mapChooseBox").innerHTML = opts.map(([ic, label, url, bg, fg]) =>
+    `<button class="btn" style="width:100%;background:${bg};color:${fg};border:1px solid var(--line)"
+      onclick="goMap('${url.replace(/'/g, "\\'")}')">${ic} ${label}</button>`).join("");
+  openModal("m-mapchoose");
+}
+function goMap(url) {
+  closeModal("m-mapchoose");
+  // 카카오맵은 앱이 없으면 아무 일도 일어나지 않으므로 같은 창에서 연다(스킴). 나머지는 새 탭.
+  if (url.startsWith("kakaomap://")) location.href = url;
+  else window.open(url, "_blank");
 }
 // ?checkin=<id> 처리 (QR 스캔 진입)
 async function handleCheckin() {
