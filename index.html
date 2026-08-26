@@ -747,7 +747,7 @@ function closeModal(id) { document.getElementById(id).classList.remove("on"); }
 function openModal(id) { document.getElementById(id).classList.add("on"); }
 // ===== 앱 다운로드 안내 =====
 // 스토어 심사가 끝나면 아래 READY 값만 true 로 바꾸면 링크가 살아납니다.
-const ANDROID_READY = true, IOS_READY = false;
+const ANDROID_READY = true, IOS_READY = true;
 const PLAY_URL = "https://play.google.com/store/apps/details?id=com.moahagwon.myapp";
 const APPSTORE_URL = "https://apps.apple.com/app/id6801823750";
 function storeBtn(ready, url, icon, label, sub) {
