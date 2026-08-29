@@ -17,6 +17,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script src="https://js.tosspayments.com/v2/standard"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -2213,7 +2214,7 @@ async function loadNoti() {
   el.innerHTML = (data || []).map(n => `<div class="review" style="${n.read ? "opacity:.55" : ""}">
     <span class="tag ${n.ntype === "가격변경" ? "" : "gray"}">${esc(n.ntype)}</span> <b>${esc(n.title)}</b>
     <div class="mut">${esc(n.body || "")} · ${new Date(n.created_at).toLocaleDateString("ko-KR")}</div>
-    ${n.ntype === "입금안내" && n.academy_id ? `<div class="row no-print" style="margin-top:6px;gap:6px"><button class="btn sm" style="background:#16a34a;color:#fff;font-weight:700" onclick="openPay(${n.academy_id},${n.amount || 0})">💳 지역화폐로 결제</button>${n.child_academy_id && n.year_month && n.amount ? `<button class="btn sm" style="background:#3182f6;color:#fff;font-weight:700" onclick="payTuition(${n.child_academy_id},${n.amount},'${esc(n.year_month)}',${n.academy_id})">💳 카드결제(베타)</button>` : ""}${n.child_academy_id && n.year_month ? `<button class="btn sm gray" onclick="markPaidByParent(${n.child_academy_id},'${esc(n.year_month)}',this)">✅ 결제했어요</button>` : ""}</div>` : ""}</div>`).join("") || `<div class="empty">알림이 없습니다.</div>`;
+    ${n.ntype === "입금안내" && n.academy_id ? `<div class="row no-print" style="margin-top:6px;gap:6px"><button class="btn sm" style="background:#16a34a;color:#fff;font-weight:700" onclick="openPay(${n.academy_id},${n.amount || 0})">💳 지역화폐로 결제</button>${canPayHere() && n.child_academy_id && n.year_month && n.amount ? `<button class="btn sm" style="background:#3182f6;color:#fff;font-weight:700" onclick="payTuition(${n.child_academy_id},${n.amount},'${esc(n.year_month)}',${n.academy_id})">💳 카드·간편결제</button>` : ""}${n.child_academy_id && n.year_month ? `<button class="btn sm gray" onclick="markPaidByParent(${n.child_academy_id},'${esc(n.year_month)}',this)">✅ 결제했어요</button>` : ""}</div>` : ""}</div>`).join("") || `<div class="empty">알림이 없습니다.</div>`;
   loadWatches();
 }
 async function markPaidByParent(caid, ym, btn) {
@@ -3030,17 +3031,63 @@ async function orderAd(aid) {
   toast(error ? "오류: " + error.message : "신청 완료! 운영자 승인 후 노출이 시작됩니다.");
 }
 // ===== 결제(토스페이먼츠 스캐폴드, 실결제 미연결이면 테스트 시뮬레이션) =====
+// iOS 네이티브 앱에서는 결제를 띄우지 않는다.
+// 토스 결제창은 모바일에서 반드시 페이지를 이동시키는데(문서 명시), Capacitor 웹뷰는 로컬 파일에서 뜨므로
+// 돌아올 successUrl 을 만들 수 없고, 외부 사파리로 나가면 App Store 가이드라인 4에 걸린다.
+// 웹·안드로이드(TWA는 크롬이라 웹과 동일)에서는 정상 동작한다.
+const PAY_ENABLED_ON_IOS = false;
+function canPayHere() { return PAY_ENABLED_ON_IOS || !isIosApp(); }
+
 async function tossPay(payload) {
   if (needLogin()) return null;
+  if (!canPayHere()) { toast("앱에서는 결제를 지원하지 않습니다. moahagwon.com 에서 결제해 주세요."); return null; }
   const create = await sb.functions.invoke("toss-payment", { body: { action: "create", ...payload } });
   const d = create.data;
   if (create.error || !d?.orderId) { toast("결제 생성 실패: " + (create.error?.message || d?.error || "")); return null; }
-  if (!d.testMode) { toast("실결제(토스) 연동은 키 등록 후 활성화됩니다."); return null; }
-  if (!confirm(`[테스트 결제]\n${d.orderName} — ${won(d.amount)}\n실결제는 아직 연결되지 않았습니다. 테스트로 '결제 완료' 처리할까요?`)) return null;
-  const conf = await sb.functions.invoke("toss-payment", { body: { action: "confirm", orderId: d.orderId, amount: d.amount } });
-  if (conf.error || !conf.data?.ok) { toast("결제 확정 실패: " + (conf.error?.message || conf.data?.error || "")); return null; }
-  toast("테스트 결제 완료 ✅ (실결제는 토스 키 연결 후 활성화됩니다)");
-  return conf.data;
+
+  // 토스 키가 등록되지 않은 동안에는 예전처럼 테스트 처리로 흐른다.
+  if (d.testMode || !d.clientKey || typeof TossPayments !== "function") {
+    if (!confirm(`[테스트 결제]\n${d.orderName} — ${won(d.amount)}\n실결제는 아직 연결되지 않았습니다. 테스트로 '결제 완료' 처리할까요?`)) return null;
+    const conf = await sb.functions.invoke("toss-payment", { body: { action: "confirm", orderId: d.orderId, amount: d.amount } });
+    if (conf.error || !conf.data?.ok) { toast("결제 확정 실패: " + (conf.error?.message || conf.data?.error || "")); return null; }
+    toast("테스트 결제 완료 ✅ (실결제는 토스 키 연결 후 활성화됩니다)");
+    return conf.data;
+  }
+
+  // 실결제 — 카드/간편결제 통합결제창. 결제창에서 카카오페이·네이버페이 등을 고른다.
+  // 여기서 페이지가 토스로 이동하고, 인증이 끝나면 아래 successUrl 로 돌아온다.
+  const back = location.origin + location.pathname;
+  try {
+    const payment = TossPayments(d.clientKey).payment({ customerKey: TossPayments.ANONYMOUS });
+    await payment.requestPayment({
+      method: "CARD",
+      amount: { currency: "KRW", value: d.amount },
+      orderId: d.orderId,
+      orderName: d.orderName,
+      successUrl: back + "?tosspay=success",
+      failUrl: back + "?tosspay=fail",
+      card: { useEscrow: false, flowMode: "DEFAULT", useCardPoint: false, useAppCardOnly: false },
+    });
+  } catch (e) {
+    // 사용자가 결제창을 닫으면 여기로 온다
+    if (e?.code !== "USER_CANCEL") toast("결제 요청 실패: " + (e?.message || e));
+  }
+  return null; // 결제창으로 이동하므로 이 자리에서 끝나는 흐름은 없다
+}
+
+// 토스 결제창에서 돌아왔을 때 승인까지 마무리한다.
+async function handleTossRedirect() {
+  const q = new URLSearchParams(location.search);
+  const r = q.get("tosspay");
+  if (!r) return false;
+  history.replaceState({}, "", location.pathname);
+  if (r === "fail") { toast("결제가 취소되었거나 실패했습니다. " + (q.get("message") || "")); return true; }
+  const orderId = q.get("orderId"), paymentKey = q.get("paymentKey"), amount = Number(q.get("amount"));
+  if (!orderId || !paymentKey || !amount) { toast("결제 정보를 확인할 수 없습니다."); return true; }
+  const conf = await sb.functions.invoke("toss-payment", { body: { action: "confirm", orderId, paymentKey, amount } });
+  if (conf.error || !conf.data?.ok) { toast("결제 승인 실패: " + (conf.error?.message || JSON.stringify(conf.data?.error || ""))); return true; }
+  toast("결제가 완료되었습니다 ✅");
+  return true;
 }
 async function openPremiumPay(aid) {
   if (needLogin()) return;
@@ -3400,10 +3447,10 @@ async function promptInstall() {
   // 네이티브 앱에서만 QR 스캔 버튼 노출 (capacitor-native.js가 주입된 환경)
   if (window.MoaNative?.isNative) { const qb = document.getElementById("qrScanBtn"); if (qb) qb.style.display = ""; }
   initAppBanner();
-  initAuth().then(() => { handleSocialRedirect(); handleAppleRedirect(); handleCheckin(); loadAcademies(); loadBest(); if (!handleCompareShare()) go("search");
+  initAuth().then(() => { handleSocialRedirect(); handleAppleRedirect(); handleCheckin(); handleTossRedirect(); loadAcademies(); loadBest(); if (!handleCompareShare()) go("search");
     // 비로그인 상태로 앱 실행 시 로그인 안내 (딥링크·OAuth 콜백 진행 중이면 건너뜀)
     const q = new URLSearchParams(location.search);
-    if (!state.user && !q.get("checkin") && !q.get("compare") && !q.get("code")) openModal("m-auth");
+    if (!state.user && !q.get("checkin") && !q.get("compare") && !q.get("code") && !q.get("tosspay")) openModal("m-auth");
   });
 })();
 </script>
