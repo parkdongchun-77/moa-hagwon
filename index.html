@@ -634,6 +634,14 @@ const GRADES = ["유아","초등","중등","고등","성인"];
 const LOCALPAY = ["제로페이","서울사랑상품권","경기지역화폐","인천e음","부산 동백전","대전 온통대전","기타 지역화폐"];
 const won = n => n == null ? "-" : Number(n).toLocaleString("ko-KR") + "원";
 const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// onclick="fn('...')" 처럼 HTML 속성 안의 JS 문자열에 값을 넣을 때 쓴다.
+// 브라우저는 속성값을 HTML 디코드한 뒤 JS로 파싱하므로, JS 이스케이프를 먼저 하고 HTML 이스케이프를 나중에 해야 한다.
+// esc()만 쓰면 &#39; 가 디코드되면서 따옴표가 복원돼 문자열을 탈출한다.
+const escJs = s => esc(String(s ?? "").replace(/[\r\n]/g, " ").replace(/\\/g, "\\\\").replace(/'/g, "\\'"));
+// 날짜는 로컬(KST) 기준으로 만든다. new Date(y,m).toISOString() 은 UTC로 바뀌면서 KST에서 한 달/하루가 밀린다.
+const ymOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+const ymdOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const ymShift = n => ymOf(new Date(new Date().getFullYear(), new Date().getMonth() + n, 1));
 let state = { user: null, profile: null, page: 1, total: 0, signupMode: false, detail: null, leadAcademy: null, enrollChild: null, blocked: new Set(), compare: JSON.parse(localStorage.getItem("moa_cmp") || "[]") };
 function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2600); }
 // ===== 다국어(한/영) — 기본 한국어, DOM 자동 번역(핵심 UI만) =====
@@ -772,7 +780,7 @@ function dismissAppBanner() {
 }
 // 네이티브 앱 안에서는 스토어 안내를 띄우지 않는다 (앱에서 앱을 받으라는 꼴이 됨)
 function initAppBanner() {
-  if (window.MoaNative?.isNative) return;
+  if (isInApp()) return;
   let dismissed = false;
   try { dismissed = localStorage.getItem("moa_appdl_dismissed") === "1"; } catch (_e) {}
   if (dismissed) return;
@@ -799,7 +807,7 @@ const SHEETS = {
     const arr = [["📢", "공지사항", "go('notices')"], ["🔔", "알림", "go('noti')"],
       ["⚙️", "설정", "openSettings()"], ["👤", "내 정보", "openProfile()"],
       ["📄", "이용약관", "go('terms')"], ["🔒", "개인정보처리방침", "go('privacy')"]];
-    if (!window.MoaNative?.isNative) arr.splice(4, 0,
+    if (!isInApp()) arr.splice(4, 0,
       ["📱", "앱 다운로드", "openAppDownload()"], ["📲", "앱 설치 (홈 화면 추가)", "promptInstall()"]);
     if (state.profile?.role === "admin") arr.push(["🛠", "운영 (관리자)", "go('admin')"]);
     return arr;
@@ -838,7 +846,7 @@ function openGradeModal(aid, caid, childId, name) {
   document.getElementById("gradeTitle").textContent = name + " 성적 입력";
   ["gdTitle", "gdScore", "gdMemo"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("gdMax").value = "100";
-  document.getElementById("gdDate").value = new Date().toISOString().slice(0, 10);
+  document.getElementById("gdDate").value = ymdOf(new Date());
   openModal("m-grade");
 }
 async function saveGrade() {
@@ -912,10 +920,13 @@ function sendNowLocation() {
   toast("현재 위치를 확인하는 중…");
   navigator.geolocation.getCurrentPosition(async p => {
     const lat = p.coords.latitude, lng = p.coords.longitude;
-    await sb.from("child_locations").upsert({ child_id: childId, lat, lng, updated_at: new Date().toISOString() });
+    const { error: locErr } = await sb.from("child_locations").upsert({ child_id: childId, lat, lng, updated_at: new Date().toISOString() });
     if (document.getElementById("v-location").classList.contains("on")) refreshLocations();
-    sendCheckinPush({ kind: "sos", child_id: childId, child_name: childName, fallback_user: state.user.id, lat, lng });
-    toast("현재 위치를 전송하고 부모에게 긴급 알림을 보냈어요.");
+    // 안전 기능이라 실패를 숨기지 않는다. 알림이 안 갔으면 직접 전화하도록 안내한다.
+    const pushed = await sendCheckinPush({ kind: "sos", child_id: childId, child_name: childName, fallback_user: state.user.id, lat, lng });
+    if (locErr) toast("⚠️ 위치 저장에 실패했어요. 통신 상태를 확인하고 다시 눌러주세요. 급하면 112로 전화하세요.");
+    else if (!pushed) toast("⚠️ 위치는 저장했지만 부모님께 알림을 보내지 못했어요. 직접 전화해 주세요.");
+    else toast("현재 위치를 전송하고 부모에게 긴급 알림을 보냈어요.");
   }, () => toast("위치를 가져오지 못했어요. 권한을 확인해 주세요."), { enableHighAccuracy: true, timeout: 9000 });
 }
 let sirenCtx = null, sirenOsc = null, sirenTimer = null;
@@ -1029,13 +1040,17 @@ async function uploadAcademyPhoto(id) {
   const { error } = await sb.storage.from("academy-photos").upload(path, f, { contentType: f.type });
   if (error) return toast("업로드 실패: " + error.message);
   const { data: { publicUrl } } = sb.storage.from("academy-photos").getPublicUrl(path);
-  const { data: a } = await sb.from("academies").select("photos").eq("id", id).single();
-  await sb.from("academies").update({ photos: [...(a.photos || []), publicUrl] }).eq("id", id);
+  const { data: a, error: readErr } = await sb.from("academies").select("photos").eq("id", id).maybeSingle();
+  if (readErr || !a) { toast("사진은 올라갔지만 목록 갱신에 실패했어요. 새로고침해 주세요."); return; }
+  const { error: upErr } = await sb.from("academies").update({ photos: [...(a.photos || []), publicUrl] }).eq("id", id);
+  if (upErr) return toast("사진 등록 실패: " + upErr.message);
   toast("사진을 추가했어요."); renderOwnInfo(id);
 }
 async function delAcademyPhoto(id, url) {
-  const { data: a } = await sb.from("academies").select("photos").eq("id", id).single();
-  await sb.from("academies").update({ photos: (a.photos || []).filter(u => u !== url) }).eq("id", id);
+  const { data: a, error: readErr } = await sb.from("academies").select("photos").eq("id", id).maybeSingle();
+  if (readErr || !a) return toast("사진 정보를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.");
+  const { error: upErr } = await sb.from("academies").update({ photos: (a.photos || []).filter(u => u !== url) }).eq("id", id);
+  if (upErr) return toast("삭제 실패: " + upErr.message);
   try { const p = url.split("/academy-photos/")[1]; if (p) await sb.storage.from("academy-photos").remove([p]); } catch (e) {}
   renderOwnInfo(id);
 }
@@ -1053,7 +1068,7 @@ function openProfile() {
       <div id="blockList"><p class="mut">불러오는 중...</p></div>
       <span class="mut" style="font-size:12px">차단하면 그 사용자가 쓴 후기·질문·답변이 보이지 않습니다.</span></div>
     <button class="btn gray" style="width:100%;margin-top:8px" onclick="closeModal('m-profile');onAuthBtn()">🚪 로그아웃</button>
-    <button class="btn" style="width:100%;margin-top:8px;background:var(--bad)" onclick="deleteAccount()">회원 탈퇴 (계정 삭제)</button>
+    <button class="btn" style="width:100%;margin-top:8px;background:var(--bad)" onclick="deleteAccount(this)">회원 탈퇴 (계정 삭제)</button>
     <p class="mut" style="font-size:12px;margin-top:6px">탈퇴 시 계정과 내 데이터(자녀·후기·알림·채팅 등)가 즉시 삭제되며 되돌릴 수 없습니다.</p>`;
   loadBlockList();
   openModal("m-profile");
@@ -1067,19 +1082,29 @@ async function savePhone() {
   if (state.profile) state.profile.phone = raw || null;
   toast(raw ? "휴대폰 번호를 저장했어요." : "휴대폰 번호를 삭제했어요.");
 }
-async function deleteAccount() {
+// 서버 응답을 확인하는 공통 헬퍼. res.ok 를 보지 않으면 500/401 을 성공으로 착각한다.
+async function fnJson(res) {
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.error || j.message || j.msg || `서버 오류 (${res.status})`);
+  if (j.error) throw new Error(j.error);
+  return j;
+}
+async function deleteAccount(btn) {
   if (!confirm("정말 회원 탈퇴하시겠어요?\n계정과 내 데이터가 즉시 삭제되며 되돌릴 수 없습니다.")) return;
+  if (btn) { btn.disabled = true; btn.textContent = "처리 중..."; }
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return toast("로그인이 필요합니다.");
     const res = await fetch(SUPABASE_URL + "/functions/v1/delete-account", {
       method: "POST", headers: { "Authorization": "Bearer " + session.access_token, "Content-Type": "application/json" }, body: "{}" });
-    const j = await res.json();
-    if (j.error) throw new Error(j.error);
+    await fnJson(res);
     await sb.auth.signOut();
     toast("회원 탈퇴가 완료되었습니다.");
     setTimeout(() => location.reload(), 1200);
-  } catch (e) { toast("탈퇴 실패: " + e.message); }
+  } catch (e) {
+    toast("탈퇴 실패: " + e.message + " 다시 시도하거나 moahagwon@gmail.com 으로 알려주세요.");
+    if (btn) { btn.disabled = false; btn.textContent = "회원 탈퇴 (계정 삭제)"; }
+  }
 }
 </script>
 <script id="part2">
@@ -1087,12 +1112,32 @@ async function deleteAccount() {
 async function initAuth() {
   const { data: { session } } = await sb.auth.getSession();
   if (session) await setUser(session.user);
-  sb.auth.onAuthStateChange((_e, s) => { if (s?.user && !state.user) setUser(s.user); });
+  // 로그인만 처리하면 세션이 끊겼을 때 화면이 로그인 상태로 남아 모든 쓰기가 RLS 오류를 낸다.
+  sb.auth.onAuthStateChange((e, s) => {
+    if (s?.user) { if (!state.user) setUser(s.user); }
+    else if (e === "SIGNED_OUT" || e === "TOKEN_REFRESH_FAILED") clearUser(e === "TOKEN_REFRESH_FAILED");
+  });
+}
+// 세션이 사라졌을 때 화면을 비로그인 상태로 되돌린다.
+function clearUser(expired) {
+  state.user = null; state.profile = null; state.blocked = new Set();
+  document.getElementById("userInfo").textContent = "";
+  document.getElementById("userInfo").style.display = "none";
+  document.getElementById("authBtn").textContent = "로그인";
+  ["navOwner", "navPremium", "navAdmin", "bestNotice"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = "none";
+  });
+  refreshNotiBadge();
+  if (expired) toast("로그인이 만료되었습니다. 다시 로그인해 주세요.");
 }
 async function setUser(user) {
   state.user = user;
-  const { data: p } = await sb.from("profiles").select("*").eq("id", user.id).single();
+  const { data: p, error: pErr } = await sb.from("profiles").select("*").eq("id", user.id).maybeSingle();
+  if (pErr) logError("setUser.profiles", pErr.message);
   state.profile = p;
+  // 프로필 행이 없으면 원장·관리자 메뉴가 안 나오고 원인도 알 수 없다. 사용자에게 알린다.
+  if (!p) toast("회원 정보를 불러오지 못했어요. 새로고침해도 같으면 moahagwon@gmail.com 으로 알려주세요.");
+  document.getElementById("userInfo").style.display = "";
   document.getElementById("userInfo").textContent = (p?.nickname || user.email) + (p?.role === "admin" ? " (관리자)" : p?.role === "owner" ? " (원장)" : "");
   document.getElementById("authBtn").textContent = "로그아웃";
   document.getElementById("navOwner").style.display = (p?.role === "owner" || p?.role === "admin") ? "" : "none";
@@ -1105,8 +1150,9 @@ async function setUser(user) {
   if (pend) { sessionStorage.removeItem("pendingCheckin"); closeModal("m-auth"); doCheckin(+pend); }
 }
 function onAuthBtn() {
-  if (state.user) { sb.auth.signOut().then(() => location.reload()); }
-  else openModal("m-auth");
+  // 실패해도 화면이 멈추지 않도록 finally 로 새로고침한다.
+  if (state.user) { sb.auth.signOut().catch(e => logError("signOut", e.message)).finally(() => location.reload()); }
+  else { if (state.signupMode) toggleAuthMode(); openModal("m-auth"); }
 }
 function toggleAuthMode() {
   state.signupMode = !state.signupMode;
@@ -1124,6 +1170,10 @@ const APPLE_REDIRECT = SUPABASE_URL + "/functions/v1/apple-login";
 function isIOS() { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); }
 // App Store 심사(IAP 규정) 대비: 네이티브 iOS 앱에서는 프리미엄 결제 노출을 숨김 (웹은 그대로)
 function isIosApp() { return window.Capacitor?.getPlatform?.() === "ios"; }
+// 네이티브 앱 안인지 판단. MoaNative 브리지 주입이 실패·지연돼도 Capacitor 로 잡힌다.
+function isInApp() { return !!(window.MoaNative?.isNative || window.Capacitor?.isNativePlatform?.() || window.Capacitor?.getPlatform?.() !== undefined && window.Capacitor.getPlatform() !== "web"); }
+// QR 스캔 버튼은 브리지 주입 시점이 늦을 수 있어 호출 때마다 다시 확인한다.
+function refreshQrScanBtn() { const qb = document.getElementById("qrScanBtn"); if (qb) qb.style.display = window.MoaNative?.scanQr ? "" : "none"; }
 function socialLogin(provider) {
   if (provider === "kakao") {
     location.href = "https://kauth.kakao.com/oauth/authorize?response_type=code"
@@ -1196,8 +1246,7 @@ async function handleSocialRedirect() {
       method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ANON_KEY },
       body: JSON.stringify({ code, redirectUri: APP_REDIRECT })
     });
-    const j = await res.json();
-    if (j.error) throw new Error(j.error);
+    const j = await fnJson(res);
     const { data, error } = await sb.auth.verifyOtp({ email: j.email, token: j.otp, type: "email" });
     if (error) throw new Error(error.message);
     if (data?.user) await setUser(data.user);
@@ -1215,13 +1264,13 @@ async function doAuth() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password: pw, nickname: document.getElementById("aNick").value.trim(), role: document.getElementById("aRole").value })
       });
-      const j = await res.json();
-      if (j.error) throw new Error(j.error);
+      const j = await fnJson(res);
     }
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
     if (error) throw new Error(error.message.includes("Invalid") ? "이메일 또는 비밀번호가 올바르지 않습니다." : error.message);
     if (data?.user) await setUser(data.user);
     closeModal("m-auth"); toast(state.signupMode ? "가입 완료! 환영합니다." : "로그인되었습니다.");
+    if (state.signupMode) toggleAuthMode();   // 다음에 모달이 열릴 때 다시 "가입하기" 로 남지 않도록
   } catch (e) { toast(e.message); } finally { btn.disabled = false; }
 }
 
@@ -1268,7 +1317,8 @@ function buildQuery() {
   if (sido) q = q.eq("sido", sido);
   if (city) q = q.eq("region_city", city);
   if (dong) q = q.eq("dong", dong);
-  if (kw) q = q.or(`name.ilike.*${kw}*,subjects.cs.{"${kw}"}`);
+  // or() 는 필터를 문자열로 파싱한다. 쉼표·괄호·따옴표가 들어가면 조건 구조가 바뀌므로 제거한다.
+  if (kw) { const k = kw.replace(/[,()"\\{}*]/g, "").trim(); if (k) q = q.or(`name.ilike.*${k}*,subjects.cs.{"${k}"}`); }
   if (selSubjects.size) q = q.overlaps("subjects", [...selSubjects]);
   if (selGrades.size) q = q.overlaps("grades", [...selGrades]);
   q = q.order("is_premium", { ascending: false });
@@ -1321,7 +1371,7 @@ async function loadBest() {
   // 등락률: 직전 스냅샷(오늘 이전) 대비 수강생 증감. 이력 없으면 "-".
   const ids = lists.flat().map(a => a.id), prev = {};
   if (ids.length) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = ymdOf(new Date());
     const { data: hist } = await sb.from("academy_students_history").select("academy_id,total_students,snap_date")
       .in("academy_id", ids).lt("snap_date", today).order("snap_date", { ascending: false });
     (hist || []).forEach(h => { if (!(h.academy_id in prev)) prev[h.academy_id] = h.total_students; });
@@ -1382,7 +1432,7 @@ function acaCard(a) {
     <div class="aca-actions no-print">
       <button class="btn sm ghost" onclick="openDetail(${a.id})">상세·비용</button>
       <button class="btn sm" style="background:#fae100;color:#3c1e1e;font-weight:700" onclick="openDirections(${a.id})">🧭 길찾기</button>
-      <button class="btn sm ${inCmp ? "" : "gray"}" onclick="toggleCompare(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">${inCmp ? "비교함 ✓" : "비교 담기"}</button>
+      <button class="btn sm ${inCmp ? "" : "gray"}" onclick="toggleCompare(${a.id},'${escJs(a.name)}')">${inCmp ? "비교함 ✓" : "비교 담기"}</button>
       <button class="btn sm gray" onclick="toggleFav(${a.id})">♥ 관심</button>
     </div></div>`;
 }
@@ -1444,14 +1494,17 @@ async function enablePush() {
     refreshPushBtn();
   } catch (e) { toast("푸시 등록 실패: " + e.message); }
 }
+// 성공 여부를 돌려준다. 긴급(SOS) 알림은 실패를 반드시 사용자에게 알려야 하므로 삼키지 않는다.
 async function sendCheckinPush(payload) {
   try {
     const { data: { session } } = await sb.auth.getSession();
-    await fetch(SUPABASE_URL + "/functions/v1/send-push", {
+    const res = await fetch(SUPABASE_URL + "/functions/v1/send-push", {
       method: "POST", headers: { "Authorization": "Bearer " + (session?.access_token || ANON_KEY), "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-  } catch (e) {}
+    if (!res.ok) { logError("send-push", `HTTP ${res.status}`); return false; }
+    return true;
+  } catch (e) { logError("send-push", e.message); return false; }
 }
 async function openQr(id) {
   openModal("m-qr");
@@ -1546,7 +1599,7 @@ function openMapChooser(name, dest, lat, lng, gmap) {
   document.getElementById("mapChooseDest").textContent = `${name} · ${dest}`;
   document.getElementById("mapChooseBox").innerHTML = opts.map(([ic, label, url, bg, fg]) =>
     `<button class="btn" style="width:100%;background:${bg};color:${fg};border:1px solid var(--line)"
-      onclick="goMap('${url.replace(/'/g, "\\'")}')">${ic} ${label}</button>`).join("");
+      onclick="goMap('${escJs(url)}')">${ic} ${label}</button>`).join("");
   openModal("m-mapchoose");
 }
 function goMap(url) {
@@ -1611,6 +1664,7 @@ async function doCheckin(id, dir) {
 }
 // ===== 등·퇴원 화면 =====
 async function loadAttend() {
+  refreshQrScanBtn();   // 브리지 주입이 늦어도 화면을 열 때 다시 확인한다
   const el = document.getElementById("attendBody");
   if (!state.user) { el.innerHTML = `<div class="card empty">로그인하면 자녀의 등·퇴원을 기록할 수 있어요.</div>`; return; }
   const { data: children } = await sb.from("children").select("name, child_academies(academy_id, academy_name)").eq("user_id", state.user.id);
@@ -1810,7 +1864,7 @@ async function openDetail(id) {
     <div class="mut">${esc(a.address || "")} ${esc(a.address_detail || "")} ${a.tel ? "· ☎ " + esc(a.tel) : ""}</div>
     <div style="margin:6px 0">${(a.subjects || []).map(s => `<span class="tag">${esc(s)}</span>`).join("")}${(a.grades || []).map(g => `<span class="tag gray">${esc(g)}</span>`).join("")}
       ${isAdmin() && a.capacity ? `<span class="tag gray">정원 ${a.capacity}명</span>` : ""}${avg ? `<span class="stars">★ ${avg}</span> <span class="mut">(${reviews.length})</span>` : ""}</div>
-    ${(a.photos && a.photos.length) ? `<div class="row" style="overflow-x:auto;flex-wrap:nowrap;gap:8px;margin:8px 0">${a.photos.map(u => `<img src="${esc(u)}" style="height:130px;border-radius:10px;cursor:pointer;flex:0 0 auto" onclick="window.open('${esc(u)}','_blank')">`).join("")}</div>` : ""}
+    ${(a.photos && a.photos.length) ? `<div class="row" style="overflow-x:auto;flex-wrap:nowrap;gap:8px;margin:8px 0">${a.photos.map(u => `<img src="${esc(u)}" style="height:130px;border-radius:10px;cursor:pointer;flex:0 0 auto" onclick="window.open('${escJs(u)}','_blank')">`).join("")}</div>` : ""}
     ${a.intro ? `<p style="margin:8px 0">${esc(a.intro)}</p>` : ""}
     ${a.promo ? `<div class="notice">🎉 ${esc(a.promo)}</div>` : ""}
     <div class="row no-print" style="margin:10px 0">
@@ -1819,7 +1873,7 @@ async function openDetail(id) {
       ${a.localpay_enabled ? `<button class="btn sm" style="background:#16a34a;color:#fff;font-weight:700" onclick="openPay(${a.id})">💳 지역화폐 결제</button>` : ""}
       <button class="btn sm" onclick="openLead('상담')">상담 신청</button>
       <button class="btn sm ghost" onclick="openLead('체험')">체험 수업 신청</button>
-      <button class="btn sm gray" onclick="toggleCompare(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">비교 담기</button>
+      <button class="btn sm gray" onclick="toggleCompare(${a.id},'${escJs(a.name)}')">비교 담기</button>
       <button class="btn sm gray" onclick="toggleFav(${a.id})">♥ 관심 등록</button>
       <button class="btn sm gray" onclick="openQr(${a.id})">📷 출석 QR</button>
     </div>
@@ -1915,7 +1969,7 @@ async function submitReview() {
   if (error) return toast("오류: " + error.message);
   toast("후기가 등록되었습니다."); openDetail(state.detail.id);
 }
-async function submitQuestion() {
+async function _submitQuestion() {
   if (needLogin()) return;
   const content = document.getElementById("qContent").value.trim();
   if (!content) return toast("질문 내용을 입력하세요.");
@@ -1923,7 +1977,7 @@ async function submitQuestion() {
   if (error) return toast("오류: " + error.message);
   toast("질문이 등록되었습니다."); openDetail(state.detail.id);
 }
-async function submitAnswer(qid) {
+async function _submitAnswer(qid) {
   if (needLogin()) return;
   const content = document.getElementById("ans-" + qid).value.trim();
   if (!content) return toast("답변 내용을 입력하세요.");
@@ -1942,7 +1996,7 @@ async function reportTarget(type, id) {
 // ===== 사용자 차단 (App Store 가이드라인 1.2) =====
 function blockLink(uid, name) {
   if (!uid || !state.user || uid === state.user.id) return "";
-  return ` <a href="#" class="mut no-print" onclick="blockUser('${uid}','${esc(name || "").replace(/'/g, "")}');return false">차단</a>`;
+  return ` <a href="#" class="mut no-print" onclick="blockUser('${uid}','${escJs(name)}');return false">차단</a>`;
 }
 async function loadBlocks() {
   state.blocked = new Set();
@@ -1990,7 +2044,7 @@ function openLead(type) {
   document.getElementById("leadTitle").textContent = state.detail.name + " — " + type + " 신청";
   openModal("m-lead");
 }
-async function submitLead() {
+async function _submitLead() {
   const l = { academy_id: state.leadAcademy.id, user_id: state.user?.id, lead_type: document.getElementById("ldType").value,
     student_name: document.getElementById("ldName").value.trim(), grade: document.getElementById("ldGrade").value.trim(),
     subject: document.getElementById("ldSubject").value.trim(), phone: document.getElementById("ldPhone").value.trim(),
@@ -2046,7 +2100,7 @@ async function renderCompare() {
     sb.from("reviews").select("academy_id, rating").in("academy_id", state.compare).eq("hidden", false),
   ]);
   const rate = id => { const rs = (revs || []).filter(r => r.academy_id === id); return rs.length ? (rs.reduce((s, r) => s + r.rating, 0) / rs.length).toFixed(1) + " ★" : "-"; };
-  const ordered = state.compare.map(id => acas.find(a => a.id === id)).filter(Boolean);
+  const ordered = state.compare.map(id => (acas || []).find(a => a.id === id)).filter(Boolean);
   const { data: crs } = await sb.from("courses").select("academy_id,hourly_rate").in("academy_id", state.compare).not("hourly_rate", "is", null);
   const hourly = id => { const h = (crs || []).filter(c => c.academy_id === id).map(c => c.hourly_rate); return h.length ? won(Math.min(...h)) + "~" : "-"; };
   const rows = [
@@ -2061,7 +2115,7 @@ async function renderCompare() {
     ["연락처", a => a.tel || "-"],
   ];
   el.innerHTML = `<div style="overflow-x:auto"><table><tr><th></th>${ordered.map(a => `<th>${esc(a.name)}<br>
-    <a href="#" class="mut no-print" onclick="toggleCompare(${a.id},'${esc(a.name).replace(/'/g, "\\'")}');renderCompare();return false">제거</a></th>`).join("")}</tr>
+    <a href="#" class="mut no-print" onclick="toggleCompare(${a.id},'${escJs(a.name)}');renderCompare();return false">제거</a></th>`).join("")}</tr>
     ${rows.map(([label, fn]) => `<tr><th>${label}</th>${ordered.map(a => `<td>${esc(String(fn(a)))}</td>`).join("")}</tr>`).join("")}</table></div>
     <p class="mut" style="margin-top:8px">※ "🔗 공유하기"로 링크를 보내면, 다른 부모님도 같은 비교 화면을 열어 함께 비교할 수 있어요.</p>`;
 }
@@ -2076,11 +2130,11 @@ async function loadDash() {
   if (!state.user) { area.innerHTML = `<div class="card empty">로그인하면 자녀별 학원비를 관리할 수 있어요.</div>`; stats.innerHTML = ""; return; }
   const { data: children, error: chErr } = await sb.from("children").select("*, child_academies(*)").eq("user_id", state.user.id).order("id");
   if (chErr) { area.innerHTML = `<div class="card empty">자녀 정보를 불러오지 못했습니다: ${esc(chErr.message)}</div>`; stats.innerHTML = ""; return; }
-  const now = new Date(), ym = now.toISOString().slice(0, 7);
+  const now = new Date(), ym = ymOf(now);
   const activeNow = e => (!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym);
   let totalNow = 0, cnt = 0;
   (children || []).forEach(ch => ch.child_academies.filter(activeNow).forEach(e => { totalNow += e.monthly_total; cnt++; }));
-  const lastYm = new Date(now.getFullYear(), now.getMonth() - 1).toISOString().slice(0, 7);
+  const lastYm = ymShift(-1);
   let totalLast = 0;
   (children || []).forEach(ch => ch.child_academies.forEach(e => { if ((!e.started_month || e.started_month <= lastYm) && (!e.ended_month || e.ended_month >= lastYm)) totalLast += e.monthly_total; }));
   const diff = totalNow - totalLast;
@@ -2105,8 +2159,8 @@ async function loadDash() {
 function renderTrend(children) {
   const labels = [], vals = [], now = new Date();
   for (let i = -5; i <= 0; i++) { // 현재 월 기준 최근 6개월
-    const d = new Date(now.getFullYear(), now.getMonth() + i);
-    const ym = d.toISOString().slice(0, 7);
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const ym = ymOf(d);
     labels.push(`${d.getFullYear() % 100}.${d.getMonth() + 1}`);
     let s = 0;
     children.forEach(ch => ch.child_academies.forEach(e => { if ((!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym)) s += e.monthly_total; }));
@@ -2123,6 +2177,7 @@ function renderTrend(children) {
   });
 }
 async function renderAvgChart(children) {
+  if (!state.user) return toast("로그인 후 이용할 수 있어요.");
   if (!children) { const { data } = await sb.from("children").select("*, child_academies(*)").eq("user_id", state.user.id); children = data || []; }
   const avgSel = document.getElementById("avgCity");
   if (!avgSel.options.length) {
@@ -2131,7 +2186,7 @@ async function renderAvgChart(children) {
     if ([...avgSel.options].some(o => o.value === "충남|천안시")) avgSel.value = "충남|천안시";
   }
   const [sido, city] = (avgSel.value || "|").split("|");
-  const ym = new Date().toISOString().slice(0, 7);
+  const ym = ymOf(new Date());
   const mine = {};
   children.forEach(ch => ch.child_academies.forEach(e => {
     if ((!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym) && e.subject) {
@@ -2154,7 +2209,7 @@ async function renderAvgChart(children) {
   });
 }
 function openChildModal() { if (needLogin()) return; document.getElementById("chName").value = ""; document.getElementById("chPhone").value = ""; openModal("m-child"); }
-async function saveChild() {
+async function _saveChild() {
   const name = document.getElementById("chName").value.trim();
   if (!name) return toast("이름을 입력하세요.");
   const phone = document.getElementById("chPhone").value.replace(/\D/g, "") || null;
@@ -2166,7 +2221,7 @@ async function delChild(id) { if (confirm("자녀와 등록된 학원 정보를 
 function openEnroll(childId) {
   state.enrollChild = childId; state.enrollAcademyId = null;
   ["enKw","enName","enFee","enMemo"].forEach(id => document.getElementById(id).value = "");
-  document.getElementById("enStart").value = new Date().toISOString().slice(0, 10);
+  document.getElementById("enStart").value = ymdOf(new Date());
   document.getElementById("enResults").innerHTML = "";
   openModal("m-enroll");
 }
@@ -2178,7 +2233,7 @@ function enrollSearch() {
     if (kw.length < 2) return;
     const { data } = await sb.from("academies").select("id,name,dong,min_monthly,subjects").ilike("name", `%${kw}%`).limit(5);
     document.getElementById("enResults").innerHTML = (data || []).map(a =>
-      `<div class="chip" style="margin:3px;cursor:pointer" onclick='pickEnroll(${JSON.stringify(JSON.stringify(a))})'>${esc(a.name)} <span class="mut">${esc(a.dong || "")}</span></div>`).join("");
+      `<div class="chip" style="margin:3px;cursor:pointer" onclick="pickEnroll('${escJs(JSON.stringify(a))}')">${esc(a.name)} <span class="mut">${esc(a.dong || "")}</span></div>`).join("");
   }, 300);
 }
 function pickEnroll(json) {
@@ -2188,7 +2243,7 @@ function pickEnroll(json) {
   if (a.min_monthly) document.getElementById("enFee").value = a.min_monthly;
   if (a.subjects?.length) document.getElementById("enSubject").value = a.subjects[0];
 }
-async function saveEnroll() {
+async function _saveEnroll() {
   const e = { child_id: state.enrollChild, academy_id: state.enrollAcademyId, academy_name: document.getElementById("enName").value.trim(),
     subject: document.getElementById("enSubject").value, monthly_total: +document.getElementById("enFee").value || 0,
     started_month: (document.getElementById("enStart").value || "").slice(0, 7), started_date: document.getElementById("enStart").value || null, billing_day: +(document.getElementById("enStart").value || "").slice(8, 10) || null, memo: document.getElementById("enMemo").value.trim() };
@@ -2235,7 +2290,7 @@ async function loadWatches() {
     `<span class="chip" style="margin:3px">${esc(w.region_city || "전체")} ${esc(w.dong || "")} · ${esc(w.subject || "전과목")}
      <a href="#" onclick="delWatch(${w.id});return false">✕</a></span>`).join("") || `<span class="mut">등록된 관심 조건이 없습니다.</span>`;
 }
-async function addWatch() {
+async function _addWatch() {
   if (needLogin()) return;
   const w = { user_id: state.user.id, region_city: document.getElementById("wCity").value || null,
     dong: document.getElementById("wDong").value.trim() || null, subject: document.getElementById("wSubject").value || null };
@@ -2258,7 +2313,7 @@ async function searchClaim() {
   const rows = [...map.values()].slice(0, 12);
   document.getElementById("claimResults").innerHTML = rows.map(a =>
     `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(a.name)} <span class="mut">${esc(a.address || a.dong || "")}</span></span>
-     ${a.owner_id ? `<span class="tag gray right">이미 소유자 있음</span>` : `<button class="btn sm right" onclick="openClaimModal(${a.id},'${esc(a.name).replace(/'/g, "\\'")}')">권한 신청</button>`}</div>`).join("") || `<p class="mut">검색 결과가 없습니다.</p>`;
+     ${a.owner_id ? `<span class="tag gray right">이미 소유자 있음</span>` : `<button class="btn sm right" onclick="openClaimModal(${a.id},'${escJs(a.name)}')">권한 신청</button>`}</div>`).join("") || `<p class="mut">검색 결과가 없습니다.</p>`;
 }
 function openClaimModal(acaId, name) {
   if (needLogin()) return;
@@ -2409,8 +2464,8 @@ async function renderOwnerDash(acas) {
   box.innerHTML = `<h3 style="margin-top:0">📊 내 학원 한눈에 보기 <span class="mut">불러오는 중...</span></h3>`;
   const ids = acas.map(a => a.id);
   const now = new Date();
-  const ym = now.toISOString().slice(0, 7);
-  const ym6 = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString().slice(0, 7);
+  const ym = ymOf(now);
+  const ym6 = ymShift(-5);
   const since7 = new Date(Date.now() - 7 * 864e5).toISOString();
   const [{ data: enr }, { data: pays }, { data: leads }, { data: atts }, { data: chats }, { data: revs }, { data: pays6 }] = await Promise.all([
     sb.from("child_academies").select("id,started_month,ended_month").in("academy_id", ids),
@@ -2467,7 +2522,7 @@ async function renderOwnerDash(acas) {
   const labels = [], vals = [];
   for (let i = -5; i <= 0; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    const mym = d.toISOString().slice(0, 7);
+    const mym = ymOf(d);
     labels.push(`${d.getFullYear() % 100}.${d.getMonth() + 1}`);
     vals.push((pays6 || []).filter(p => p.year_month === mym).reduce((s, p) => s + (p.amount || 0), 0));
   }
@@ -2524,7 +2579,7 @@ async function renderOwnTeachers(id) {
       </div>
       ${t.intro ? `<div style="white-space:pre-wrap;margin-top:4px">${esc(t.intro)}</div>` : ""}
       <div class="row no-print" style="margin-top:6px">
-        <button class="btn sm gray" onclick="editTeacher(${id},${t.id},'${esc(t.name).replace(/'/g, "\\'")}','${esc(t.subject || "").replace(/'/g, "\\'")}')">수정</button>
+        <button class="btn sm gray" onclick="editTeacher(${id},${t.id},'${escJs(t.name)}','${escJs(t.subject || "")}')">수정</button>
         <button class="btn sm gray" onclick="delTeacher(${id},${t.id})">삭제</button>
       </div>
     </div>`; }).join("") || `<p class="mut">아직 등록된 강사가 없어요. 아래에서 추가하세요.</p>`;
@@ -2556,7 +2611,7 @@ async function toggleTeacher(id, tid, on) {
   toast(on ? "이 강사를 공개합니다." : "이 강사를 비공개로 전환했어요.");
   renderOwnTeachers(id);
 }
-async function addTeacher(id) {
+async function _addTeacher(id) {
   const name = document.getElementById(`tchName-${id}`).value.trim();
   if (!name) return toast("강사 이름을 입력하세요.");
   const subject = document.getElementById(`tchSubj-${id}`).value.trim() || null;
@@ -2627,7 +2682,7 @@ async function renderOwnAtt(id) {
   const body = document.getElementById("ownBody-" + id);
   body.innerHTML = `<div class="empty">불러오는 중...</div>`;
   const { data } = await sb.from("attendances").select("*").eq("academy_id", id).order("checked_at", { ascending: false }).limit(100);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = ymdOf(new Date());
   const todayCnt = (data || []).filter(r => r.checked_at.slice(0, 10) === today).length;
   body.innerHTML = `
     <div class="row no-print" style="margin-bottom:10px;align-items:center">
@@ -2643,15 +2698,15 @@ async function renderOwnAtt(id) {
         <td>${r.verified ? `<span style="color:var(--good)">✔ 인정 (${r.distance_m}m)</span>` : r.distance_m != null ? `<span style="color:var(--warn)">미인정 (${r.distance_m}m)</span>` : `<span class="mut">위치 없음</span>`}</td></tr>`).join("")}</table></div>` : `<p class="mut">아직 출석 기록이 없습니다.</p>`}`;
 }
 // ===== 학생·입금 관리 (원장) =====
-const ownEnr = {}; let stuChart;
+const ownEnr = {}; const stuChart = {};
 async function renderOwnStudents(id) {
   const body = document.getElementById("ownBody-" + id);
   body.innerHTML = `<div class="empty">불러오는 중...</div>`;
   const { data: enr } = await sb.from("child_academies")
     .select("id,child_id,subject,monthly_total,billing_day,started_month,ended_month, children(name,grade)").eq("academy_id", id);
   ownEnr[id] = enr || [];
-  const nowYm = new Date().toISOString().slice(0, 7);
-  const prevYm = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().slice(0, 7);
+  const nowYm = ymOf(new Date());
+  const prevYm = ymShift(-1);
   const activeAt = ym => ownEnr[id].filter(e => (!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym)).length;
   const cur = activeAt(nowYm), diff = cur - activeAt(prevYm);
   body.innerHTML = `
@@ -2679,9 +2734,9 @@ function renderStudentTrend(id) {
   const list = ownEnr[id] || [];
   const bucket = document.getElementById("stuBucket-" + id).value;
   const starts = list.map(e => e.started_month).filter(Boolean).sort();
-  const first = starts[0] || new Date().toISOString().slice(0, 7);
+  const first = starts[0] || ymOf(new Date());
   const months = []; let d = new Date(first + "-01"); const end = new Date();
-  while (d <= end && months.length < 120) { months.push(d.toISOString().slice(0, 7)); d.setMonth(d.getMonth() + 1); }
+  while (d <= end && months.length < 120) { months.push(ymOf(d)); d.setMonth(d.getMonth() + 1); }
   const activeAt = ym => list.filter(e => (!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym)).length;
   const lbl = ym => { const [y, m] = ym.split("-").map(Number);
     if (bucket === "quarter") return `${y} Q${Math.ceil(m / 3)}`;
@@ -2691,8 +2746,8 @@ function renderStudentTrend(id) {
   const map = new Map();
   months.forEach(ym => map.set(lbl(ym), activeAt(ym))); // 버킷 마지막 달 스냅샷
   const labels = [...map.keys()], vals = [...map.values()];
-  stuChart?.destroy();
-  stuChart = new Chart(document.getElementById("stuChart-" + id), {
+  stuChart[id]?.destroy();
+  stuChart[id] = new Chart(document.getElementById("stuChart-" + id), {
     type: "line", data: { labels, datasets: [{ label: "등록 학생 수", data: vals, borderColor: "#4f46e5", backgroundColor: "rgba(79,70,229,.12)", fill: true, tension: .3 }] },
     options: { layout: { padding: { top: 16 } }, plugins: { legend: { display: false },
         datalabels: { display: ctx => ctx.dataset.data[ctx.dataIndex] > 0, align: "top", anchor: "end", color: "#4f46e5", font: { size: 10, weight: "bold" } } },
@@ -2701,7 +2756,7 @@ function renderStudentTrend(id) {
 }
 async function renderPayRoster(id) {
   const list = ownEnr[id] || [];
-  const ym = document.getElementById("payYm-" + id).value || new Date().toISOString().slice(0, 7);
+  const ym = document.getElementById("payYm-" + id).value || ymOf(new Date());
   const active = list.filter(e => (!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym));
   const { data: pays } = await sb.from("payments").select("*").eq("academy_id", id).eq("year_month", ym);
   const el = document.getElementById("payRoster-" + id);
@@ -2710,7 +2765,7 @@ async function renderPayRoster(id) {
   el.innerHTML = `<p class="mut">입금 완료 ${paidCnt} / ${active.length}명</p><div style="overflow-x:auto"><table>
     <tr><th>학생</th><th>과목</th><th class="num">월 학원비</th><th>납부일</th><th>입금</th><th class="no-print">안내</th></tr>
     ${active.map(e => { const p = (pays || []).find(x => x.child_academy_id === e.id); const paid = p && p.status === "완료"; const selfRep = paid && p.self_reported;
-      const nm = (e.children?.name || "").replace(/'/g, "\\'");
+      const nm = escJs(e.children?.name || "");
       return `<tr><td>${esc(e.children?.name || "")} <span class="mut">${esc(e.children?.grade || "")}</span>${selfRep ? ` <span class="tag" style="background:#fef9c3;color:#854d0e">🙋 부모 결제알림</span>` : ""}</td>
         <td>${esc(e.subject || "")}</td><td class="num">${won(e.monthly_total)}</td>
         <td style="white-space:nowrap">매월 <input type="number" min="1" max="31" value="${e.billing_day || ""}" placeholder="-" style="width:54px;padding:4px 6px;text-align:center" onchange="saveBillingDay(${id},${e.id},this.value)">일</td>
@@ -2749,9 +2804,8 @@ async function sendPayNotice(caid, ym, silent) {
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + "/functions/v1/send-notice", {
       method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (session?.access_token || ANON_KEY) },
-      body: JSON.stringify({ child_academy_id: caid, year_month: ym, due_date: due.toISOString().slice(0, 10) }) });
-    const j = await res.json();
-    if (j.error) throw new Error(j.error);
+      body: JSON.stringify({ child_academy_id: caid, year_month: ym, due_date: ymdOf(due) }) });
+    const j = await fnJson(res);
     if (!silent) toast(`입금 안내를 보냈어요. (푸시 ${j.sent || 0}건)`);
     return true;
   } catch (e) { if (!silent) toast("안내 전송 실패: " + e.message); logError("send-notice", e.message); return false; }
@@ -2818,8 +2872,7 @@ async function polishReport() {
   try {
     const res = await fetch(SUPABASE_URL + "/functions/v1/report-polish", {
       method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ANON_KEY }, body: JSON.stringify({ draft }) });
-    const j = await res.json();
-    if (j.error) throw new Error(j.error);
+    const j = await fnJson(res);
     if (j.text) { ta.value = j.text; toast("AI가 자연스럽게 정리했어요. 확인 후 보내세요."); }
   } catch (e) { toast("AI 정리 실패: 직접 다듬어 보내셔도 됩니다."); logError("report-polish", e.message); }
   finally { btn.disabled = false; btn.textContent = "✨ AI로 자연스럽게 정리"; }
@@ -2830,20 +2883,21 @@ async function callSendMessage(payload) {
     const res = await fetch(SUPABASE_URL + "/functions/v1/send-message", {
       method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (session?.access_token || ANON_KEY) },
       body: JSON.stringify(payload) });
-    const j = await res.json();
-    if (j.error) throw new Error(j.error);
+    const j = await fnJson(res);
     toast(`소식을 보냈어요. (학부모 ${j.recipients || 0}명 · 푸시 ${j.sent || 0}건)`);
     return true;
   } catch (e) { toast("전송 실패: " + e.message); logError("send-message", e.message); return false; }
 }
 async function renderOwnInfo(id) {
-  const { data: a } = await sb.from("academies").select("*").eq("id", id).single();
+  const { data: a, error } = await sb.from("academies").select("*").eq("id", id).maybeSingle();
+  const box = document.getElementById("ownBody-" + id);
+  if (error || !a) { if (box) box.innerHTML = `<p class="mut">학원 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>`; return; }
   const extra = Array.isArray(a.extra_fees) ? a.extra_fees : [];
   document.getElementById("ownBody-" + id).innerHTML = `
     <div class="field"><label>학원 소개</label><textarea id="oi-intro-${id}" rows="2">${esc(a.intro || "")}</textarea></div>
     <div class="field"><label>🏆 학원 자랑거리 · 수상/실적 (학부모에게 어필됩니다 · 수강료 공개 부담 없이 강점을 보여주세요)</label><textarea id="oi-achv-${id}" rows="3" placeholder="예: 2025 수학경시대회 대상 홍길동 / 피아노 콩쿠르 금상 / 태권도 3단 보유 강사진">${esc(a.achievements || "")}</textarea></div>
     <div class="field"><label>📸 학원 사진 (학부모 상세에 보여집니다)</label>
-      <div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:6px">${(a.photos || []).map(u => `<div style="position:relative"><img src="${esc(u)}" style="width:74px;height:74px;object-fit:cover;border-radius:8px"><button onclick="delAcademyPhoto(${id},'${esc(u)}')" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1">×</button></div>`).join("") || `<span class="mut">아직 등록된 사진이 없어요.</span>`}</div>
+      <div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:6px">${(a.photos || []).map(u => `<div style="position:relative"><img src="${esc(u)}" style="width:74px;height:74px;object-fit:cover;border-radius:8px"><button onclick="delAcademyPhoto(${id},'${escJs(u)}')" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1">×</button></div>`).join("") || `<span class="mut">아직 등록된 사진이 없어요.</span>`}</div>
       <input type="file" id="oi-photo-file-${id}" accept="image/*" onchange="uploadAcademyPhoto(${id})"></div>
     <div class="field"><label>📅 일정 (휴원·보강·시험 — 학부모 캘린더에 표시)</label>
       <div class="row"><input type="date" id="oi-ev-date-${id}"><select id="oi-ev-kind-${id}" style="width:auto"><option>휴원</option><option>보강</option><option>시험</option><option>행사</option></select><input id="oi-ev-title-${id}" placeholder="제목(선택)" style="flex:1;min-width:90px"><button class="btn sm" onclick="addScheduleEvent(${id})">추가</button></div>
@@ -2892,7 +2946,7 @@ async function renderOwnInfo(id) {
     <button class="btn" onclick="saveOwnInfo(${id})">저장</button>`;
   loadOwnSchedule(id); loadOwnShuttles(id);
 }
-async function addShuttle(id) {
+async function _addShuttle(id) {
   const name = document.getElementById("oi-sh-name-" + id).value.trim(), sched = document.getElementById("oi-sh-sched-" + id).value.trim();
   if (!name && !sched) return toast("노선명 또는 운행 정보를 입력하세요.");
   const { error } = await sb.from("shuttles").insert({ academy_id: id, route_name: name || null, direction: document.getElementById("oi-sh-dir-" + id).value, schedule: sched || null });
@@ -2911,7 +2965,7 @@ async function sendShuttleAlert(id) {
   if (!msg || !msg.trim()) return;
   await callSendMessage({ academy_id: id, message: "🚌 " + msg.trim() });
 }
-async function addScheduleEvent(id) {
+async function _addScheduleEvent(id) {
   const date = document.getElementById("oi-ev-date-" + id).value;
   if (!date) return toast("날짜를 선택하세요.");
   const { error } = await sb.from("schedule_events").insert({ academy_id: id, event_date: date, kind: document.getElementById("oi-ev-kind-" + id).value, title: document.getElementById("oi-ev-title-" + id).value.trim() || null });
@@ -2919,7 +2973,7 @@ async function addScheduleEvent(id) {
   document.getElementById("oi-ev-title-" + id).value = ""; toast("일정을 추가했어요."); loadOwnSchedule(id);
 }
 async function loadOwnSchedule(id) {
-  const { data } = await sb.from("schedule_events").select("*").eq("academy_id", id).gte("event_date", new Date().toISOString().slice(0, 10)).order("event_date").limit(30);
+  const { data } = await sb.from("schedule_events").select("*").eq("academy_id", id).gte("event_date", ymdOf(new Date())).order("event_date").limit(30);
   const el = document.getElementById("oi-sched-" + id); if (!el) return;
   el.innerHTML = (data || []).map(e => `<div class="row" style="padding:3px 0;border-bottom:1px solid var(--line)"><span>${e.event_date} · <b>${esc(e.kind)}</b> ${esc(e.title || "")}</span><button class="btn sm gray right" onclick="delScheduleEvent(${e.id},${id})">삭제</button></div>`).join("") || `<p class="mut">예정된 일정이 없어요.</p>`;
 }
@@ -2967,7 +3021,7 @@ async function saveFee(cid, aid) {
   if (error) return toast("오류: " + error.message);
   await refreshFeeRange(aid); toast("저장! 관심 학부모에게 알림이 발송됩니다.");
 }
-async function addCourse(aid) {
+async function _addCourse(aid) {
   const name = document.getElementById(`nc-name-${aid}`).value.trim(), fee = +document.getElementById(`nc-fee-${aid}`).value;
   if (!name || !fee) return toast("과정명과 수강료를 입력하세요.");
   const m = name.match(/(\d+)\s*분\s*\*\s*(\d+)\s*일?회?\s*\*\s*(\d+)\s*주/);
@@ -3000,11 +3054,12 @@ async function updLead(lid, field, value, aid) {
   const { error } = await sb.from("leads").update({ [field]: value }).eq("id", lid);
   toast(error ? "오류: " + error.message : "업데이트되었습니다.");
 }
-let posChart;
+const posChart = {};
 async function renderOwnReport(id) {
-  const { data: a } = await sb.from("academies").select("*").eq("id", id).single();
-  const { data: myCs } = await sb.from("courses").select("monthly_fee,hourly_rate,subject").eq("academy_id", id);
+  const { data: a, error } = await sb.from("academies").select("*").eq("id", id).maybeSingle();
   const body = document.getElementById("ownBody-" + id);
+  if (error || !a) { if (body) body.innerHTML = `<p class="mut">학원 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>`; return; }
+  const { data: myCs } = await sb.from("courses").select("monthly_fee,hourly_rate,subject").eq("academy_id", id);
   if (!myCs?.length) { body.innerHTML = `<p class="mut">수강료를 먼저 등록하면 지역 내 가격 포지션을 분석해 드립니다.</p>`; return; }
   const subj = myCs[0].subject;
   const myAvg = Math.round(myCs.reduce((s, c) => s + c.monthly_fee, 0) / myCs.length);
@@ -3018,8 +3073,8 @@ async function renderOwnReport(id) {
     pct >= 45 ? `지역 평균 수준의 무난한 가격대입니다.` : `지역 평균보다 저렴한 편입니다. 가성비를 적극 홍보해 보세요.`;
   body.innerHTML = `<p><b>${esc(subj)}</b> 기준 우리 학원 평균 수강료는 <b>${won(myAvg)}</b> — ${a.region_city} ${esc(subj)} 과정 ${all.length}개 중 <b>상위 ${100 - pct}%</b> 가격대.</p>
     <div class="notice">${comment}</div><canvas id="posChart-${id}" height="80"></canvas>`;
-  posChart?.destroy();
-  posChart = new Chart(document.getElementById("posChart-" + id), {
+  posChart[id]?.destroy();
+  posChart[id] = new Chart(document.getElementById("posChart-" + id), {
     type: "bar", data: { labels: ["우리 학원", (a.dong || "우리 동") + " 평균", a.region_city + " 평균"],
       datasets: [{ data: [myAvg, avg(dongFees), avg(all)], backgroundColor: ["#4f46e5", "#94a3b8", "#cbd5e1"] }] },
     options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => (v / 10000) + "만" } } } }
@@ -3097,7 +3152,7 @@ async function openPremiumPay(aid) {
     + `<p class="mut" style="font-size:12px;margin-top:8px">※ 베타: 실결제(토스)는 아직 연결되지 않았고, 지금은 테스트로 노출이 켜집니다.</p>`;
   openModal("m-premium");
 }
-async function payPremium(aid, code) {
+async function _payPremium(aid, code) {
   const r = await tossPay({ kind: "premium", academy_id: aid, plan_code: code });
   if (r) { closeModal("m-premium"); loadOwner(); }
 }
@@ -3115,10 +3170,10 @@ async function openLocalpayChoose() {
   if (!rows.length) { box.innerHTML = `<p class="mut">등록된 학원이 없습니다. 먼저 자녀의 다니는 학원을 등록해 주세요.</p>`; openModal("m-lpchoose"); return; }
   box.innerHTML = `<div class="field"><label>결제 금액</label><input id="lpAmount" type="number" inputmode="numeric" placeholder="예: 250000"></div>
     <p class="mut" style="font-size:12px;margin:2px 0 8px">보낼 학원을 선택하세요.</p>`
-    + rows.map(r => `<button class="btn" style="width:100%;margin:5px 0;display:flex;justify-content:space-between" onclick="localpaySend(${r.aid},${r.caid},'${esc(r.aname).replace(/'/g, "\\'")}')"><span>${esc(r.aname)}</span><span class="mut">${esc(r.child)}</span></button>`).join("");
+    + rows.map(r => `<button class="btn" style="width:100%;margin:5px 0;display:flex;justify-content:space-between" onclick="localpaySend(${r.aid},${r.caid},'${escJs(r.aname)}')"><span>${esc(r.aname)}</span><span class="mut">${esc(r.child)}</span></button>`).join("");
   openModal("m-lpchoose");
 }
-async function localpaySend(aid, caid, aname) {
+async function _localpaySend(aid, caid, aname) {
   const amount = +document.getElementById("lpAmount").value || 0;
   if (amount < 1) return toast("결제 금액을 입력하세요.");
   const r = await sb.functions.invoke("toss-payment", { body: { action: "create", kind: "tuition", provider: "localpay", academy_id: aid, child_academy_id: caid, amount: amount, order_name: aname + " 지역화폐 결제" } });
@@ -3276,7 +3331,7 @@ async function loadAdmin() {
   const { data: cls } = await sb.from("claims").select("*, academies(name), profiles:user_id(email,nickname)").eq("status", "대기");
   document.getElementById("adminClaims").innerHTML = (cls || []).map(c => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)">
     <span><b>${esc(c.academies?.name)}</b> ← ${esc(c.profiles?.nickname)} (${esc(c.profiles?.email)}) · 사업자번호: ${esc(c.biz_no || "-")}</span>
-    ${c.biz_doc ? `<button class="btn sm ghost right" onclick="viewBizDoc('${esc(c.biz_doc)}')">📄 등록증 보기</button>` : `<span class="tag gray right">등록증 없음</span>`}
+    ${c.biz_doc ? `<button class="btn sm ghost right" onclick="viewBizDoc('${escJs(c.biz_doc)}')">📄 등록증 보기</button>` : `<span class="tag gray right">등록증 없음</span>`}
     <button class="btn sm right" onclick="decideClaim(${c.id},true)">승인</button>
     <button class="btn sm gray" onclick="decideClaim(${c.id},false)">거절</button></div>`).join("") || `<p class="mut">대기 중인 클레임이 없습니다.</p>`;
   const { data: rps } = await sb.from("reports").select("*").eq("status", "접수").order("created_at");
@@ -3315,8 +3370,7 @@ async function runSync() {
     const res = await fetch(SUPABASE_URL + "/functions/v1/sync-neis", {
       method: "POST", headers: { "Authorization": "Bearer " + (session?.access_token || ANON_KEY), "Content-Type": "application/json" },
       body: JSON.stringify({ sido }) });
-    const j = await res.json();
-    if (j.error) throw new Error(j.error);
+    const j = await fnJson(res);
     toast(`${j.sido} 동기화 완료! 학원 ${j.academies}곳, 수강료 ${j.courses}건`);
     loadAcademies(); loadAdmin();
   } catch (e) { toast("동기화 실패: " + e.message); } finally { btn.disabled = false; btn.textContent = "NEIS 동기화"; }
@@ -3339,7 +3393,7 @@ function botMsg(html, who) {
 const BOT_CHIPS = ["등·퇴원 QR이 뭐예요?", "지역화폐 결제는 어떻게?", "우리 학원 등록하고 싶어요", "공부방 등록은?", "고객센터 문의는?", "천안 수학학원 추천"];
 function botGreet() {
   botMsg("안녕하세요! 모아학원 도우미 <b>모아 봇</b>이에요 🤖<br>학원 찾기, 등·퇴원, 결제, 등록 등 무엇이든 물어보세요.");
-  document.getElementById("botChips").innerHTML = BOT_CHIPS.map(c => `<span class="chip" onclick="botAsk('${c.replace(/'/g, "\\'")}')">${esc(c)}</span>`).join("");
+  document.getElementById("botChips").innerHTML = BOT_CHIPS.map(c => `<span class="chip" onclick="botAsk('${escJs(c)}')">${esc(c)}</span>`).join("");
 }
 function botAsk(t) { document.getElementById("botInput").value = t; botSend(); }
 async function botSend() {
@@ -3426,6 +3480,29 @@ async function promptInstall() {
   if (iOS) return toast("Safari 하단 '공유' → '홈 화면에 추가'를 눌러 설치하세요.");
   toast("브라우저 메뉴에서 '앱 설치' 또는 '홈 화면에 추가'를 선택하세요.");
 }
+
+// ===== 중복 제출 방지 =====
+// 버튼을 두 번 누르면 같은 INSERT가 두 번 나가 학원 등록·결제 기록이 중복된다.
+// 호출부(onclick 문자열)를 건드리지 않도록 원래 함수를 감싸 같은 이름으로 다시 내보낸다.
+const _busy = new Set();
+const _once = (key, fn) => (...args) => {
+  if (_busy.has(key)) { toast("처리 중입니다. 잠시만 기다려 주세요."); return; }
+  _busy.add(key);
+  return Promise.resolve(fn(...args)).finally(() => _busy.delete(key));
+};
+const saveEnroll = _once("saveEnroll", _saveEnroll);
+const saveChild = _once("saveChild", _saveChild);
+const submitLead = _once("submitLead", _submitLead);
+const submitQuestion = _once("submitQuestion", _submitQuestion);
+const submitAnswer = _once("submitAnswer", _submitAnswer);
+const addWatch = _once("addWatch", _addWatch);
+const localpaySend = _once("localpaySend", _localpaySend);
+const payPremium = _once("payPremium", _payPremium);
+const addTeacher = _once("addTeacher", _addTeacher);
+const addShuttle = _once("addShuttle", _addShuttle);
+const addCourse = _once("addCourse", _addCourse);
+const addScheduleEvent = _once("addScheduleEvent", _addScheduleEvent);
+
 (function init() {
   renderFilterChips(); refreshCmpBadge();
   const opts = SUBJECTS.map(s => `<option>${s}</option>`).join("");
@@ -3445,13 +3522,20 @@ async function promptInstall() {
   // 앱 안에서 끝나는 이메일·Apple 로그인만 남긴다. 웹·안드로이드는 그대로 노출.
   if (isIosApp()) ["kakaoBtn", "googleBtn"].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = "none"; });
   // 네이티브 앱에서만 QR 스캔 버튼 노출 (capacitor-native.js가 주입된 환경)
-  if (window.MoaNative?.isNative) { const qb = document.getElementById("qrScanBtn"); if (qb) qb.style.display = ""; }
+  refreshQrScanBtn();
   initAppBanner();
-  initAuth().then(() => { handleSocialRedirect(); handleAppleRedirect(); handleCheckin(); handleTossRedirect(); loadAcademies(); loadBest(); if (!handleCompareShare()) go("search");
+  // 아래 핸들러들이 첫 await 전에 history.replaceState 로 쿼리를 지우므로, 판단에 쓸 값은 미리 잡아둔다.
+  const q0 = new URLSearchParams(location.search);
+  const pendingFlow = !!(q0.get("checkin") || q0.get("compare") || q0.get("code") || q0.get("tosspay") || location.hash.includes("apple"));
+  const boot = () => {
+    handleSocialRedirect(); handleAppleRedirect(); handleCheckin(); handleTossRedirect();
+    loadAcademies(); loadBest(); if (!handleCompareShare()) go("search");
     // 비로그인 상태로 앱 실행 시 로그인 안내 (딥링크·OAuth 콜백 진행 중이면 건너뜀)
-    const q = new URLSearchParams(location.search);
-    if (!state.user && !q.get("checkin") && !q.get("compare") && !q.get("code") && !q.get("tosspay")) openModal("m-auth");
-  });
+    if (!state.user && !pendingFlow) openModal("m-auth");
+  };
+  // initAuth 가 실패해도 화면은 떠야 한다. catch 가 없으면 빈 화면이 된다.
+  initAuth().catch(e => { logError("initAuth", e.message); toast("로그인 상태를 확인하지 못했어요. 다시 로그인해 주세요."); })
+    .finally(boot);
 })();
 </script>
 </body>
