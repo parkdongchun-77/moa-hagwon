@@ -3334,17 +3334,14 @@ async function loadAdmin() {
   sb.from("app_settings").select("value").eq("key", "neis_key").maybeSingle().then(({ data }) => {
     if (data?.value) document.getElementById("neisKey").value = data.value;
   });
-  const [aca, leads, revs, claims] = await Promise.all([
-    sb.from("academies").select("id", { count: "exact", head: true }),
-    sb.from("leads").select("id", { count: "exact", head: true }),
-    sb.from("reviews").select("id", { count: "exact", head: true }),
-    sb.from("claims").select("id", { count: "exact", head: true }).eq("status", "대기"),
-  ]);
+  // 학원 20만 건 전체 count 는 느리다. admin_counts() 가 통계 추정값을 쓴다.
+  const { data: cnt } = await sb.rpc("admin_counts");
+  const c0 = cnt || {};
   document.getElementById("adminStats").innerHTML = `
-    <div class="stat"><b>${(aca.count || 0).toLocaleString()}</b><span>등록 학원</span></div>
-    <div class="stat"><b>${leads.count || 0}</b><span>누적 리드</span></div>
-    <div class="stat"><b>${revs.count || 0}</b><span>후기</span></div>
-    <div class="stat"><b>${claims.count || 0}</b><span>대기 클레임</span></div>`;
+    <div class="stat"><b>${(c0.academies || 0).toLocaleString()}</b><span>등록 학원</span></div>
+    <div class="stat"><b>${c0.leads || 0}</b><span>누적 리드</span></div>
+    <div class="stat"><b>${c0.reviews || 0}</b><span>후기</span></div>
+    <div class="stat"><b>${c0.claims || 0}</b><span>대기 클레임</span></div>`;
   const { data: cls } = await sb.from("claims").select("*, academies(name), profiles:user_id(email,nickname)").eq("status", "대기");
   document.getElementById("adminClaims").innerHTML = (cls || []).map(c => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)">
     <span><b>${esc(c.academies?.name)}</b> ← ${esc(c.profiles?.nickname)} (${esc(c.profiles?.email)}) · 사업자번호: ${esc(c.biz_no || "-")}</span>
