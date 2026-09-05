@@ -1257,6 +1257,10 @@ async function handleSocialRedirect() {
   if (!code || (state !== "kakao" && state !== "google")) return;
   history.replaceState({}, "", location.pathname); // URL에서 code 제거
   const label = state === "kakao" ? "카카오" : "구글";
+  // 인가코드는 한 번만 쓸 수 있다. 이미 로그인된 채로 콜백 URL 에 다시 들어오면(뒤로가기 등)
+  // 재교환은 반드시 실패하므로, 교환하지 않고 조용히 끝낸다.
+  const { data: cur } = await sb.auth.getSession();
+  if (cur?.session) { closeModal("m-auth"); return; }
   toast(label + " 로그인 처리 중...");
   try {
     const res = await fetch(SUPABASE_URL + "/functions/v1/" + state + "-login", {
