@@ -3464,12 +3464,17 @@ async function botSearch(q) {
   const sido = SIDOS.find(s => q.includes(s));
   const subj = SUBJECTS.find(s => q.includes(s));
   const stop = ["추천", "학원", "공부방", "교습소", "찾아줘", "찾아", "찾기", "어디", "어느", "좀", "해줘", "알려줘", "근처", "주변"];
-  let place = (q.match(/[가-힣]+(시|군|구|동|읍|면)/g) || []).filter(p => !SIDOS.includes(p))[0] || null;
-  if (!place) { // '시/구' 없이 동네 이름만 입력한 경우 (예: 천안)
+  const placeExplicit = (q.match(/[가-힣]+(시|군|구|동|읍|면)/g) || []).filter(p => !SIDOS.includes(p))[0] || null;
+  // 학원을 찾는 질문일 때만 '천안' 같은 맨 지역명을 인식한다.
+  // 이 조건이 없으면 '탈퇴하고', '환불' 같은 말을 지역 이름으로 오인한다.
+  const wantsAcademy = /학원|공부방|교습소|추천|찾/.test(q);
+  let place = placeExplicit;
+  if (!place && (sido || subj || wantsAcademy)) { // '시/구' 없이 동네 이름만 입력한 경우 (예: 천안)
     place = q.split(/\s+/).map(w => w.replace(/(에서|에게|에|의|근처|주변)$/, "").replace(/[^가-힣0-9]/g, ""))
       .find(w => w.length >= 2 && !SIDOS.includes(w) && !SUBJECTS.includes(w) && !GRADES.includes(w) && !stop.includes(w) && !/추천|학원|공부방|찾|어디|어느/.test(w)) || null;
   }
-  const isSearch = sido || subj || place || /학원|추천|찾|어디|어느/.test(q);
+  const hasAcademyClue = !!(sido || subj || placeExplicit); // 지역·과목이 분명한 질문
+  const isSearch = hasAcademyClue || wantsAcademy;
   if (!isSearch) return false;
   let qq = sb.from("academies").select("id,name,region_city,dong,min_monthly,kind").eq("status", "개원");
   if (sido) qq = qq.eq("sido", sido);
@@ -3478,7 +3483,13 @@ async function botSearch(q) {
   const { data } = await qq.order("is_premium", { ascending: false }).limit(5);
   const label = [sido, place, subj].filter(Boolean).join(" ") || "학원";
   // 결과가 없어도 학원을 찾는 질문이면 Gemini에 넘기지 않고 베스트 학원으로 안내한다
-  if (!data || !data.length) { botBestCta(subj, `<b>${esc(label)}</b> 조건에 맞는 곳을 아직 못 찾았어요.`); return true; }
+  // 지역·과목이 분명한데 결과가 없을 때만 베스트로 유도한다.
+  // 단서 없이 못 찾았으면 학원 질문이 아닐 수 있으므로 AI 안내(+메일 문의)로 넘긴다.
+  if (!data || !data.length) {
+    if (!hasAcademyClue) return false;
+    botBestCta(subj, `<b>${esc(label)}</b> 조건에 맞는 곳을 아직 못 찾았어요.`);
+    return true;
+  }
   botMsg(`<b>${esc(label)}</b> 추천 ${data.length}곳이에요:<br>` + data.map(a =>
     `🏫 <b>${esc(a.name)}</b> <span style="color:#64748b">${esc(a.kind || "")} · ${esc(a.region_city || "")} ${esc(a.dong || "")}</span><br>${a.min_monthly ? won(a.min_monthly) + "~/월" : "수강료 비공개"} · <a href="#" onclick="openDetail(${a.id});return false">상세 보기</a>`
   ).join("<br><br>"));
