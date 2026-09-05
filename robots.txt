@@ -1,0 +1,12 @@
+# 모아학원 크롤러 접근 규칙. 검색엔진 전체 허용 + 사이트맵 위치 안내.
+
+User-agent: *
+Allow: /
+
+# 검색 결과에 의미 없는 파라미터 URL은 제외
+Disallow: /*?checkin=
+Disallow: /*?compare=
+Disallow: /*?tosspay=
+Disallow: /*?code=
+
+Sitemap: https://moahagwon.com/sitemap.xml

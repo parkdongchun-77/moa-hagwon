@@ -9,6 +9,18 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#4f46e5">
 <meta name="description" content="우리 동네 학원·공부방을 검색·비교하고 출결·성적·알림장까지 한 곳에서 관리하는 학원 플랫폼.">
+<link rel="canonical" href="https://moahagwon.com/">
+<!-- 공유 미리보기(카카오톡·페이스북 등) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="모아학원">
+<meta property="og:title" content="모아학원 — 우리 동네 학원, 한눈에 비교">
+<meta property="og:description" content="전국 17만 곳 이상의 학원·공부방을 검색·비교하고 출결·성적·알림장까지 한 곳에서 관리합니다.">
+<meta property="og:url" content="https://moahagwon.com/">
+<meta property="og:image" content="https://moahagwon.com/icon-512.png">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="모아학원 — 우리 동네 학원, 한눈에 비교">
+<meta name="twitter:description" content="전국 17만 곳 이상의 학원·공부방을 검색·비교하고 출결·성적·알림장까지 한 곳에서 관리합니다.">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -41,7 +53,7 @@ header{position:sticky;top:0;z-index:1500;background:#fff;border-bottom:1px soli
 main{max-width:1080px;margin:0 auto;padding:20px 16px 80px}
 .view{display:none}.view.on{display:block}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
-h2{font-size:19px;margin-bottom:12px}
+h1,h2{font-size:19px;margin-bottom:12px}
 h3{font-size:16px;margin:14px 0 8px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .btn{background:var(--p);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:600}
@@ -85,7 +97,7 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
   .nav{overflow-x:auto;gap:2px}
   main{padding:14px 10px 80px}
   .card{padding:14px}
-  h2{font-size:17px}h3{font-size:15px}
+  h1,h2{font-size:17px}h3{font-size:15px}
   .modal{padding:18px}.modal-bg{padding:14px 8px}
   .stat{min-width:0;padding:10px}
   table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
@@ -172,7 +184,7 @@ body{padding-bottom:70px}
       검색 결과를 지도에 표시합니다 · 좌표는 주소 기반 자동 변환(일부 부정확 가능)</div>
   </div>
   <div class="card">
-    <h2>우리 동네 학원 찾기 <span class="mut" id="totalCnt"></span></h2>
+    <h1>우리 동네 학원 찾기 <span class="mut" id="totalCnt"></span></h1>
     <div class="row" style="margin-bottom:8px">
       <select id="fSido"><option value="">전국</option></select>
       <select id="fCity"><option value="">전체 시/군/구</option></select>
@@ -652,6 +664,9 @@ const I18N_EN = {
   // 더보기/시트 항목
   "공지사항":"Notices","쿠폰 · 이벤트":"Coupons · Events","알림":"Notifications","설정":"Settings","내 정보":"My Info",
   "앱 설치 (홈 화면 추가)":"Install App (Add to Home)","이용약관":"Terms of Service","개인정보처리방침":"Privacy Policy",
+  // 하단 푸터
+  "서비스 소개":"About","문의":"Contact",
+  "학원 정보는 공공데이터와 원장 등록 정보를 바탕으로 하며, 실제와 다를 수 있습니다.":"Academy data comes from public records and owner submissions, and may differ from actual details.",
   "원장센터 (내 학원 관리)":"Owner Center (My Academy)","프리미엄 노출·광고 신청":"Premium Listing · Ads",
   "등원·퇴원 QR":"Check-in/out QR","등·퇴원 주간 요약":"Weekly Attendance Summary","알림장·성적":"Notes · Grades",
   "안심 위치":"Safe Location","운영 (관리자)":"Admin","FAQ · 1:1 문의 (모아봇)":"FAQ · Chat (MoaBot)",
@@ -3538,5 +3553,16 @@ const addScheduleEvent = _once("addScheduleEvent", _addScheduleEvent);
     .finally(boot);
 })();
 </script>
+<!-- 검색엔진이 소개·문의·약관 페이지를 찾아갈 수 있도록 한 정적 링크. 하단 탭바에 가리지 않게 여백을 둔다. -->
+<footer class="no-print" style="max-width:760px;margin:28px auto 0;padding:18px 14px calc(88px + env(safe-area-inset-bottom));border-top:1px solid var(--line);color:var(--mut);font-size:13px;line-height:1.9;text-align:center">
+  <p style="margin:0">
+    <a href="/about.html" style="color:var(--mut)">서비스 소개</a> ·
+    <a href="/contact.html" style="color:var(--mut)">문의</a> ·
+    <a href="/terms.html" style="color:var(--mut)">이용약관</a> ·
+    <a href="/privacy.html" style="color:var(--mut)">개인정보처리방침</a>
+  </p>
+  <p style="margin:6px 0 0">사업자등록번호 808-27-02108 · 문의 karmadc070@gmail.com</p>
+  <p style="margin:6px 0 0">학원 정보는 공공데이터와 원장 등록 정보를 바탕으로 하며, 실제와 다를 수 있습니다.</p>
+</footer>
 </body>
 </html>
