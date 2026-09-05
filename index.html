@@ -1180,7 +1180,8 @@ function toggleAuthMode() {
 }
 const KAKAO_REST_KEY = "aa2789f17b58a4941235c74b5250a32d";
 const GOOGLE_CLIENT_ID = "332050617570-g404e20aj20nbkjgl5dv9l4dchecsq7g.apps.googleusercontent.com";
-const APP_REDIRECT = "https://parkdongchun-77.github.io/moa-hagwon/";
+// 카카오·구글 콘솔 양쪽에 등록된 주소여야 한다. github.io 는 구버전 앱 번들용으로 콘솔에 남겨둔다.
+const APP_REDIRECT = "https://moahagwon.com/";
 // 애플 로그인(iOS 전용). 애플 개발자 키 발급 후 APPLE_SERVICE_ID를 실제 Service ID로 교체.
 const APPLE_SERVICE_ID = "com.moahagwon.web";
 const APPLE_REDIRECT = SUPABASE_URL + "/functions/v1/apple-login";
@@ -1729,7 +1730,7 @@ async function loadAttStat() {
 function page(d) { state.page += d; loadAcademies(); window.scrollTo(0, 0); }
 
 // ===== 지도 (카카오맵 우선, 실패 시 Leaflet+OSM 폴백 / 좌표는 지오코딩 후 DB 캐시) =====
-const KAKAO_JS_KEY = "b68af397a85753ede4faffaba6cc9f61"; // 카카오 developers JavaScript 키 (parkdongchun-77.github.io 등록됨)
+const KAKAO_JS_KEY = "b68af397a85753ede4faffaba6cc9f61"; // 카카오 developers JavaScript 키 (JS SDK 도메인에 moahagwon.com · github.io 등록됨)
 let mapApi = null, mapReady = null, mapToken = 0, userPos = null;
 function geoLocate() {
   if (!navigator.geolocation) return;
