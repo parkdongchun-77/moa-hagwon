@@ -1459,7 +1459,8 @@ function acaCard(a) {
     </div></div>`;
 }
 // ===== 웹푸시 (VAPID) =====
-const VAPID_PUBLIC = "BAUo7jmn_G3xmWU2TDHjJiM1tRrYPZ0DBECBK7cw7sHZjqX3oMWZJkMxao43ql7CxNwP7FgC0erB8LmjywIBZJ0";
+// 서버(send-push)의 VAPID_PUBLIC 시크릿과 반드시 같은 값이어야 한다. 다르면 구독이 무효가 된다.
+const VAPID_PUBLIC = "BNrkuhgW6F_o6kAY6GEwfgJIT8EM0Yd8J3S3Ab34TUF_P5L25UdUA_tyPJuxpsH4FGLHqJoifYPnpSalAOdAGbc";
 function urlB64ToU8(s) {
   const pad = "=".repeat((4 - s.length % 4) % 4);
   const b = atob((s + pad).replace(/-/g, "+").replace(/_/g, "/"));
