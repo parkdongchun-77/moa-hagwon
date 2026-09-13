@@ -98,6 +98,7 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 @media(max-width:640px){
+  #appDlQr{display:none}
   .grid2,.grid3{grid-template-columns:1fr}
   .nav{overflow-x:auto;gap:2px}
   main{padding:14px 10px 80px}
@@ -177,10 +178,20 @@ body{padding-bottom:70px}
   <div class="card no-print" id="appDlBanner" style="display:none;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;position:relative">
     <button onclick="dismissAppBanner()" aria-label="배너 닫기"
       style="position:absolute;top:8px;right:10px;background:transparent;border:0;color:#c7d2fe;font-size:20px;line-height:1;cursor:pointer">×</button>
-    <div style="font-size:17px;font-weight:800;margin-bottom:4px">📱 모아학원 앱으로 더 편하게</div>
-    <div style="font-size:13px;color:#e0e7ff;margin-bottom:10px">등·하원 QR 출석과 실시간 알림은 앱에서 쓸 수 있어요.</div>
-    <div class="row" style="gap:8px;flex-wrap:wrap">
-      <button class="btn sm" style="background:#fff;color:#4f46e5;font-weight:700" onclick="openAppDownload()">앱 다운로드</button>
+    <div style="display:flex;align-items:center;gap:20px;padding-right:14px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:800;margin-bottom:4px">📱 모아학원 앱으로 더 편하게</div>
+        <div style="font-size:13px;color:#e0e7ff;margin-bottom:10px">등·하원 QR 출석과 실시간 알림은 앱에서 쓸 수 있어요.</div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn sm" style="background:#fff;color:#4f46e5;font-weight:700" onclick="openAppDownload()">앱 다운로드</button>
+        </div>
+      </div>
+      <!-- QR 은 넓은 화면에서만 띄운다(640px 이하 숨김). 휴대폰으로 보는 사람은 자기 화면의 QR 을 스스로 찍을 수 없다. -->
+      <div id="appDlQr" style="flex-shrink:0;text-align:center">
+        <img src="/QR%20Code-moahagwon.svg" alt="moahagwon.com 접속 QR 코드" width="96" height="96"
+          style="display:block;width:96px;height:96px;background:#fff;border-radius:8px;padding:6px">
+        <div style="font-size:11px;color:#e0e7ff;margin-top:6px">휴대폰으로 스캔</div>
+      </div>
     </div>
   </div>
   <div class="card no-print" style="padding:0;overflow:hidden;position:relative">
@@ -515,7 +526,7 @@ body{padding-bottom:70px}
 <div class="modal-bg" id="m-appdl"><div class="modal" style="max-width:400px"><button class="close" onclick="closeModal('m-appdl')">×</button>
   <h2 style="font-size:18px">모아학원 앱 다운로드</h2>
   <p class="mut" style="font-size:13px;margin-top:6px">스마트폰에 설치하면 등·하원 QR 출석과 푸시 알림을 쓸 수 있습니다.</p>
-  <div id="appDlBox" style="margin-top:14px;display:flex;flex-direction:column;gap:10px"></div>
+  <div id="appDlBox" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap"></div>
   <p class="mut" style="font-size:12px;margin-top:14px">
     설치가 어려우시면 <a href="#" onclick="closeModal('m-appdl');promptInstall();return false">홈 화면에 바로가기 추가</a>로도 쓸 수 있습니다.</p>
 </div></div>
@@ -779,19 +790,31 @@ function openModal(id) { document.getElementById(id).classList.add("on"); }
 const ANDROID_READY = true, IOS_READY = true;
 const PLAY_URL = "https://play.google.com/store/apps/details?id=com.moahagwon.myapp";
 const APPSTORE_URL = "https://apps.apple.com/app/id6801823750";
-function storeBtn(ready, url, icon, label, sub) {
-  const style = "width:100%;text-align:left;padding:12px 14px;display:flex;align-items:center;gap:12px";
-  if (!ready) return `<button class="btn gray" style="${style};opacity:.65;cursor:default" disabled>
-      <span style="font-size:22px">${icon}</span>
-      <span><b>${label}</b><br><span class="mut" style="font-size:12px">출시 준비 중입니다</span></span></button>`;
-  return `<a class="btn" href="${url}" target="_blank" rel="noopener" style="${style};background:var(--p);color:#fff;text-decoration:none">
-      <span style="font-size:22px">${icon}</span>
-      <span><b>${label}</b><br><span style="font-size:12px;color:#e0e7ff">${sub}</span></span></a>`;
+// 애플·구글이 배포하는 공식 배지를 그대로 쓴다. 로고를 직접 그리면 양사 상표 가이드라인 위반이다.
+// 구글은 공식 CDN 에 영문 배지만 있어(한글 경로는 404) 애플도 영문으로 맞춰 두 배지의 언어를 통일했다.
+const APPSTORE_BADGE = "https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83";
+const PLAY_BADGE = "https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png";
+// 두 배지의 여백 규격이 다르다. 실측값:
+//   애플  119.66x40 SVG, 여백 없음        → height 40px 이면 보이는 높이도 40px
+//   구글  646x250 PNG, 사방 41px 투명 여백 → 내용이 전체의 67.2% 뿐이라 height 60px 이어야 40px 로 보인다
+// 구글 쪽 margin:-10px 은 그 투명 여백만큼 레이아웃 상자를 되돌려, 두 배지의 실제 점유 크기를 맞춘다.
+// 이 숫자를 눈대중으로 바꾸면 한쪽이 작아 보인다.
+function storeBadge(ready, url, badge, alt, title, sub, imgCss) {
+  const box = "flex:1 1 150px;display:flex;align-items:center;justify-content:center;min-height:66px"
+    + ";padding:10px 8px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;text-decoration:none";
+  if (!ready) return `<span style="${box};background:#f9fafb;color:#9ca3af;text-align:center">
+      <span><b style="font-size:14px">${title}</b><br><span style="font-size:12px">공개 준비 중</span></span></span>`;
+  // 배지 이미지가 안 뜨면(오프라인·차단) 글자로 대체한다.
+  return `<a href="${url}" target="_blank" rel="noopener" aria-label="${alt}" style="${box}">
+      <img src="${badge}" alt="${alt}" style="${imgCss};display:block"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+      <span style="display:none;text-align:center;color:#111827;font-size:14px">
+        <b>${title}</b><br><span style="font-size:12px;color:#6b7280">${sub}</span></span></a>`;
 }
 function openAppDownload() {
   document.getElementById("appDlBox").innerHTML =
-    storeBtn(ANDROID_READY, PLAY_URL, "🤖", "Android — Google Play", "Play 스토어에서 받기") +
-    storeBtn(IOS_READY, APPSTORE_URL, "🍎", "iPhone — App Store", "App Store에서 받기");
+    storeBadge(IOS_READY, APPSTORE_URL, APPSTORE_BADGE, "Download on the App Store", "App Store", "iPhone · iPad", "height:40px") +
+    storeBadge(ANDROID_READY, PLAY_URL, PLAY_BADGE, "Get it on Google Play", "Google Play", "Android", "height:60px;margin:-10px");
   openModal("m-appdl");
 }
 function dismissAppBanner() {
