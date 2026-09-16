@@ -541,9 +541,9 @@ body{padding-bottom:70px}
   <h2 id="payTitle" style="font-size:17px">지역화폐 결제</h2>
   <div id="payBox" style="margin:14px 0"></div>
 </div></div>
-<!-- 프리미엄 노출 결제 모달(베타) -->
+<!-- 프리미엄 노출 결제 모달 -->
 <div class="modal-bg" id="m-premium"><div class="modal" style="max-width:380px"><button class="close" onclick="closeModal('m-premium')">×</button>
-  <h2 style="font-size:17px">프리미엄 노출 결제 <span class="tag" style="background:#dbeafe;color:#1e40af">베타</span></h2>
+  <h2 style="font-size:17px">프리미엄 노출 결제</h2>
   <div id="premiumBox" style="margin:12px 0"></div>
 </div></div>
 <!-- 지역화폐 결제(부모 주도) 선택 모달 -->
@@ -3198,7 +3198,8 @@ async function openPremiumPay(aid) {
   const { data: plans } = await sb.from("premium_plans").select("*").eq("active", true).order("sort");
   document.getElementById("premiumBox").innerHTML = (plans || []).map(p =>
     `<button class="btn" style="width:100%;margin:6px 0;display:flex;justify-content:space-between" onclick="payPremium(${aid},'${p.code}')"><span>${esc(p.name)}</span><b>${won(p.price)}</b></button>`).join("")
-    + `<p class="mut" style="font-size:12px;margin-top:8px">※ 베타: 실결제(토스)는 아직 연결되지 않았고, 지금은 테스트로 노출이 켜집니다.</p>`;
+    + `<p class="mut" style="font-size:12px;margin-top:8px">결제하시면 노출이 바로 시작되고, 기간이 끝나면 자동으로 종료됩니다(자동 갱신 없음).<br>
+      <a href="/pricing.html" target="_blank" rel="noopener">요금제 안내</a> · <a href="/refund.html" target="_blank" rel="noopener">환불정책</a></p>`;
   openModal("m-premium");
 }
 async function _payPremium(aid, code) {
