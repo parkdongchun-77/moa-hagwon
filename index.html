@@ -116,6 +116,65 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
 .stat{flex:1;min-width:140px;background:#eef2ff;border-radius:12px;padding:14px;text-align:center}
 .stat b{display:block;font-size:22px;color:var(--p)}
 .stat span{font-size:13px;color:var(--mut)}
+/* 원장센터 대시보드 전용 (.od-*) — 다른 화면의 .stat 은 건드리지 않는다 */
+.od-hero{background:linear-gradient(135deg,#4f46e5,#7c72f0 55%,#a5b4fc);border-radius:18px;padding:20px 22px;color:#fff;margin-bottom:14px}
+.od-hero h2{margin:0 0 4px;color:#fff;font-size:20px}
+.od-hero p{margin:0;font-size:13px;color:#e0e7ff}
+.od-hero .od-pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.od-pill{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.28);border-radius:20px;padding:4px 11px;font-size:12px;color:#fff;font-weight:600}
+.od-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px}
+.od-kpi{background:#fff;border:1px solid var(--line);border-left:4px solid var(--p);border-radius:14px;padding:13px 14px;min-width:0}
+.od-kpi .od-top{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);font-weight:600}
+.od-kpi .od-ico{width:22px;height:22px;border-radius:7px;background:#eef2ff;display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+.od-kpi b{display:block;font-size:23px;color:var(--p);margin-top:7px;line-height:1.15;word-break:keep-all}
+.od-kpi .od-sub{font-size:11px;color:var(--mut);margin-top:3px}
+.od-kpi.g{border-left-color:var(--good)} .od-kpi.g b{color:var(--good)} .od-kpi.g .od-ico{background:#ecfdf5}
+.od-kpi.r{border-left-color:var(--bad)}  .od-kpi.r b{color:var(--bad)}  .od-kpi.r .od-ico{background:#fef2f2}
+.od-kpi.a{border-left-color:var(--warn)} .od-kpi.a b{color:var(--warn)} .od-kpi.a .od-ico{background:#fffbeb}
+.od-kpi.b{border-left-color:#2563eb}     .od-kpi.b b{color:#2563eb}     .od-kpi.b .od-ico{background:#eff6ff}
+.od-kpi.mute{border-left-color:var(--line)} .od-kpi.mute b{color:var(--mut)} .od-kpi.mute .od-ico{background:#f1f5f9}
+.od-kpi.ck{cursor:pointer}
+.od-kpi.ck:hover{border-color:var(--p2);background:#fbfbff}
+.od-kpi .od-more{font-size:10.5px;color:var(--p);margin-top:6px;font-weight:700}
+.od-panel{grid-column:1/-1;background:#fff;border:1px solid var(--p2);border-radius:12px;padding:12px 14px}
+.od-panel h5{margin:0 0 8px;font-size:13px;color:var(--txt)}
+.od-panel table{width:100%;font-size:13px;border-collapse:collapse}
+.od-panel th{background:#f8fafc;font-size:11.5px;color:var(--mut);padding:6px 8px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+.od-panel td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.od-sent{background:#ecfdf5;color:#065f46;border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700}
+.od-unsent{background:#f1f5f9;color:var(--mut);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700}
+.od-sec{font-size:13px;font-weight:700;color:var(--mut);margin:16px 0 8px}
+.od-charts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.od-chart{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+.od-chart h4{margin:0 0 2px;font-size:13px;color:var(--txt)}
+.od-chart .od-cap{font-size:11px;color:var(--mut);margin:0 0 8px}
+.od-todo{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px}
+.od-todo button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 13px;font-size:13.5px;color:var(--txt);font-weight:600;cursor:pointer}
+.od-todo button:hover{border-color:var(--p2);background:#fbfbff}
+.od-todo .od-badge{margin-left:auto;background:var(--p);color:#fff;border-radius:20px;padding:2px 9px;font-size:12px;font-weight:700}
+.od-todo .od-badge.r{background:var(--bad)}
+.od-funnel{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-items:stretch}
+.od-fstep{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.od-fstep b{display:block;font-size:22px;color:var(--p);margin:4px 0 2px}
+.od-fstep span{font-size:11.5px;color:var(--mut)}
+.od-frate{font-size:11px;color:var(--good);font-weight:700;margin-top:4px}
+.od-plan{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px;text-align:left;width:100%;cursor:pointer}
+.od-plan:hover{border-color:var(--p2);background:#fbfbff}
+.od-plan b{display:block;font-size:18px;color:var(--p);margin-top:4px}
+.od-empty{background:linear-gradient(135deg,#eef2ff,#faf5ff);border:1px solid #ddd6fe;border-radius:16px;padding:22px}
+.od-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:14px}
+.od-step{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px}
+.od-step .od-no{width:24px;height:24px;border-radius:8px;background:var(--p);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:7px}
+.od-step b{display:block;font-size:14px;margin-bottom:3px}
+.od-step span{font-size:12.5px;color:var(--mut);line-height:1.5}
+@media(max-width:640px){
+  .od-hero{padding:16px 16px;border-radius:15px}
+  .od-hero h2{font-size:17px}
+  .od-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .od-kpi{padding:11px 12px}
+  .od-kpi b{font-size:19px}
+  .od-charts{grid-template-columns:1fr}
+}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:11px 22px;border-radius:10px;font-size:14px;z-index:6000;display:none;max-width:90vw}
 .tabbar{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:14px;overflow-x:auto}
 .tab{background:none;border:none;padding:9px 14px;font-size:14px;color:var(--mut);border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap}
@@ -393,8 +452,10 @@ body{padding-bottom:70px}
 
 <!-- ===== 원장센터 ===== -->
 <section class="view" id="v-owner">
-  <div class="card"><h2>원장센터</h2>
-    <div class="notice">학원 소유권을 인증(클레임)하면 학원 소개·수강료·이벤트를 직접 관리하고 상담 신청을 받을 수 있습니다.</div>
+  <!-- 대시보드 영역. 학원을 보유하면 요약 대시보드가, 아니면 시작 안내가 들어간다 -->
+  <div id="ownerDashBox"></div>
+  <div class="card">
+    <h3 style="margin-top:0">🔍 내 학원 찾아 권한 신청</h3>
     <div class="row" style="margin-bottom:10px"><span class="mut" style="flex:1">국가 데이터에 없는 가정형 <b>공부방</b>은 직접 등록해 노출할 수 있어요.</span>
       <button class="btn sm" onclick="openRoomModal()">+ 우리 공부방 직접 등록</button></div>
     <div class="row" style="margin-bottom:6px">
@@ -404,7 +465,6 @@ body{padding-bottom:70px}
     <div id="claimResults"></div>
     <div id="myClaims"></div>
   </div>
-  <div class="card" id="ownerDashBox" style="display:none"></div>
   <div class="card" id="ownerAdminBox" style="display:none;border:1px solid #c7d2fe;background:#f5f7ff">
     <h3 style="margin-top:0">🛠 관리자 대행 — 학원 정보 수정</h3>
     <p class="mut">바쁜 원장을 대신해 아무 학원이나 검색해 직접 수정할 수 있습니다.</p>
@@ -1389,6 +1449,7 @@ async function loadAcademies() {
     return;
   }
   list.innerHTML = data.map(a => acaCard(a)).join("");
+  bumpStats("view", data.map(a => a.id));
 }
 
 // ===== 우리 동네 베스트 학원 (과목별) =====
@@ -1466,6 +1527,20 @@ function qrImg(id, size) {
   const s = size || 56;
   return `<img src="https://api.qrserver.com/v1/create-qr-code/?size=${s}x${s}&margin=0&data=${encodeURIComponent(checkinUrl(id))}"
     width="${s}" height="${s}" alt="출석QR" title="출석 QR — 스캔하면 출석됩니다" style="border-radius:6px;background:#fff;cursor:pointer;flex-shrink:0" onclick="event.stopPropagation();openQr(${id})">`;
+}
+// ===== 노출·상세조회 집계 =====
+// 이벤트를 행으로 쌓으면 학원 20만 곳 규모에서 감당이 안 되므로 서버가 (학원, 날짜) 한 줄에 누적한다.
+// 카드마다 부르지 않고 검색 결과 전체를 한 번에 묶어 1회만 보낸다.
+// 한 번 센 학원은 이 페이지에서 다시 세지 않는다 — 필터를 바꿀 때마다 목록이 다시 그려져 숫자가 부풀기 때문이다.
+const statSeen = { view: new Set(), detail: new Set() };
+function bumpStats(kind, ids) {
+  const fresh = [...new Set(ids)].filter(id => id && !statSeen[kind].has(id));
+  if (!fresh.length) return;
+  fresh.forEach(id => statSeen[kind].add(id));
+  for (let i = 0; i < fresh.length; i += 100) {  // 서버 함수가 한 번에 100개까지만 받는다
+    sb.rpc("bump_academy_stats", { p_ids: fresh.slice(i, i + 100), p_kind: kind })
+      .then(({ error }) => { if (error) console.warn("노출 집계 실패:", error.message); });
+  }
 }
 function acaCard(a) {
   const inCmp = state.compare.includes(a.id);
@@ -1869,6 +1944,7 @@ async function toggleFav(id) {
 // ===== 학원 상세 =====
 async function openDetail(id) {
   if (needLogin()) return;
+  bumpStats("detail", [id]);
   openModal("m-detail");
   const body = document.getElementById("detailBody");
   body.innerHTML = `<div class="empty">불러오는 중...</div>`;
@@ -2483,19 +2559,22 @@ async function submitRoom() {
   } catch (e) { toast("오류: " + e.message); } finally { btn.disabled = false; btn.textContent = "등록하기"; }
 }
 async function loadOwner() {
-  if (!state.user) { document.getElementById("myAcademies").innerHTML = `<div class="card empty">로그인이 필요합니다.</div>`; return; }
+  if (!state.user) {
+    document.getElementById("myAcademies").innerHTML = `<div class="card empty">로그인이 필요합니다.</div>`;
+    document.getElementById("ownerDashBox").innerHTML = "";  // 로그아웃 후 이전 대시보드가 남지 않게
+    return;
+  }
   document.getElementById("ownerAdminBox").style.display = state.profile?.role === "admin" ? "" : "none";
   const { data: claims } = await sb.from("claims").select("*, academies(name)").eq("user_id", state.user.id).order("created_at", { ascending: false });
   document.getElementById("myClaims").innerHTML = claims?.length ? `<h3>내 신청 내역</h3>` + claims.map(c =>
     `<div class="mut">· ${esc(c.academies?.name)} — <b>${c.status}</b></div>`).join("") : "";
   const { data: acas } = await sb.from("academies").select("*").eq("owner_id", state.user.id);
-  const dashBox = document.getElementById("ownerDashBox");
-  if (acas?.length) renderOwnerDash(acas); else if (dashBox) dashBox.style.display = "none";
+  if (acas?.length) renderOwnerDash(acas); else renderOwnerEmpty();
   const wrap = document.getElementById("myAcademies");
   if (!acas?.length) { wrap.innerHTML = ""; return; }
   wrap.innerHTML = acas.map(a => `<div class="card" id="own-${a.id}">
     <div class="row"><h3 style="margin:0">${esc(a.name)}</h3><span class="mut">${esc(a.dong || "")}</span>
-      ${isIosApp() ? "" : (a.is_premium ? `<span class="tag ad">프리미엄 노출 중</span>` : `<span class="right" style="display:inline-flex;gap:6px"><button class="btn sm ghost" onclick="orderAd(${a.id})">노출 신청</button><button class="btn sm" style="background:#3182f6;color:#fff;font-weight:700" onclick="openPremiumPay(${a.id})">💳 결제 노출(베타)</button></span>`)}</div>
+      ${isIosApp() ? "" : (a.is_premium ? `<span class="tag ad">프리미엄 노출 중</span>` : `<span class="right" style="display:inline-flex;gap:6px"><button class="btn sm ghost" onclick="askOrderAd(${a.id},this)">노출 신청</button><button class="btn sm" style="background:#3182f6;color:#fff;font-weight:700" onclick="openPremiumPay(${a.id})">💳 결제 노출(베타)</button></span>`)}</div>
     <div class="tabbar"><button class="tab on" onclick="ownTab(this,${a.id},'info')">학원 정보</button>
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
@@ -2504,32 +2583,71 @@ async function loadOwner() {
     <div id="ownBody-${a.id}"></div></div>`).join("");
   acas.forEach(a => renderOwnInfo(a.id));
 }
+// 아직 학원을 보유하지 않은 원장에게 무엇부터 하면 되는지 보여준다
+function renderOwnerEmpty() {
+  const box = document.getElementById("ownerDashBox");
+  if (!box) return;
+  box.innerHTML = `<div class="od-hero">
+      <h2>원장센터</h2>
+      <p>학원 소유권을 인증하면 소개·수강료·출결·상담을 한 곳에서 관리할 수 있어요.</p>
+    </div>
+    <div class="od-empty">
+      <b style="font-size:15px">세 단계면 시작됩니다</b>
+      <div class="od-steps">
+        <div class="od-step"><div class="od-no">1</div><b>학원 검색</b>
+          <span>아래에서 학원명이나 주소로 찾습니다. 국가 데이터에 없는 가정형 공부방은 직접 등록하세요.</span></div>
+        <div class="od-step"><div class="od-no">2</div><b>권한 신청</b>
+          <span>사업자등록번호와 사업자등록증을 올리면 관리자가 확인합니다.</span></div>
+        <div class="od-step"><div class="od-no">3</div><b>관리 시작</b>
+          <span>승인되면 이 자리에 학생·수납·상담 현황이 한눈에 들어오는 대시보드가 열립니다.</span></div>
+      </div>
+    </div>`;
+}
 // 원장 대시보드: 내 학원 전체를 이번 달 기준으로 한눈에 요약
-let ownerRevChart = null;
+let ownerRevChart = null, ownerStuChart = null, ownerLeadChart = null;
 async function renderOwnerDash(acas) {
   const box = document.getElementById("ownerDashBox");
   if (!box) return;
-  box.style.display = "";
-  box.innerHTML = `<h3 style="margin-top:0">📊 내 학원 한눈에 보기 <span class="mut">불러오는 중...</span></h3>`;
+  box.innerHTML = `<div class="od-hero"><h2>원장센터</h2><p>불러오는 중...</p></div>`;
   const ids = acas.map(a => a.id);
   const now = new Date();
   const ym = ymOf(now);
   const ym6 = ymShift(-5);
   const since7 = new Date(Date.now() - 7 * 864e5).toISOString();
-  const [{ data: enr }, { data: pays }, { data: leads }, { data: atts }, { data: chats }, { data: revs }, { data: pays6 }] = await Promise.all([
-    sb.from("child_academies").select("id,started_month,ended_month").in("academy_id", ids),
+  const [{ data: enr }, { data: pays }, { data: leads }, { data: atts }, { data: chats }, { data: revs }, { data: pays6 }, { data: notis }] = await Promise.all([
+    // KPI 카드를 눌러 명단을 펼치므로 이름·과목·학원비·납부일까지 같이 받는다
+    sb.from("child_academies").select("id,subject,monthly_total,billing_day,started_month,ended_month, children(name,grade)").in("academy_id", ids),
     sb.from("payments").select("child_academy_id,status,amount").in("academy_id", ids).eq("year_month", ym),
     sb.from("leads").select("status,created_at").in("academy_id", ids),
     sb.from("attendances").select("id").in("academy_id", ids).neq("status", "퇴원").gte("checked_at", since7),
     sb.from("chat_messages").select("academy_id,parent_id,sender,created_at").in("academy_id", ids).order("created_at", { ascending: false }).limit(400),
     sb.from("reviews").select("rating").in("academy_id", ids).eq("hidden", false),
     sb.from("payments").select("year_month,amount").in("academy_id", ids).eq("status", "완료").gte("year_month", ym6),
+    // 입금 안내를 이미 보냈는지. auto-pay-reminders 와 sendPayNotice 가 남기는 알림 기록을 그대로 읽는다.
+    sb.from("notifications").select("child_academy_id,created_at").in("academy_id", ids)
+      .eq("ntype", "입금안내").eq("year_month", ym).order("created_at", { ascending: false }),
   ]);
   const active = (enr || []).filter(e => (!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym));
   const activeIds = new Set(active.map(e => e.id));
-  const newEnroll = (enr || []).filter(e => e.started_month === ym).length;
-  const paidCnt = new Set((pays || []).filter(p => p.status === "완료" && activeIds.has(p.child_academy_id)).map(p => p.child_academy_id)).size;
-  const unpaid = Math.max(0, active.length - paidCnt);
+  const newRows = (enr || []).filter(e => e.started_month === ym);
+  const newEnroll = newRows.length;
+  const paidIds = new Set((pays || []).filter(p => p.status === "완료" && activeIds.has(p.child_academy_id)).map(p => p.child_academy_id));
+  const paidRows = active.filter(e => paidIds.has(e.id));
+  const unpaidRows = active.filter(e => !paidIds.has(e.id));
+  const paidCnt = paidRows.length;
+  const unpaid = unpaidRows.length;
+  // 납부일이 오늘부터 3일 안에 오는 미납 학생. auto-pay-reminders 가 3일 전에 자동 안내하는 그 대상이다.
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const due3 = unpaidRows.filter(e => {
+    if (!e.billing_day) return false;
+    const d = new Date(now.getFullYear(), now.getMonth(), Math.min(e.billing_day, lastDay));
+    const gap = Math.round((d - today) / 864e5);
+    return gap >= 0 && gap <= 3;
+  });
+  // 이번 달 입금 안내를 보낸 학생 → 가장 최근 발송 시각
+  const sentAt = new Map();
+  (notis || []).forEach(n => { if (n.child_academy_id && !sentAt.has(n.child_academy_id)) sentAt.set(n.child_academy_id, n.created_at); });
   const collected = (pays || []).filter(p => p.status === "완료").reduce((s, p) => s + (p.amount || 0), 0);
   const newLeads = (leads || []).filter(l => (l.created_at || "").slice(0, 7) === ym).length;
   const pendLeads = (leads || []).filter(l => l.status === "신규" || l.status === "연락완료").length;
@@ -2541,47 +2659,194 @@ async function renderOwnerDash(acas) {
   const avgRating = revCnt ? ((revs || []).reduce((s, r) => s + (r.rating || 0), 0) / revCnt).toFixed(1) : null;
   const premCnt = acas.filter(a => a.is_premium).length;
   const single = acas.length === 1 ? acas[0].id : null;
-  const stat = (v, l, color) => `<div class="stat"><b${color ? ` style="color:${color}"` : ""}>${v}</b><span>${l}</span></div>`;
-  box.innerHTML = `<h3 style="margin-top:0">📊 내 학원 한눈에 보기 <span class="mut">이번 달 · ${acas.length}곳</span></h3>
-    <div class="row" style="gap:8px;flex-wrap:wrap">
-      ${stat(active.length + "명", "다니는 학생")}
-      ${stat(newEnroll + "명", "이번 달 신규", newEnroll ? "var(--good)" : "")}
-      ${stat(paidCnt + "명", "입금 완료", "var(--good)")}
-      ${stat(unpaid + "명", "입금 전", unpaid ? "var(--bad)" : "")}
+  const kpi = (ico, label, val, tone, sub) => `<div class="od-kpi${tone ? " " + tone : ""}">
+      <div class="od-top"><span class="od-ico">${ico}</span>${label}</div>
+      <b>${val}</b>${sub ? `<div class="od-sub">${sub}</div>` : ""}</div>`;
+  // 눌러서 명단을 펼치는 KPI 카드. 명단은 바로 다음 줄에 전체 폭으로 들어간다.
+  const kpiC = (key, ico, label, val, tone, sub) => `<div class="od-kpi ck${tone ? " " + tone : ""}" id="odk-${key}" onclick="odToggle('${key}')">
+      <div class="od-top"><span class="od-ico">${ico}</span>${label}</div>
+      <b>${val}</b>${sub ? `<div class="od-sub">${sub}</div>` : ""}<div class="od-more">명단 보기 ▾</div></div>`;
+  const sentTag = e => { const t = sentAt.get(e.id); if (!t) return `<span class="od-unsent">미발송</span>`;
+    const d = new Date(t); return `<span class="od-sent">✅ ${d.getMonth() + 1}/${d.getDate()} 보냄</span>`; };
+  const roster = (rows, withSent) => rows.length
+    ? `<div style="overflow-x:auto"><table>
+        <tr><th>학생</th><th>학년</th><th>과목</th><th>월 학원비</th><th>납부일</th>${withSent ? "<th>입금 안내</th>" : ""}</tr>
+        ${rows.map(e => `<tr><td>${esc(e.children?.name || "-")}</td><td>${esc(e.children?.grade || "-")}</td>
+          <td>${esc(e.subject || "-")}</td><td>${e.monthly_total ? won(e.monthly_total) : "-"}</td>
+          <td>${e.billing_day ? `매월 ${e.billing_day}일` : "-"}</td>${withSent ? `<td>${sentTag(e)}</td>` : ""}</tr>`).join("")}
+      </table></div>`
+    : `<p class="mut" style="margin:2px 0">해당하는 학생이 없습니다.</p>`;
+  const panel = (key, title, html) => `<div class="od-panel" id="odp-${key}" style="display:none"><h5>${title}</h5>${html}</div>`;
+  const heroName = acas.length === 1 ? esc(acas[0].name) : `내 학원 ${acas.length}곳`;
+  const todo = [];
+  if (single && unpaid) todo.push(`<button onclick="ownJump(${single},'students')">💌 입금 확인이 필요해요<span class="od-badge r">${unpaid}명</span></button>`);
+  if (single && pendLeads) todo.push(`<button onclick="ownJump(${single},'lead')">📞 답해야 할 상담이 있어요<span class="od-badge">${pendLeads}건</span></button>`);
+  box.innerHTML = `<div class="od-hero">
+      <h2>${heroName}</h2>
+      <p>${now.getFullYear()}년 ${now.getMonth() + 1}월 기준 요약입니다.</p>
+      <div class="od-pills">
+        <span class="od-pill">👩‍🎓 학생 ${active.length}명</span>
+        <span class="od-pill">💰 이번 달 수납 ${won(collected)}</span>
+        ${unpaid ? `<span class="od-pill">⏳ 입금 전 ${unpaid}명</span>` : ""}
+        ${isIosApp() || !premCnt ? "" : `<span class="od-pill">⭐ 프리미엄 ${premCnt}곳</span>`}
+      </div>
     </div>
-    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
-      ${stat(won(collected), "이번 달 수납")}
-      ${stat(newLeads + "건", "이번 달 상담")}
-      ${stat(pendLeads + "건", "미처리 상담", pendLeads ? "var(--p)" : "")}
-      ${stat(inn7 + "회", "최근 7일 등원")}
+    ${todo.length ? `<div class="od-sec">지금 할 일</div><div class="od-todo">${todo.join("")}</div>` : ""}
+    <div class="od-sec">이번 달 현황 <span class="mut" style="font-weight:400">· 카드를 누르면 명단이 펼쳐집니다</span></div>
+    <div class="od-grid">
+      ${kpiC("act", "👩‍🎓", "다니는 학생", active.length + "명")}
+      ${panel("act", `다니는 학생 ${active.length}명`, roster(active))}
+      ${kpiC("new", "✨", "이번 달 신규", newEnroll + "명", newEnroll ? "g" : "mute")}
+      ${panel("new", `${now.getMonth() + 1}월 신규 등록 ${newEnroll}명`, roster(newRows))}
+      ${kpiC("paid", "✅", "입금 완료", paidCnt + "명", "g")}
+      ${panel("paid", `입금 완료 ${paidCnt}명`, roster(paidRows))}
+      ${kpiC("unpaid", "⏳", "입금 전", unpaid + "명", unpaid ? "r" : "mute")}
+      ${panel("unpaid", `아직 입금 전 ${unpaid}명`, roster(unpaidRows, true))}
+      ${kpiC("due3", "🔔", "납부일 3일 내", due3.length + "명", due3.length ? "a" : "mute", due3.length ? "자동 안내 대상" : "대상 없음")}
+      ${panel("due3", `납부일이 3일 안에 오는 미납 학생 ${due3.length}명`,
+        roster(due3, true) + `<p class="mut" style="margin:8px 0 0">납부일 3일 전이 되면 학부모 앱으로 입금 안내가 자동 발송됩니다. 납부일이 비어 있는 학생은 자동 발송 대상에서 빠집니다.</p>`)}
+      ${kpi("💰", "이번 달 수납", won(collected), "b")}
     </div>
-    <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
-      ${stat(unread + "건", "미답변 문의", unread ? "var(--bad)" : "")}
-      ${stat(revCnt + "건" + (avgRating ? ` ★${avgRating}` : ""), "후기")}
-      ${isIosApp() ? "" : stat(premCnt + "곳", "프리미엄 노출", premCnt ? "var(--p)" : "")}
+    <div class="od-sec">상담과 소통</div>
+    <div class="od-grid">
+      ${kpi("📞", "이번 달 상담", newLeads + "건", "b")}
+      ${kpi("📋", "미처리 상담", pendLeads + "건", pendLeads ? "a" : "mute")}
+      ${kpi("💬", "미답변 문의", unread + "건", unread ? "r" : "mute")}
+      ${kpi("⭐", "후기", revCnt + "건", revCnt ? "a" : "mute", avgRating ? `평균 ★${avgRating}` : "아직 후기가 없어요")}
+      ${kpi("🚪", "최근 7일 등원", inn7 + "회")}
+      ${isIosApp() ? "" : kpi("📣", "프리미엄 노출", premCnt + "곳", premCnt ? "a" : "mute", premCnt ? "검색 상단에 고정됩니다" : "아래 학원 카드에서 신청")}
     </div>
-    <div style="margin-top:12px"><div class="mut" style="font-size:13px;margin-bottom:4px">최근 6개월 수납 추이</div>
-      <canvas id="ownerRevChart" height="90"></canvas></div>
-    ${single ? `<div class="row" style="gap:6px;margin-top:10px">
-      ${unpaid ? `<button class="btn sm" onclick="ownJump(${single},'students')">💌 입금 관리 (${unpaid}명 남음)</button>` : ""}
-      ${pendLeads ? `<button class="btn sm gray" onclick="ownJump(${single},'lead')">📞 상담 리드 ${pendLeads}건</button>` : ""}
-    </div>` : ""}
-    ${isIosApp() ? "" : `<div class="mut" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">${premCnt ? `⭐ 프리미엄 노출 중 ${premCnt}곳 — 검색 상단에 고정 표시됩니다.` : "🔎 검색 상단에 노출하려면 아래 학원 카드에서 프리미엄 노출을 신청하세요."}</div>`}`;
-  // 6개월 수납 추이 그래프
-  const labels = [], vals = [];
+    <div class="od-sec">최근 6개월 추이</div>
+    <div class="od-charts">
+      <div class="od-chart"><h4>수납</h4><p class="od-cap">월별 입금 완료 금액</p><canvas id="ownerRevChart" height="130"></canvas></div>
+      <div class="od-chart"><h4>학생 수</h4><p class="od-cap">그 달에 다닌 학생</p><canvas id="ownerStuChart" height="130"></canvas></div>
+      <div class="od-chart"><h4>상담 유입</h4><p class="od-cap">새로 들어온 상담 신청</p><canvas id="ownerLeadChart" height="130"></canvas></div>
+    </div>
+    <div id="ownerPromoBox"></div>`;
+  renderPromoDash(acas);
+  // 최근 6개월 추이 3종. 수납만 pays6 를 쓰고, 학생 수·상담은 위에서 이미 받아온 enr·leads 로 계산한다(추가 조회 없음).
+  const labels = [], vals = [], stuVals = [], leadVals = [];
   for (let i = -5; i <= 0; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     const mym = ymOf(d);
     labels.push(`${d.getFullYear() % 100}.${d.getMonth() + 1}`);
     vals.push((pays6 || []).filter(p => p.year_month === mym).reduce((s, p) => s + (p.amount || 0), 0));
+    stuVals.push((enr || []).filter(e => (!e.started_month || e.started_month <= mym) && (!e.ended_month || e.ended_month >= mym)).length);
+    leadVals.push((leads || []).filter(l => (l.created_at || "").slice(0, 7) === mym).length);
   }
+  const axis = (fmtY) => ({ plugins: { legend: { display: false } },
+    scales: { x: { grid: { display: false } },
+      y: { beginAtZero: true, border: { display: false }, grid: { color: "#f1f5f9" }, ticks: { precision: 0, maxTicksLimit: 4, callback: fmtY } } } });
   ownerRevChart?.destroy();
   ownerRevChart = new Chart(document.getElementById("ownerRevChart"), {
     type: "bar",
-    data: { labels, datasets: [{ label: "월 수납", data: vals, backgroundColor: "#4f46e5", borderRadius: 4 }] },
-    options: { plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0, callback: v => Math.round(v / 10000) + "만" } } } }
+    data: { labels, datasets: [{ data: vals, backgroundColor: "#6366f1", borderRadius: 6, maxBarThickness: 26 }] },
+    options: axis(v => Math.round(v / 10000) + "만")
   });
+  ownerStuChart?.destroy();
+  ownerStuChart = new Chart(document.getElementById("ownerStuChart"), {
+    type: "line",
+    data: { labels, datasets: [{ data: stuVals, borderColor: "#059669", backgroundColor: "rgba(5,150,105,.12)",
+      fill: true, tension: .35, pointRadius: 3, pointBackgroundColor: "#059669", borderWidth: 2 }] },
+    options: axis(v => v + "명")
+  });
+  ownerLeadChart?.destroy();
+  ownerLeadChart = new Chart(document.getElementById("ownerLeadChart"), {
+    type: "bar",
+    data: { labels, datasets: [{ data: leadVals, backgroundColor: "#f59e0b", borderRadius: 6, maxBarThickness: 26 }] },
+    options: axis(v => v + "건")
+  });
+}
+// 홍보(프리미엄 노출) 대시보드. 본 대시보드가 먼저 그려진 뒤 이어서 채워진다.
+function ymdLocal(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+async function renderPromoDash(acas) {
+  const box = document.getElementById("ownerPromoBox");
+  if (!box || isIosApp()) return;   // iOS 앱에서는 광고·결제를 노출하지 않는다
+  const ids = acas.map(a => a.id);
+  const since = ymdLocal(new Date(Date.now() - 29 * 864e5));
+  const [{ data: stats }, { data: orders }, { data: lds }, { data: plans }] = await Promise.all([
+    sb.from("academy_stats").select("academy_id,day,views,detail_views").in("academy_id", ids).gte("day", since),
+    sb.from("ad_orders").select("*").in("academy_id", ids).order("created_at", { ascending: false }),
+    sb.from("leads").select("created_at").in("academy_id", ids).gte("created_at", since),
+    sb.from("premium_plans").select("*").eq("active", true).order("sort"),
+  ]);
+
+  const views = (stats || []).reduce((s, r) => s + (r.views || 0), 0);
+  const details = (stats || []).reduce((s, r) => s + (r.detail_views || 0), 0);
+  const consults = (lds || []).length;
+  const pct = (n, d) => d ? (n / d * 100).toFixed(1) + "%" : "-";
+
+  // 프리미엄이 켜져 있던 날과 아닌 날의 하루 평균 노출을 비교한다.
+  const adDays = new Set();
+  (orders || []).forEach(o => {
+    if (!o.start_date || !o.end_date) return;
+    for (let d = new Date(o.start_date); d <= new Date(o.end_date); d.setDate(d.getDate() + 1)) adDays.add(ymdLocal(d));
+  });
+  const dailyAvg = rows => { const n = new Set(rows.map(r => r.day)).size;
+    return n ? Math.round(rows.reduce((s, r) => s + (r.views || 0), 0) / n) : null; };
+  const onAvg = dailyAvg((stats || []).filter(r => adDays.has(r.day)));
+  const offAvg = dailyAvg((stats || []).filter(r => !adDays.has(r.day)));
+
+  const dday = a => { if (!a.premium_until) return null;
+    return Math.max(0, Math.ceil((new Date(a.premium_until) - Date.now()) / 864e5)); };
+
+  const statusRows = acas.map(a => {
+    const d = dday(a);
+    return `<div class="row" style="border-bottom:1px solid var(--line);padding:9px 2px;gap:8px">
+      <b style="flex:1;min-width:0">${esc(a.name)}</b>
+      ${a.is_premium
+        ? `<span class="tag ad">노출 중${d != null ? ` · D-${d}` : ""}</span>`
+        : `<span class="tag gray">노출 안 함</span>
+           <button class="btn sm ghost" onclick="askOrderAd(${a.id},this)">운영자 승인 요청</button>`}
+    </div>`;
+  }).join("");
+
+  const planCards = (plans || []).length && acas.some(a => !a.is_premium)
+    ? `<div class="od-sec">요금제</div>
+       <div class="od-grid">${(plans || []).map(p => `<button class="od-plan" onclick="openPremiumPay(${acas.find(a => !a.is_premium).id})">
+          ${esc(p.name)}<b>${won(p.price)}</b><span class="mut">${p.days}일 · 자동 갱신 없음</span></button>`).join("")}</div>
+       <p class="mut" style="margin:8px 0 0"><a href="/pricing.html" target="_blank" rel="noopener">요금제 안내</a> · <a href="/refund.html" target="_blank" rel="noopener">환불정책</a></p>`
+    : "";
+
+  const orderRows = (orders || []).length
+    ? `<div class="od-sec">신청 내역</div><div class="od-panel" style="display:block"><div style="overflow-x:auto"><table>
+        <tr><th>신청일</th><th>상품</th><th>기간</th><th>금액</th><th>상태</th></tr>
+        ${(orders || []).map(o => `<tr><td>${(o.created_at || "").slice(0, 10)}</td><td>${esc(o.product || "프리미엄 노출")}</td>
+          <td>${o.start_date ? `${o.start_date} ~ ${o.end_date || ""}` : "-"}</td><td>${o.price ? won(o.price) : "-"}</td>
+          <td>${esc(o.status || "")}</td></tr>`).join("")}</table></div></div>`
+    : "";
+
+  box.innerHTML = `<div class="od-sec">📣 홍보 현황 <span class="mut" style="font-weight:400">· 최근 30일</span></div>
+    <div class="od-panel" style="display:block">${statusRows}</div>
+    <div class="od-sec">노출에서 상담까지</div>
+    <div class="od-funnel">
+      <div class="od-fstep"><span>검색 결과에 보임</span><b>${views.toLocaleString()}</b><span>회</span></div>
+      <div class="od-fstep"><span>상세를 열어봄</span><b>${details.toLocaleString()}</b><span>회</span><div class="od-frate">${pct(details, views)}</div></div>
+      <div class="od-fstep"><span>상담을 신청함</span><b>${consults.toLocaleString()}</b><span>건</span><div class="od-frate">${pct(consults, details)}</div></div>
+    </div>
+    ${onAvg != null && offAvg != null
+      ? `<div class="od-panel" style="display:block;margin-top:10px">노출 기간 하루 평균 <b style="color:var(--p)">${onAvg}회</b> · 그 외 기간 <b>${offAvg}회</b>
+          ${offAvg ? ` <span class="mut">(${(onAvg / offAvg).toFixed(1)}배)</span>` : ""}</div>`
+      : `<p class="mut" style="margin:8px 0 0">노출수는 오늘부터 쌓입니다. 프리미엄 전후 비교는 데이터가 모이면 여기에 나타납니다.</p>`}
+    ${planCards}
+    ${orderRows}`;
+}
+// 노출 신청 — 브라우저 confirm 대신 버튼이 두 단계로 바뀐다
+function askOrderAd(aid, btn) {
+  if (btn.dataset.ask) return orderAd(aid);
+  btn.dataset.ask = "1";
+  btn.textContent = "정말 신청할까요? 한 번 더 누르기";
+  btn.classList.remove("ghost");
+  setTimeout(() => { if (btn.dataset.ask) { delete btn.dataset.ask; btn.textContent = "운영자 승인 요청"; btn.classList.add("ghost"); } }, 4000);
+}
+// KPI 카드 아래 명단을 펼치고 접는다
+function odToggle(key) {
+  const p = document.getElementById("odp-" + key);
+  if (!p) return;
+  const open = p.style.display !== "none";
+  p.style.display = open ? "none" : "";
+  const more = document.querySelector("#odk-" + key + " .od-more");
+  if (more) more.textContent = open ? "명단 보기 ▾" : "접기 ▴";
 }
 // 대시보드에서 해당 학원 탭으로 이동 + 스크롤
 function ownJump(id, tab) {
@@ -3129,10 +3394,12 @@ async function renderOwnReport(id) {
     options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => (v / 10000) + "만" } } } }
   });
 }
+// 확인 단계는 호출하는 쪽(askOrderAd 의 2단계 버튼)이 맡는다. 브라우저 confirm 창은 쓰지 않는다.
 async function orderAd(aid) {
-  if (!confirm("프리미엄 노출(검색 상단 고정 + AD 라벨)을 신청할까요? 운영자 승인 후 적용됩니다.")) return;
   const { error } = await sb.from("ad_orders").insert({ academy_id: aid });
-  toast(error ? "오류: " + error.message : "신청 완료! 운영자 승인 후 노출이 시작됩니다.");
+  if (error) return toast("오류: " + error.message);
+  toast("신청 완료! 운영자 승인 후 노출이 시작됩니다.");
+  loadOwner();
 }
 // ===== 결제(토스페이먼츠 스캐폴드, 실결제 미연결이면 테스트 시뮬레이션) =====
 // iOS 네이티브 앱에서는 결제를 띄우지 않는다.
