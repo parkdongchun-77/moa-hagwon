@@ -3,6 +3,14 @@
 User-agent: *
 Allow: /
 
+# 네이버 봇. User-agent: * 로도 허용되지만, 네이버는 Yeti 를 따로 적어주기를 권장한다.
+User-agent: Yeti
+Allow: /
+
+# 다음(카카오) 봇
+User-agent: Daum
+Allow: /
+
 # 검색 결과에 의미 없는 파라미터 URL은 제외
 Disallow: /*?checkin=
 Disallow: /*?compare=
