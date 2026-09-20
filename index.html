@@ -484,6 +484,7 @@ body{padding-bottom:70px}
       <input id="neisKey" placeholder="NEIS 인증키 (open.neis.go.kr에서 발급)" style="flex:1;min-width:220px">
       <button class="btn sm gray" onclick="saveNeisKey()">키 저장</button>
     </div>
+    <div id="neisAuto" class="mut" style="margin:2px 0 10px"></div>
     <div class="row" id="adminStats"></div>
   </div>
   <div class="card"><h3>📊 오늘 · 최근 7일 현황</h3><div class="row" id="adminKpi"><div class="empty">불러오는 중...</div></div></div>
@@ -3518,6 +3519,22 @@ async function loadAdminPayments() {
 }
 
 // ===== 운영(관리자) =====
+// 전체 동기화는 pg_cron 이 매월 1일 19:00 UTC(한국시간 2일 새벽 4시)에 sync_neis_all() 을 부른다.
+// 위 버튼은 급할 때 한 시도만 즉시 돌리는 용도로 남겨둔다.
+async function loadNeisLog() {
+  const box = document.getElementById("neisAuto");
+  if (!box) return;
+  const { data } = await sb.from("neis_sync_log").select("*").order("id", { ascending: false }).limit(6);
+  const head = `🔄 <b>전체 동기화는 매월 2일 새벽 4시</b>에 17개 시도를 자동으로 돕니다. 원장이 인증한 학원의 이름·전화·주소는 덮어쓰지 않습니다.`;
+  if (!data?.length) { box.innerHTML = head + ` <span class="mut">— 아직 기록이 없습니다.</span>`; return; }
+  box.innerHTML = head + `<div style="margin-top:6px">` + data.map(r => {
+    const t = new Date(r.ran_at);
+    const when = `${t.getMonth() + 1}/${t.getDate()} ${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+    return r.error
+      ? `<div style="color:var(--bad)">· ${when} ${esc(r.sido)} — 실패: ${esc(r.error).slice(0, 80)}</div>`
+      : `<div>· ${when} ${esc(r.sido)} — 학원 ${(r.academies || 0).toLocaleString()}건 · 과정 ${(r.courses || 0).toLocaleString()}건 · ${r.seconds}초</div>`;
+  }).join("") + `</div>`;
+}
 async function saveNeisKey() {
   const v = document.getElementById("neisKey").value.trim();
   if (!v) return toast("키를 입력하세요.");
@@ -3628,7 +3645,7 @@ async function loadAdminErrors() {
 }
 async function loadAdmin() {
   if (state.profile?.role !== "admin") return;
-  loadSignupChart(); loadInquiries(); loadAdminNotices(); loadAdminKpi(); loadAdminErrors(); loadAdminPayments();
+  loadSignupChart(); loadInquiries(); loadAdminNotices(); loadAdminKpi(); loadAdminErrors(); loadAdminPayments(); loadNeisLog();
   const ss = document.getElementById("syncSido");
   if (!ss.options.length) ss.innerHTML = SIDOS.map(s => `<option>${s}</option>`).join("");
   sb.from("app_settings").select("value").eq("key", "neis_key").maybeSingle().then(({ data }) => {
@@ -3885,6 +3902,7 @@ const addScheduleEvent = _once("addScheduleEvent", _addScheduleEvent);
 <footer class="no-print" style="max-width:760px;margin:28px auto 0;padding:18px 14px calc(88px + env(safe-area-inset-bottom));border-top:1px solid var(--line);color:var(--mut);font-size:13px;line-height:1.9;text-align:center">
   <p style="margin:0">
     <a href="/지역/" style="color:var(--mut)">지역별 학원 찾기</a> ·
+    <a href="/칼럼/" style="color:var(--mut)">데이터로 보는 학원</a> ·
     <a href="/about.html" style="color:var(--mut)">서비스 소개</a> ·
     <a href="/contact.html" style="color:var(--mut)">문의</a> ·
     <a href="/pricing.html" style="color:var(--mut)">요금제</a> ·
