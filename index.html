@@ -2643,7 +2643,7 @@ async function admManageAca(id) {
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
       <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
-      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button><button class="tab" onclick="ownTab(this,${a.id},'teachers')">👨‍🏫 강사</button><button class="tab" onclick="ownTab(this,${a.id},'stats')">📈 통계</button></div>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button><button class="tab" onclick="ownTab(this,${a.id},'roster')">🎒 원생·반</button><button class="tab" onclick="ownTab(this,${a.id},'teachers')">👨‍🏫 강사</button><button class="tab" onclick="ownTab(this,${a.id},'stats')">📈 통계</button></div>
     <div id="ownBody-${a.id}"></div></div>`;
   renderOwnInfo(a.id);
   document.getElementById("admAcaManage").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -2723,7 +2723,7 @@ async function loadOwner() {
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
       <button class="tab" onclick="ownTab(this,${a.id},'report')">가격 리포트</button>
-      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button><button class="tab" onclick="ownTab(this,${a.id},'teachers')">👨‍🏫 강사</button><button class="tab" onclick="ownTab(this,${a.id},'stats')">📈 통계</button></div>
+      <button class="tab" onclick="ownTab(this,${a.id},'att')">출석(QR)</button><button class="tab" onclick="ownTab(this,${a.id},'students')">학생·입금</button><button class="tab" onclick="ownTab(this,${a.id},'chat')">💬 채팅</button><button class="tab" onclick="ownTab(this,${a.id},'roster')">🎒 원생·반</button><button class="tab" onclick="ownTab(this,${a.id},'teachers')">👨‍🏫 강사</button><button class="tab" onclick="ownTab(this,${a.id},'stats')">📈 통계</button></div>
     <div id="ownBody-${a.id}"></div></div>`).join("");
   acas.forEach(a => renderOwnInfo(a.id));
 }
@@ -2758,7 +2758,8 @@ async function renderOwnerDash(acas) {
   const ym = ymOf(now);
   const ym6 = ymShift(-5);
   const since7 = new Date(Date.now() - 7 * 864e5).toISOString();
-  const [{ data: enr }, { data: pays }, { data: leads }, { data: atts }, { data: chats }, { data: revs }, { data: pays6 }, { data: notis }] = await Promise.all([
+  const [{ data: enr }, { data: pays }, { data: leads }, { data: atts }, { data: chats }, { data: revs }, { data: pays6 }, { data: notis },
+         { data: cons }, { data: rosterStus }, { data: stuPays }] = await Promise.all([
     // KPI 카드를 눌러 명단을 펼치므로 이름·과목·학원비·납부일까지 같이 받는다
     sb.from("child_academies").select("id,subject,monthly_total,billing_day,started_month,ended_month, children(name,grade)").in("academy_id", ids),
     sb.from("payments").select("child_academy_id,status,amount").in("academy_id", ids).eq("year_month", ym),
@@ -2770,6 +2771,10 @@ async function renderOwnerDash(acas) {
     // 입금 안내를 이미 보냈는지. auto-pay-reminders 와 sendPayNotice 가 남기는 알림 기록을 그대로 읽는다.
     sb.from("notifications").select("child_academy_id,created_at").in("academy_id", ids)
       .eq("ntype", "입금안내").eq("year_month", ym).order("created_at", { ascending: false }),
+    // 원장이 직접 등록한 원생(students)과 그 상담·청구는 별도 경로다. child_academies 와 합치지 않는다.
+    sb.from("consults").select("student_id,next_at,done").in("academy_id", ids).eq("done", false),
+    sb.from("students").select("id").in("academy_id", ids).eq("status", "재원"),
+    sb.from("payments").select("student_id").in("academy_id", ids).eq("year_month", ym).not("student_id", "is", null),
   ]);
   const active = (enr || []).filter(e => (!e.started_month || e.started_month <= ym) && (!e.ended_month || e.ended_month >= ym));
   const activeIds = new Set(active.map(e => e.id));
@@ -2802,6 +2807,12 @@ async function renderOwnerDash(acas) {
   const revCnt = (revs || []).length;
   const avgRating = revCnt ? ((revs || []).reduce((s, r) => s + (r.rating || 0), 0) / revCnt).toFixed(1) : null;
   const premCnt = acas.filter(a => a.is_premium).length;
+  // 오늘까지 돌아온 후속 약속 (상담 기록)
+  const todayStr = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().slice(0, 10);
+  const dueConsults = (cons || []).filter(c => c.next_at && c.next_at <= todayStr).length;
+  // 이번 달 청구서가 아직 없는 재원 원생
+  const billedIds = new Set((stuPays || []).map(p => p.student_id));
+  const unbilled = (rosterStus || []).filter(x => !billedIds.has(x.id)).length;
   const single = acas.length === 1 ? acas[0].id : null;
   const kpi = (ico, label, val, tone, sub) => `<div class="od-kpi${tone ? " " + tone : ""}">
       <div class="od-top"><span class="od-ico">${ico}</span>${label}</div>
@@ -2823,6 +2834,8 @@ async function renderOwnerDash(acas) {
   const panel = (key, title, html) => `<div class="od-panel" id="odp-${key}" style="display:none"><h5>${title}</h5>${html}</div>`;
   const heroName = acas.length === 1 ? esc(acas[0].name) : `내 학원 ${acas.length}곳`;
   const todo = [];
+  if (single && dueConsults) todo.push(`<button onclick="ownJump(${single},'roster')">💬 약속한 후속 연락이 있어요<span class="od-badge r">${dueConsults}건</span></button>`);
+  if (single && unbilled) todo.push(`<button onclick="ownJump(${single},'roster')">🧾 이번 달 청구서를 안 만든 원생이 있어요<span class="od-badge">${unbilled}명</span></button>`);
   if (single && unpaid) todo.push(`<button onclick="ownJump(${single},'students')">💌 입금 확인이 필요해요<span class="od-badge r">${unpaid}명</span></button>`);
   if (single && pendLeads) todo.push(`<button onclick="ownJump(${single},'lead')">📞 답해야 할 상담이 있어요<span class="od-badge">${pendLeads}건</span></button>`);
   box.innerHTML = `<div class="od-hero">
@@ -2996,13 +3009,14 @@ function odToggle(key) {
 function ownJump(id, tab) {
   const card = document.getElementById("own-" + id);
   if (card) {
-    const label = tab === "students" ? "학생" : tab === "lead" ? "리드" : "";
+    const label = tab === "students" ? "학생·입금" : tab === "lead" ? "리드" : tab === "roster" ? "원생·반" : "";
     const tabs = [...card.querySelectorAll(".tab")];
     tabs.forEach(b => b.classList.remove("on"));
     const t = tabs.find(b => b.textContent.includes(label)); if (t) t.classList.add("on");
   }
   if (tab === "students") renderOwnStudents(id);
   if (tab === "lead") renderOwnLeads(id);
+  if (tab === "roster") renderOwnRoster(id);
   card?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 async function ownTab(btn, id, tab) {
@@ -3015,9 +3029,341 @@ async function ownTab(btn, id, tab) {
   if (tab === "att") renderOwnAtt(id);
   if (tab === "students") renderOwnStudents(id);
   if (tab === "chat") renderOwnChat(id);
+  if (tab === "roster") renderOwnRoster(id);
   if (tab === "teachers") renderOwnTeachers(id);
   if (tab === "stats") renderOwnStats(id);
 }
+// 원장: 원생·반 관리. students 는 학부모 가입 없이 원장이 직접 등록하는 학생이다.
+// children(학부모가 등록한 자녀)과 별개이며, 알림톡은 students.parent_phone 으로 나간다.
+const DAY_KO = ["", "월", "화", "수", "목", "금", "토", "일"];
+const dayLabel = d => (d || []).slice().sort((a, b) => a - b).map(n => DAY_KO[n]).join("·");
+
+async function renderOwnRoster(id) {
+  const body = document.getElementById("ownBody-" + id);
+  body.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const [{ data: stus }, { data: cls }, { data: cons }] = await Promise.all([
+    sb.from("students").select("*").eq("academy_id", id).order("status").order("name"),
+    sb.from("classes").select("*, class_students(id, student_id, left_on)").eq("academy_id", id).order("active", { ascending: false }).order("name"),
+    sb.from("consults").select("student_id, next_at, done").eq("academy_id", id),
+  ]);
+  const students = stus || [], classes = cls || [];
+  // 원생별 상담 건수와, 아직 안 끝난 후속 약속 중 가장 빠른 날짜
+  const conCnt = new Map(), todoBy = new Map();
+  (cons || []).forEach(c => {
+    if (!c.student_id) return;
+    conCnt.set(c.student_id, (conCnt.get(c.student_id) || 0) + 1);
+    if (c.next_at && !c.done) {
+      const prev = todoBy.get(c.student_id);
+      if (!prev || c.next_at < prev) todoBy.set(c.student_id, c.next_at);
+    }
+  });
+  const todoSoon = [...todoBy.values()].filter(d => d <= new Date().toISOString().slice(0, 10)).length;
+  const active = students.filter(x => x.status === "재원");
+
+  const stuRows = students.map(x => `
+    <div class="review" style="${x.status === "재원" ? "" : "opacity:.55"}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div><b>${esc(x.name)}</b>${x.grade ? ` <span class="tag">${esc(x.grade)}</span>` : ""}
+          ${x.status === "재원" ? "" : ` <span class="tag gray">${esc(x.status)}</span>`}</div>
+        <select style="width:auto;flex:0 0 auto" onchange="setStudentStatus(${id},${x.id},this.value)">
+          ${["재원", "휴원", "퇴원"].map(v => `<option value="${v}" ${x.status === v ? "selected" : ""}>${v}</option>`).join("")}
+        </select>
+      </div>
+      <div class="mut" style="font-size:13px;margin-top:3px">
+        ${x.parent_name ? esc(x.parent_name) + " " : ""}${x.parent_phone ? esc(x.parent_phone) : `<span style="color:var(--bad)">학부모 연락처 없음</span>`}
+        ${todoBy.has(x.id) ? ` <span class="tag" style="background:#fef3c7;color:#92400e">📌 ${todoBy.get(x.id)}</span>` : ""}
+      </div>
+      <div class="row no-print" style="margin-top:5px">
+        <button class="btn sm gray" onclick="openConsults(${id},${x.id},'${escJs(x.name)}')">💬 상담 ${conCnt.get(x.id) || 0}</button>
+      </div>
+      <div id="stuCon-${x.id}"></div>
+    </div>`).join("") || `<p class="mut">아직 등록된 원생이 없어요. 아래에서 추가하세요.</p>`;
+
+  const clsRows = classes.map(c => {
+    const mem = (c.class_students || []).filter(m => !m.left_on);
+    return `
+    <div class="review" style="${c.active ? "" : "opacity:.55"}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div><b>${esc(c.name)}</b>${c.subject ? ` <span class="tag">${esc(c.subject)}</span>` : ""}
+          ${c.active ? "" : ` <span class="tag gray">종료</span>`}</div>
+        <span class="mut" style="flex:0 0 auto">${mem.length}명</span>
+      </div>
+      <div class="mut" style="font-size:13px;margin-top:3px">
+        ${dayLabel(c.days) || "요일 미정"}
+        ${c.start_time ? ` · ${c.start_time.slice(0, 5)}${c.end_time ? "~" + c.end_time.slice(0, 5) : ""}` : ""}
+        ${c.teacher ? ` · ${esc(c.teacher)}` : ""}
+        ${c.monthly_fee ? ` · 월 ${won(c.monthly_fee)}` : ""}
+      </div>
+      <div class="row no-print" style="margin-top:6px">
+        <button class="btn sm gray" onclick="openClassMembers(${id},${c.id})">학생 배정</button>
+        <button class="btn sm gray" onclick="openClassBills(${id},${c.id},${c.monthly_fee || 0})">🧾 청구서</button>
+        <button class="btn sm gray" onclick="toggleClass(${id},${c.id},${!c.active})">${c.active ? "종료" : "다시 열기"}</button>
+      </div>
+      <div id="clsMem-${c.id}"></div>
+    </div>`; }).join("") || `<p class="mut">아직 만든 반이 없어요. 아래에서 추가하세요.</p>`;
+
+  body.innerHTML = `
+    <div class="row" style="margin-bottom:8px">
+      <div class="stat"><b>${active.length}명</b><span>재원 원생</span></div>
+      <div class="stat"><b>${classes.filter(c => c.active).length}개</b><span>운영 중인 반</span></div>
+      <div class="stat"><b>${students.filter(x => !x.parent_phone).length}명</b><span>연락처 미입력</span></div>
+      <div class="stat"><b style="color:${todoSoon ? "var(--warn)" : "var(--txt)"}">${todoSoon}건</b><span>오늘까지 후속 약속</span></div>
+    </div>
+    <p class="mut">여기 등록한 원생은 학부모가 앱에 가입하지 않아도 됩니다. 학부모 연락처를 넣어두시면 나중에 출결·학원비 알림을 보낼 수 있어요.</p>
+
+    <h3 style="margin-top:14px">🎒 원생</h3>
+    <div>${stuRows}</div>
+    <div class="card" style="background:#f8fafc;margin-top:10px">
+      <b>원생 추가</b>
+      <div class="grid2" style="margin-top:6px">
+        <div class="field"><input id="stuName-${id}" placeholder="학생 이름 *"></div>
+        <div class="field"><input id="stuGrade-${id}" placeholder="학년 (예: 중2)"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><input id="stuPName-${id}" placeholder="학부모 이름"></div>
+        <div class="field"><input id="stuPhone-${id}" inputmode="tel" placeholder="학부모 연락처 (예: 010-1234-5678)"></div>
+      </div>
+      <button class="btn sm" onclick="addStudent(${id})">원생 등록</button>
+    </div>
+
+    <h3 style="margin-top:18px">📚 반</h3>
+    <div>${clsRows}</div>
+    <div class="card" style="background:#f8fafc;margin-top:10px">
+      <b>반 추가</b>
+      <div class="grid2" style="margin-top:6px">
+        <div class="field"><input id="clsName-${id}" placeholder="반 이름 * (예: 중2 수학 A)"></div>
+        <div class="field"><input id="clsSubj-${id}" placeholder="과목 (예: 수학)"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><input id="clsGrade-${id}" placeholder="학년 (예: 중2)"></div>
+        <div class="field"><input id="clsTeacher-${id}" placeholder="담당 강사"></div>
+      </div>
+      <div class="field"><label>수업 요일</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${[1, 2, 3, 4, 5, 6, 7].map(n => `<label class="chip" style="display:inline-flex;align-items:center;gap:4px">
+            <input type="checkbox" class="clsDay-${id}" value="${n}" style="width:auto"> ${DAY_KO[n]}</label>`).join("")}
+        </div></div>
+      <div class="grid2">
+        <div class="field"><label>시작 시각</label><input id="clsStart-${id}" type="time"></div>
+        <div class="field"><label>종료 시각</label><input id="clsEnd-${id}" type="time"></div>
+      </div>
+      <div class="field"><label>월 수강료</label><input id="clsFee-${id}" type="number" inputmode="numeric" placeholder="예: 250000"></div>
+      <button class="btn sm" onclick="addClass(${id})">반 만들기</button>
+    </div>`;
+}
+
+async function _addStudent(id) {
+  const name = document.getElementById(`stuName-${id}`).value.trim();
+  if (!name) return toast("학생 이름을 입력하세요.");
+  const { error } = await sb.from("students").insert({
+    academy_id: id, name,
+    grade: document.getElementById(`stuGrade-${id}`).value.trim() || null,
+    parent_name: document.getElementById(`stuPName-${id}`).value.trim() || null,
+    parent_phone: document.getElementById(`stuPhone-${id}`).value.trim() || null,
+  });
+  if (error) return toast("등록 실패: " + error.message);
+  toast(`${name} 학생을 등록했습니다.`);
+  renderOwnRoster(id);
+}
+
+async function setStudentStatus(id, sid, status) {
+  const { error } = await sb.from("students").update({ status }).eq("id", sid);
+  if (error) return toast("변경 실패: " + error.message);
+  toast(`상태를 ${status}(으)로 바꿨습니다.`);
+  renderOwnRoster(id);
+}
+
+async function _addClass(id) {
+  const name = document.getElementById(`clsName-${id}`).value.trim();
+  if (!name) return toast("반 이름을 입력하세요.");
+  const days = [...document.querySelectorAll(`.clsDay-${id}:checked`)].map(el => +el.value);
+  const { error } = await sb.from("classes").insert({
+    academy_id: id, name, days,
+    subject: document.getElementById(`clsSubj-${id}`).value.trim() || null,
+    grade: document.getElementById(`clsGrade-${id}`).value.trim() || null,
+    teacher: document.getElementById(`clsTeacher-${id}`).value.trim() || null,
+    start_time: document.getElementById(`clsStart-${id}`).value || null,
+    end_time: document.getElementById(`clsEnd-${id}`).value || null,
+    monthly_fee: +document.getElementById(`clsFee-${id}`).value || 0,
+  });
+  if (error) return toast("반 만들기 실패: " + error.message);
+  toast(`${name} 반을 만들었습니다.`);
+  renderOwnRoster(id);
+}
+
+async function toggleClass(id, cid, active) {
+  const { error } = await sb.from("classes").update({ active }).eq("id", cid);
+  if (error) return toast("변경 실패: " + error.message);
+  toast(active ? "반을 다시 열었습니다." : "반을 종료했습니다.");
+  renderOwnRoster(id);
+}
+
+// 원장이 남기는 상담 기록. leads(앱으로 들어온 신규 문의)와 별개다.
+// leads 는 유입 추적, consults 는 대화 이력이다.
+const CONSULT_KINDS = ["전화", "방문", "온라인", "기타"];
+
+// 원생 행의 상담 이력을 펼친다. 한 번 더 누르면 접는다.
+async function openConsults(id, sid, sname) {
+  const box = document.getElementById("stuCon-" + sid);
+  if (!box) return;
+  if (box.innerHTML) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="mut" style="margin-top:6px">불러오는 중...</div>`;
+  const { data: cs } = await sb.from("consults").select("*")
+    .eq("student_id", sid).order("created_at", { ascending: false }).limit(30);
+  const rows = (cs || []).map(c => `
+    <div style="border-top:1px solid var(--line);padding:6px 0">
+      <div class="row"><span class="tag gray">${esc(c.kind)}</span>
+        <span class="mut right">${new Date(c.created_at).toLocaleDateString("ko-KR")}</span></div>
+      <div style="white-space:pre-wrap;margin-top:3px">${esc(c.content)}</div>
+      ${c.next_at ? `<div class="mut" style="font-size:12px;margin-top:3px">
+        📌 ${c.next_at} ${esc(c.next_action || "후속 연락")}
+        ${c.done ? `<span class="tag gray">완료</span>`
+          : `<button class="btn sm gray" style="margin-left:6px" onclick="doneConsult(${id},${sid},${c.id},'${escJs(sname)}')">완료</button>`}</div>` : ""}
+    </div>`).join("") || `<p class="mut" style="margin:6px 0 0">상담 기록이 없습니다.</p>`;
+  box.innerHTML = `
+    <div class="card" style="background:#f8fafc;margin-top:8px">
+      ${rows}
+      <div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px">
+        <div class="row" style="gap:6px">
+          <select id="conKind-${sid}" style="width:auto">${CONSULT_KINDS.map(k => `<option>${k}</option>`).join("")}</select>
+          <input id="conNext-${sid}" type="date" style="flex:1" title="다음 연락 약속일">
+        </div>
+        <div class="field" style="margin-top:6px"><textarea id="conBody-${sid}" rows="2" placeholder="상담 내용 (예: 어머님 전화. 수학 진도 문의, 다음 주 레벨테스트 안내)"></textarea></div>
+        <div class="field"><input id="conAct-${sid}" placeholder="다음에 할 일 (예: 레벨테스트 결과 안내)"></div>
+        <button class="btn sm" onclick="addConsult(${id},${sid})">상담 기록 남기기</button>
+      </div>
+    </div>`;
+}
+
+async function _addConsult(id, sid) {
+  const content = document.getElementById(`conBody-${sid}`).value.trim();
+  if (!content) return toast("상담 내용을 입력하세요.");
+  const { error } = await sb.from("consults").insert({
+    academy_id: id, student_id: sid,
+    kind: document.getElementById(`conKind-${sid}`).value,
+    content,
+    next_action: document.getElementById(`conAct-${sid}`).value.trim() || null,
+    next_at: document.getElementById(`conNext-${sid}`).value || null,
+  });
+  if (error) return toast("저장 실패: " + error.message);
+  toast("상담 기록을 남겼습니다.");
+  document.getElementById("stuCon-" + sid).innerHTML = "";
+  renderOwnRoster(id);
+}
+
+async function doneConsult(id, sid, cid, sname) {
+  const { error } = await sb.from("consults").update({ done: true }).eq("id", cid);
+  if (error) return toast("변경 실패: " + error.message);
+  toast("후속 조치를 완료 처리했습니다.");
+  document.getElementById("stuCon-" + sid).innerHTML = "";
+  openConsults(id, sid, sname);
+}
+
+// 반 단위 청구서. 반에 배정된 재원 학생에게 그 달 청구 행을 한 번에 만든다.
+// 새 표를 만들지 않고 payments 를 쓴다. 원장이 등록한 원생은 student_id 로, 반은 class_id 로 이어진다.
+async function openClassBills(id, cid, fee) {
+  const box = document.getElementById("clsMem-" + cid);
+  if (!box) return;
+  if (box.dataset.mode === "bill") { box.innerHTML = ""; box.dataset.mode = ""; return; }
+  box.dataset.mode = "bill";
+  box.innerHTML = `<div class="mut" style="margin-top:6px">불러오는 중...</div>`;
+  const ym = ymOf(new Date());
+  const [{ data: mem }, { data: pays }] = await Promise.all([
+    sb.from("class_students").select("student_id, students(id,name,grade,parent_phone)").eq("class_id", cid).is("left_on", null),
+    sb.from("payments").select("id,student_id,amount,status").eq("class_id", cid).eq("year_month", ym),
+  ]);
+  const byStu = new Map((pays || []).map(p => [p.student_id, p]));
+  const rows = (mem || []).map(m => {
+    const st = m.students; if (!st) return "";
+    const p = byStu.get(st.id);
+    return `<div class="row" style="padding:4px 0">
+      <span>${esc(st.name)}${st.grade ? ` <span class="mut">${esc(st.grade)}</span>` : ""}
+        ${st.parent_phone ? "" : ` <span class="tag gray">연락처 없음</span>`}</span>
+      <span class="right">${p
+        ? `${won(p.amount)} <span class="tag ${p.status === "완료" ? "" : "gray"}">${esc(p.status)}</span>`
+        : `<span class="mut">미청구</span>`}</span>
+    </div>`; }).join("") || `<p class="mut" style="margin:0">배정된 학생이 없어요.</p>`;
+  const todo = (mem || []).filter(m => m.students && !byStu.has(m.students.id)).length;
+  box.innerHTML = `
+    <div class="card" style="background:#fffdf7;border:1px solid #fde68a;margin-top:8px">
+      <div class="row"><b>🧾 ${ym} 청구서</b><span class="mut right">기본 ${won(fee)}</span></div>
+      ${rows}
+      ${todo
+        ? `<button class="btn sm" style="margin-top:8px" onclick="makeClassBills(${id},${cid},${fee})">미청구 ${todo}명 청구서 만들기</button>`
+        : `<p class="mut" style="margin:8px 0 0">이번 달 청구가 모두 만들어졌습니다.</p>`}
+      <p class="mut" style="font-size:12px;margin:6px 0 0">지금은 청구 내역만 만듭니다. 학부모 발송은 알림톡 승인 후 붙입니다.</p>
+    </div>`;
+}
+
+async function _makeClassBills(id, cid, fee) {
+  if (!fee) return toast("반의 월 수강료가 0원입니다. 반 정보를 먼저 채워 주세요.");
+  const ym = ymOf(new Date());
+  const [{ data: mem }, { data: pays }] = await Promise.all([
+    sb.from("class_students").select("student_id, students(id,name)").eq("class_id", cid).is("left_on", null),
+    sb.from("payments").select("student_id").eq("class_id", cid).eq("year_month", ym),
+  ]);
+  const has = new Set((pays || []).map(p => p.student_id));
+  const rows = (mem || []).filter(m => m.students && !has.has(m.students.id)).map(m => ({
+    academy_id: id, class_id: cid, student_id: m.students.id,
+    student_name: m.students.name, year_month: ym, amount: fee, status: "미납",
+  }));
+  if (!rows.length) return toast("새로 만들 청구서가 없습니다.");
+  const { error } = await sb.from("payments").insert(rows);
+  if (error) return toast("청구서 생성 실패: " + error.message);
+  toast(`${rows.length}명의 ${ym} 청구서를 만들었습니다.`);
+  document.getElementById("clsMem-" + cid).dataset.mode = "";
+  openClassBills(id, cid, fee);
+}
+
+// 반에 배정된 학생 목록을 펼친다. 한 번 더 누르면 접는다.
+async function openClassMembers(id, cid) {
+  const box = document.getElementById("clsMem-" + cid);
+  if (!box) return;
+  if (box.innerHTML && box.dataset.mode === "member") { box.innerHTML = ""; box.dataset.mode = ""; return; }
+  box.dataset.mode = "member";
+  box.innerHTML = `<div class="mut" style="margin-top:6px">불러오는 중...</div>`;
+  const [{ data: mem }, { data: stus }] = await Promise.all([
+    sb.from("class_students").select("id, student_id, students(name, grade)").eq("class_id", cid).is("left_on", null),
+    sb.from("students").select("id,name,grade").eq("academy_id", id).eq("status", "재원").order("name"),
+  ]);
+  const inClass = new Set((mem || []).map(m => m.student_id));
+  const opts = (stus || []).filter(x => !inClass.has(x.id))
+    .map(x => `<option value="${x.id}">${esc(x.name)}${x.grade ? " (" + esc(x.grade) + ")" : ""}</option>`).join("");
+  box.innerHTML = `
+    <div class="card" style="background:#f8fafc;margin-top:8px">
+      ${(mem || []).map(m => `<div class="row" style="padding:3px 0">
+        <span>${esc(m.students?.name || "")}${m.students?.grade ? ` <span class="mut">${esc(m.students.grade)}</span>` : ""}</span>
+        <button class="btn sm gray right" onclick="leaveClass(${id},${cid},${m.id})">해제</button></div>`).join("")
+      || `<p class="mut" style="margin:0">아직 배정된 학생이 없어요.</p>`}
+      ${opts ? `<div class="row" style="margin-top:8px;gap:6px">
+        <select id="clsPick-${cid}" style="flex:1">${opts}</select>
+        <button class="btn sm" onclick="joinClass(${id},${cid})">배정</button></div>`
+      : `<p class="mut" style="margin:8px 0 0">배정할 수 있는 재원 원생이 없습니다.</p>`}
+    </div>`;
+}
+
+async function joinClass(id, cid) {
+  const sid = +document.getElementById(`clsPick-${cid}`).value;
+  if (!sid) return;
+  const { error } = await sb.from("class_students").insert({ class_id: cid, student_id: sid });
+  if (error) return toast("배정 실패: " + error.message);
+  toast("반에 배정했습니다.");
+  const mb = document.getElementById("clsMem-" + cid);
+  if (mb) { mb.innerHTML = ""; mb.dataset.mode = ""; }
+  renderOwnRoster(id);
+}
+
+// 배정 해제는 행을 지우지 않고 left_on 을 남긴다. 출결·청구 이력이 딸려 있기 때문이다.
+async function leaveClass(id, cid, mid) {
+  const { error } = await sb.from("class_students")
+    .update({ left_on: new Date().toISOString().slice(0, 10) }).eq("id", mid);
+  if (error) return toast("해제 실패: " + error.message);
+  toast("배정을 해제했습니다.");
+  const mb = document.getElementById("clsMem-" + cid);
+  if (mb) { mb.innerHTML = ""; mb.dataset.mode = ""; }
+  renderOwnRoster(id);
+}
+
 // 원장: 강사 프로필 추가/수정/삭제 (학부모 상세에 카드로 노출)
 async function renderOwnTeachers(id) {
   const body = document.getElementById("ownBody-" + id);
@@ -4001,6 +4347,10 @@ const submitAnswer = _once("submitAnswer", _submitAnswer);
 const addWatch = _once("addWatch", _addWatch);
 const localpaySend = _once("localpaySend", _localpaySend);
 const payPremium = _once("payPremium", _payPremium);
+const addConsult = _once("addConsult", _addConsult);
+const makeClassBills = _once("makeClassBills", _makeClassBills);
+const addStudent = _once("addStudent", _addStudent);
+const addClass = _once("addClass", _addClass);
 const addTeacher = _once("addTeacher", _addTeacher);
 const addShuttle = _once("addShuttle", _addShuttle);
 const addCourse = _once("addCourse", _addCourse);
