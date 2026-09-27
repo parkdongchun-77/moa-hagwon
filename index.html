@@ -331,7 +331,7 @@ body{padding-bottom:70px}
 <!-- ===== 알림 ===== -->
 <section class="view" id="v-noti">
   <div class="card"><div class="row"><h2>알림</h2>
-    <button class="btn sm right" id="pushBtn" onclick="enablePush()">🔔 푸시 알림 켜기</button>
+    <button class="btn sm right" id="pushBtn" onclick="togglePush()">🔔 푸시 알림 켜기</button>
     <button class="btn sm gray" onclick="markAllRead()">모두 읽음</button></div>
     <p class="mut" id="pushHint">푸시를 켜면 앱을 닫아도 자녀 출석 알림을 휴대폰으로 받습니다. (아이폰은 홈 화면에 추가 후 사용)</p>
     <div id="notiList"></div></div>
@@ -679,7 +679,7 @@ body{padding-bottom:70px}
   <h2>⚙️ 설정</h2>
   <div class="setcard">
     <h4>🔔 푸시 알림 <span class="pill" id="setPushPill">꺼짐</span></h4>
-    <button class="btn sm" id="setPushBtn" onclick="enablePush()">🔔 푸시 알림 켜기</button>
+    <button class="btn sm" id="setPushBtn" onclick="togglePush()">🔔 푸시 알림 켜기</button>
     <p class="mut">켜면 자녀 등·퇴원, 입금 안내, 학원 소식 등을 휴대폰으로 받습니다. 아이폰은 홈 화면에 추가한 뒤 사용해 주세요.</p>
   </div>
   <div class="setcard c-noti">
@@ -870,11 +870,8 @@ function openSettings() {
 function syncSettingsPush() {
   const b = document.getElementById("setPushBtn"), pill = document.getElementById("setPushPill");
   if (!b || !pill) return;
-  const on = window.MoaNative?.isNative
-    ? nativePushOn
-    : ("Notification" in window && Notification.permission === "granted");
-  b.textContent = on ? "🔔 푸시 알림 켜짐" : "🔔 푸시 알림 켜기";
-  b.classList.toggle("gray", on);
+  const on = pushIsOn();
+  paintPushBtn(b);
   pill.textContent = on ? "켜짐" : "꺼짐";
   pill.classList.toggle("on", on);
 }
@@ -1680,25 +1677,58 @@ function urlB64ToU8(s) {
 }
 let swReg = null;
 let nativePushOn = false; // 네이티브 앱에서 디바이스 토큰 등록이 끝났는지
+// 웹은 브라우저 권한(granted)이 아니라 구독이 살아 있는지로 판단해야 한다.
+// 끄기를 눌러 구독을 지워도 권한은 granted 로 남기 때문이다.
+let webPushOn = false;
 async function initPush() {
   // 네이티브 앱은 Service Worker·Web Push를 쓰지 않는다 (WKWebView 미지원)
   if (window.MoaNative?.isNative) { refreshPushBtn(); return; }
   if (!("serviceWorker" in navigator) || !location.protocol.startsWith("http")) return;
   try { swReg = await navigator.serviceWorker.register(location.pathname.replace(/[^/]*$/, "") + "sw.js"); } catch (e) {}
+  try { webPushOn = !!(swReg && await swReg.pushManager.getSubscription()); } catch (e) {}
   refreshPushBtn();
+}
+// 지금 푸시를 받는 상태인가. 네이티브는 토큰 등록 여부, 웹은 구독 존재 여부로 본다.
+function pushIsOn() { return window.MoaNative?.isNative ? nativePushOn : webPushOn; }
+// 버튼에는 "지금 상태"가 아니라 "누르면 일어날 일"을 적는다. 상태는 옆 배지가 보여준다.
+function paintPushBtn(btn) {
+  const on = pushIsOn();
+  btn.textContent = on ? "🔕 푸시 알림 끄기" : "🔔 푸시 알림 켜기";
+  btn.classList.toggle("gray", on);
 }
 function refreshPushBtn() {
   const btn = document.getElementById("pushBtn"); if (!btn) return;
-  if (window.MoaNative?.isNative) {
-    btn.style.display = "";
-    if (nativePushOn) { btn.textContent = "🔔 푸시 알림 켜짐"; btn.classList.add("gray"); }
-    else { btn.textContent = "🔔 푸시 알림 켜기"; btn.classList.remove("gray"); }
-    return;
-  }
-  if (!("Notification" in window)) { btn.style.display = "none"; return; }
-  if (Notification.permission === "granted") { btn.textContent = "🔔 푸시 알림 켜짐"; btn.classList.add("gray"); }
-  else { btn.textContent = "🔔 푸시 알림 켜기"; btn.classList.remove("gray"); }
+  if (!window.MoaNative?.isNative && !("Notification" in window)) { btn.style.display = "none"; return; }
+  btn.style.display = "";
+  paintPushBtn(btn);
 }
+// 켜져 있으면 끄고, 꺼져 있으면 켠다. 버튼 하나로 양방향이 되도록 한다.
+function togglePush() { return pushIsOn() ? disablePush() : enablePush(); }
+
+// 푸시를 끈다. 브라우저 알림 권한 자체는 JS 로 취소할 수 없으므로
+// 구독을 해지하고 서버 기록을 지우는 것으로 "받지 않음"을 만든다.
+async function disablePush() {
+  if (needLogin()) return;
+  try {
+    if (window.MoaNative?.isNative) {
+      const { error } = await sb.from("push_subscriptions").delete()
+        .eq("user_id", state.user.id).eq("platform", window.MoaNative.platform);
+      if (error) return toast("푸시 해제 실패: " + error.message);
+      nativePushOn = false;
+    } else {
+      const sub = swReg && await swReg.pushManager.getSubscription();
+      if (sub) {
+        const { error } = await sb.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+        if (error) return toast("푸시 해제 실패: " + error.message);
+        await sub.unsubscribe();
+      }
+      webPushOn = false;
+    }
+    toast("푸시 알림을 껐습니다. 다시 켜면 바로 받을 수 있어요.");
+  } catch (e) { toast("푸시 해제 실패: " + e.message); }
+  refreshPushBtn(); syncSettingsPush();
+}
+
 async function enablePush() {
   if (needLogin()) return;
   // 네이티브 앱: APNs/FCM 디바이스 토큰을 같은 표에 platform 구분해 저장
@@ -1726,6 +1756,7 @@ async function enablePush() {
     if (!sub) sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) });
     const j = sub.toJSON();
     await sb.from("push_subscriptions").upsert({ user_id: state.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: "endpoint" });
+    webPushOn = true;
     toast("푸시 알림이 켜졌습니다. 자녀 출석 시 휴대폰으로 알려드려요.");
     sendCheckinPush({ kind: "welcome" }); // 켜진 걸 눈으로 확인시켜 주는 환영 알림 1발
     refreshPushBtn(); syncSettingsPush();
