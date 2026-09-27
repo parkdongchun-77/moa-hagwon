@@ -95,6 +95,17 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
 .optin{display:flex;gap:8px;align-items:flex-start;margin:12px 0;font-size:13px;line-height:1.55;cursor:pointer}
 .optin input{width:16px;height:16px;flex:0 0 16px;margin-top:2px;padding:0}
 .optin em{display:block;font-style:normal;color:var(--mut);font-size:12px;margin-top:3px}
+/* .field input{width:100%} 이 체크박스까지 먹어 가로로 늘어나던 문제를 막는다 */
+.optin input[type=checkbox]{width:16px;height:16px;flex:0 0 16px;margin:2px 0 0;padding:0;accent-color:var(--p)}
+/* 설정 모달 — 항목마다 색을 달리한 카드로 구분한다 */
+.setcard{border:1px solid var(--line);border-left:4px solid var(--p);border-radius:12px;padding:14px 15px;margin-bottom:10px;background:#fcfcfe}
+.setcard.c-noti{border-left-color:var(--good);background:#fafefc}
+.setcard.c-mk{border-left-color:var(--warn);background:#fffdf7}
+.setcard h4{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700;margin-bottom:10px}
+.setcard .pill{margin-left:auto;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:#eef2f7;color:var(--mut);white-space:nowrap}
+.setcard .pill.on{background:#dcfce7;color:#15803d}
+.setcard p.mut{font-size:12px;line-height:1.55;margin-top:9px}
+.setcard .optin{margin:0}
 .btn.kch{width:100%;background:#fee500;color:#191600;margin-bottom:4px}
 .field{margin-bottom:10px}
 .field label{display:block;font-size:13px;color:var(--mut);margin-bottom:4px;font-weight:600}
@@ -666,15 +677,24 @@ body{padding-bottom:70px}
 <!-- 설정 모달 -->
 <div class="modal-bg" id="m-settings"><div class="modal" style="max-width:380px"><button class="close" onclick="closeModal('m-settings')">×</button>
   <h2>⚙️ 설정</h2>
-  <div class="field"><label>푸시 알림</label>
+  <div class="setcard">
+    <h4>🔔 푸시 알림 <span class="pill" id="setPushPill">꺼짐</span></h4>
     <button class="btn sm" id="setPushBtn" onclick="enablePush()">🔔 푸시 알림 켜기</button>
-    <p class="mut">켜면 자녀 등·퇴원, 입금 안내, 학원 소식 등을 휴대폰으로 받습니다. (아이폰은 홈 화면에 추가 후 사용)</p></div>
-  <div class="field"><label>알림 보기</label><button class="btn sm gray" onclick="closeModal('m-settings');go('noti')">받은 알림 열기</button></div>
-  <div class="field" id="setMkWrap" style="display:none"><label>광고성 정보 수신</label>
+    <p class="mut">켜면 자녀 등·퇴원, 입금 안내, 학원 소식 등을 휴대폰으로 받습니다. 아이폰은 홈 화면에 추가한 뒤 사용해 주세요.</p>
+  </div>
+  <div class="setcard c-noti">
+    <h4>📬 받은 알림</h4>
+    <button class="btn sm gray" onclick="closeModal('m-settings');go('noti')">알림함 열기</button>
+    <p class="mut">지난 알림을 한곳에서 다시 볼 수 있습니다.</p>
+  </div>
+  <div class="setcard c-mk" id="setMkWrap" style="display:none">
+    <h4>📣 광고성 정보 수신 <span class="pill" id="setMkPill">받지 않음</span></h4>
     <label class="optin"><input type="checkbox" id="setMarketing" onchange="saveMarketing(this.checked)">
       <span>[선택] 학원 소식·할인 정보 등 광고성 정보를 받습니다.
         <em id="setMkAt"></em></span></label>
-    <button type="button" class="btn kch" onclick="addKakaoChannel()">카카오톡 채널 추가</button></div>
+    <p class="mut">동의하지 않아도 가입과 서비스 이용에 제한이 없습니다. 언제든 여기서 해지할 수 있습니다.</p>
+    <button type="button" class="btn kch" style="margin-top:11px" onclick="addKakaoChannel()">카카오톡 채널 추가</button>
+  </div>
 </div></div>
 <!-- 공부방 직접 등록 모달 -->
 <div class="modal-bg" id="m-room"><div class="modal" style="max-width:480px"><button class="close" onclick="closeModal('m-room')">×</button>
@@ -841,11 +861,22 @@ async function goChildren() {
   }, 400);
 }
 function openSettings() {
-  if ("Notification" in window && Notification.permission === "granted") {
-    const b = document.getElementById("setPushBtn"); b.textContent = "🔔 푸시 알림 켜짐"; b.classList.add("gray");
-  }
+  syncSettingsPush();
   loadMarketing();
   openModal("m-settings");
+}
+
+// 설정 모달의 푸시 버튼과 상태 배지를 현재 상태에 맞춘다. 네이티브 앱과 웹을 함께 본다.
+function syncSettingsPush() {
+  const b = document.getElementById("setPushBtn"), pill = document.getElementById("setPushPill");
+  if (!b || !pill) return;
+  const on = window.MoaNative?.isNative
+    ? nativePushOn
+    : ("Notification" in window && Notification.permission === "granted");
+  b.textContent = on ? "🔔 푸시 알림 켜짐" : "🔔 푸시 알림 켜기";
+  b.classList.toggle("gray", on);
+  pill.textContent = on ? "켜짐" : "꺼짐";
+  pill.classList.toggle("on", on);
 }
 
 // 광고성 정보 수신동의. 로그인한 사람에게만 보여준다.
@@ -862,8 +893,10 @@ async function loadMarketing() {
 }
 
 function setMkAtText(on, at) {
-  const el = document.getElementById("setMkAt");
-  if (!at) { el.textContent = "동의하지 않아도 서비스 이용에 제한이 없습니다."; return; }
+  const el = document.getElementById("setMkAt"), pill = document.getElementById("setMkPill");
+  if (pill) { pill.textContent = on ? "받는 중" : "받지 않음"; pill.classList.toggle("on", !!on); }
+  if (!el) return;
+  if (!at) { el.textContent = "아직 선택하지 않으셨습니다."; return; }
   const d = new Date(at).toLocaleDateString("ko-KR");
   el.textContent = on ? `${d} 동의함` : `${d} 수신 거부함`;
 }
@@ -1679,7 +1712,7 @@ async function enablePush() {
         nativePushOn = true;
         toast("푸시 알림이 켜졌습니다. 자녀 출석 시 휴대폰으로 알려드려요.");
         sendCheckinPush({ kind: "welcome" }); // 켜진 걸 눈으로 확인시켜 주는 환영 알림 1발
-        refreshPushBtn();
+        refreshPushBtn(); syncSettingsPush();
       });
       if (!granted) toast("알림 권한이 거부되었습니다. 설정 > 모아학원 > 알림에서 허용해 주세요.");
     } catch (e) { toast("푸시 등록 실패: " + e.message); }
@@ -1695,7 +1728,7 @@ async function enablePush() {
     await sb.from("push_subscriptions").upsert({ user_id: state.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: "endpoint" });
     toast("푸시 알림이 켜졌습니다. 자녀 출석 시 휴대폰으로 알려드려요.");
     sendCheckinPush({ kind: "welcome" }); // 켜진 걸 눈으로 확인시켜 주는 환영 알림 1발
-    refreshPushBtn();
+    refreshPushBtn(); syncSettingsPush();
   } catch (e) { toast("푸시 등록 실패: " + e.message); }
 }
 // 성공 여부를 돌려준다. 긴급(SOS) 알림은 실패를 반드시 사용자에게 알려야 하므로 삼키지 않는다.
