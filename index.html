@@ -925,8 +925,10 @@ function openModal(id) { document.getElementById(id).classList.add("on"); }
 // ===== 앱 다운로드 안내 =====
 // 스토어 심사가 끝나면 아래 READY 값만 true 로 바꾸면 링크가 살아납니다.
 const ANDROID_READY = true, IOS_READY = true;
-const PLAY_URL = "https://play.google.com/store/apps/details?id=com.moahagwon.myapp";
-const APPSTORE_URL = "https://apps.apple.com/app/id6801823750";
+const PLAY_URL = "https://play.google.com/store/apps/details?id=com.moahagwon.myapp&hl=ko";
+// 앱이 한국 스토어에만 출시돼 있다. 국가코드(/kr/)를 빼면 미국 스토어로 가서
+// "An Error Occurred" 가 뜬다. 데스크톱 브라우저는 기본이 미국 스토어라 항상 에러였다.
+const APPSTORE_URL = "https://apps.apple.com/kr/app/id6801823750";
 // 애플·구글이 배포하는 공식 배지를 그대로 쓴다. 로고를 직접 그리면 양사 상표 가이드라인 위반이다.
 // 구글은 공식 CDN 에 영문 배지만 있어(한글 경로는 404) 애플도 영문으로 맞춰 두 배지의 언어를 통일했다.
 const APPSTORE_BADGE = "https://toolbox.marketingtools.apple.com/api/badges/download-on-the-app-store/black/en-us?size=250x83";
@@ -4404,8 +4406,8 @@ const addScheduleEvent = _once("addScheduleEvent", _addScheduleEvent);
     <a href="/privacy.html" style="color:var(--mut)">개인정보처리방침</a>
   </p>
   <!-- 사업자정보는 사업자등록증과 문자열까지 일치해야 한다(토스·카드사 심사 요건). 임의로 줄이지 말 것. -->
-  <p style="margin:6px 0 0">모아학원 · 대표 박동춘 · 사업자등록번호 808-27-02108</p>
-  <p style="margin:2px 0 0">충청남도 아산시 탕정면 탕정면로 37, 401동 31층 04호 401동 3104호(탕정삼성트라팰리스아파트)</p>
+  <p style="margin:6px 0 0">모아학원 (MOA) · 대표 박동춘 · 사업자등록번호 808-27-02108 · 통신판매업신고 제2026-충남아산-0930호</p>
+  <p style="margin:2px 0 0">충청남도 아산시 탕정면 탕정면로 37, 401동 3104호 (탕정삼성트라팰리스아파트)</p>
   <p style="margin:2px 0 0">전화 010-7385-2657 · 이메일 <!--email_off-->moahagwon@gmail.com<!--/email_off--></p>
   <p style="margin:2px 0 0">문의는 이메일 또는 앱 내 <b>모아봇</b>으로 주시면 더 빠르게 답변드립니다.</p>
   <p style="margin:6px 0 0">학원 정보는 공공데이터와 원장 등록 정보를 바탕으로 하며, 실제와 다를 수 있습니다.</p>
