@@ -529,6 +529,7 @@ body{padding-bottom:70px}
   </div>
   <div class="card"><h3>소유권 클레임 승인</h3><div id="adminClaims"></div></div>
   <div class="card"><h3>신고 관리</h3><div id="adminReports"></div></div>
+  <div class="card"><h3>정보 수정 요청</h3><div id="adminEdits"></div></div>
   <div class="card"><h3>프리미엄 노출(광고) 주문</h3><div id="adminAds"></div></div>
   <div class="card"><h3>결제 내역</h3><div id="adminPayments"></div></div>
 </section>
@@ -537,6 +538,22 @@ body{padding-bottom:70px}
 
 <!-- 상세 모달 -->
 <div class="modal-bg" id="m-detail"><div class="modal"><button class="close" onclick="closeModal('m-detail')">×</button><div id="detailBody"></div></div></div>
+<!-- 학원 정보 수정 요청 모달 -->
+<div class="modal-bg" id="m-edit"><div class="modal" style="max-width:400px"><button class="close" onclick="closeModal('m-edit')">×</button>
+  <h2 style="font-size:17px">정보 수정 요청</h2>
+  <p class="mut" id="edAca" style="margin:2px 0 10px"></p>
+  <div class="field"><label>무엇이 잘못되었나요?</label>
+    <select id="edField">
+      <option>전화번호</option><option>과목</option><option>주소</option>
+      <option>학원명</option><option>폐원·휴원</option><option>기타</option>
+    </select></div>
+  <div class="field"><label>바른 내용을 적어 주세요</label>
+    <textarea id="edContent" rows="3" placeholder="예) 전화번호가 041-123-4567 로 바뀌었습니다"></textarea></div>
+  <div class="field"><label>연락처 <span class="mut">(선택 · 확인이 필요할 때만 씁니다)</span></label>
+    <input id="edContact" placeholder="전화번호 또는 이메일"></div>
+  <button class="btn" style="width:100%" onclick="submitEditReq()">보내기</button>
+  <p class="mut" style="font-size:12px;margin-top:8px">학원 원장님이시면 <b>원장센터에서 소유권을 인증</b>하신 뒤 직접 수정하실 수 있습니다. 그 편이 훨씬 빠릅니다.</p>
+</div></div>
 <!-- 로그인/가입 모달 -->
 <div class="modal-bg" id="m-auth"><div class="modal" style="max-width:400px"><button class="close" onclick="closeModal('m-auth')">×</button>
   <h2 id="authTitle">로그인</h2>
@@ -2187,7 +2204,9 @@ async function openDetail(id) {
       <a href="#" class="mut no-print" onclick="reportTarget('question',${q.id});return false">신고</a>${blockLink(q.user_id, q.profiles?.nickname)}
       ${(q.answers || []).filter(an => !an.hidden && !state.blocked.has(an.user_id)).map(an => `<div style="margin:4px 0 0 16px"><b style="color:var(--p)">A.</b> ${esc(an.content)} <span class="mut">— ${esc(an.profiles?.nickname || "")}${an.is_owner ? " (원장)" : ""}</span>${blockLink(an.user_id, an.profiles?.nickname)}</div>`).join("")}
       <div class="row no-print" style="margin:4px 0 0 16px"><input id="ans-${q.id}" placeholder="답변 달기" style="flex:1;font-size:13px;padding:5px 8px"><button class="btn sm gray" onclick="submitAnswer(${q.id})">답변</button></div>
-    </div>`).join("") || `<p class="mut">아직 질문이 없습니다.</p>`}</div>`;
+    </div>`).join("") || `<p class="mut">아직 질문이 없습니다.</p>`}</div>
+    <p class="mut no-print" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+      정보가 사실과 다른가요? <a href="#" onclick="openEditReq(${a.id},'${esc(a.name).replace(/'/g, "\\'")}');return false">수정 요청하기</a></p>`;
   const now = new Date(); renderCalendar(a.id, now.getFullYear(), now.getMonth()); loadShuttleInfo(a.id);
 }
 async function loadShuttleInfo(id) {
@@ -3957,7 +3976,8 @@ async function openPremiumPay(aid) {
   const { data: plans } = await sb.from("premium_plans").select("*").eq("active", true).order("sort");
   document.getElementById("premiumBox").innerHTML = (plans || []).map(p =>
     `<button class="btn" style="width:100%;margin:6px 0;display:flex;justify-content:space-between" onclick="payPremium(${aid},'${p.code}')"><span>${esc(p.name)}</span><b>${won(p.price)}</b></button>`).join("")
-    + `<p class="mut" style="font-size:12px;margin-top:8px">결제하시면 노출이 바로 시작되고, 기간이 끝나면 자동으로 종료됩니다(자동 갱신 없음).<br>
+    + `<p class="mut" style="font-size:12px;margin-top:8px">표시된 금액은 <b>부가세가 포함된 최종 결제 금액</b>입니다.<br>
+      결제하시면 노출이 바로 시작되고, 기간이 끝나면 자동으로 종료됩니다(자동 갱신 없음).<br>
       <a href="/pricing.html" target="_blank" rel="noopener">요금제 안내</a> · <a href="/refund.html" target="_blank" rel="noopener">환불정책</a></p>`;
   openModal("m-premium");
 }
@@ -4161,6 +4181,17 @@ async function loadAdmin() {
     <span><span class="tag gray">${esc(r.target_type)}#${r.target_id}</span> ${esc(r.reason || "")}</span>
     <button class="btn sm danger right" onclick="decideReport(${r.id},'${r.target_type}',${r.target_id},true)">블라인드</button>
     <button class="btn sm gray" onclick="decideReport(${r.id},'${r.target_type}',${r.target_id},false)">기각</button></div>`).join("") || `<p class="mut">접수된 신고가 없습니다.</p>`;
+  const { data: eds } = await sb.from("edit_requests").select("*, academies(name)").eq("status", "접수").order("created_at");
+  document.getElementById("adminEdits").innerHTML = (eds || []).map(e => `<div style="padding:8px 0;border-bottom:1px solid var(--line)">
+    <div><b>${esc(e.academies?.name || "학원#" + e.academy_id)}</b> <span class="tag gray">${esc(e.field)}</span>
+      <span class="mut">${(e.created_at || "").slice(0, 10)}</span></div>
+    <div style="margin:3px 0;white-space:pre-wrap">${esc(e.content)}</div>
+    ${e.contact ? `<div class="mut">연락처 ${esc(e.contact)}</div>` : ""}
+    <div class="row" style="margin-top:4px">
+      <button class="btn sm" onclick="decideEdit(${e.id},'반영')">반영함</button>
+      <button class="btn sm gray" onclick="decideEdit(${e.id},'보류')">보류</button>
+      <button class="btn sm ghost" onclick="admManageAca(${e.academy_id})">학원 열기</button></div></div>`).join("")
+    || `<p class="mut">접수된 수정 요청이 없습니다.</p>`;
   const { data: ads } = await sb.from("ad_orders").select("*, academies(name)").in("status", ["신청","진행중"]).order("created_at");
   document.getElementById("adminAds").innerHTML = (ads || []).map(o => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)">
     <span><b>${esc(o.academies?.name)}</b> · ${esc(o.product)} · ${won(o.price)}/월 · <span class="tag ${o.status === "진행중" ? "" : "gray"}">${o.status}</span></span>
@@ -4170,6 +4201,12 @@ async function loadAdmin() {
 async function decideClaim(id, ok) {
   const { error } = await sb.rpc("approve_claim", { claim_id: id, approve: ok });
   toast(error ? "오류: " + error.message : ok ? "승인되었습니다." : "거절되었습니다.");
+  loadAdmin();
+}
+async function decideEdit(id, status) {
+  const { error } = await sb.from("edit_requests").update({ status }).eq("id", id);
+  if (error) return toast("처리 실패: " + error.message);
+  toast(status === "반영" ? "반영 처리했습니다." : "보류 처리했습니다.");
   loadAdmin();
 }
 async function decideReport(rid, ttype, tid, blind) {
@@ -4212,7 +4249,7 @@ function botMsg(html, who) {
   const d = document.createElement("div"); d.className = "bot-msg " + (who || "bot"); d.innerHTML = html;
   const m = document.getElementById("botMsgs"); m.appendChild(d); m.scrollTop = m.scrollHeight;
 }
-const BOT_CHIPS = ["등·퇴원 QR이 뭐예요?", "지역화폐 결제는 어떻게?", "우리 학원 등록하고 싶어요", "공부방 등록은?", "고객센터 문의는?", "천안 수학학원 추천"];
+const BOT_CHIPS = ["등·퇴원 QR이 뭐예요?", "학원 정보가 틀렸어요", "지역화폐 결제는 어떻게?", "우리 학원 등록하고 싶어요", "공부방 등록은?", "고객센터 문의는?", "천안 수학학원 추천"];
 // AI 답변은 앱에 없는 내용일 수 있다. 항상 메일 문의 경로를 함께 안내한다
 const BOT_MAIL_CTA = "<br><br><span style=\"color:#64748b\">앱에 없는 내용이거나 더 정확한 답이 필요하시면 <a href=\"mailto:moahagwon@gmail.com?subject=%5B%EB%AA%A8%EC%95%84%ED%95%99%EC%9B%90%20%EB%AC%B8%EC%9D%98%5D\"><b>moahagwon@gmail.com</b></a> 으로 문의해 주세요.</span>";
 function botGreet() {
@@ -4246,6 +4283,21 @@ async function botReply(q) {
   if (has("후기", "리뷰", "익명", "평점")) return botMsg("⭐ <b>후기</b><br>학원 상세 하단에서 별점과 한줄평을 남길 수 있고, '🙈 익명으로 작성'을 체크하면 이름 대신 '익명'으로 표시됩니다.");
   if (has("로그인", "가입", "회원")) return botMsg("🔑 <b>로그인</b><br>더보기 → 로그인에서 카카오·구글로 간편하게 가입/로그인할 수 있어요.");
   if (has("개발자", "만든 사람", "만드신", "만든분", "만든 분", "누가 만", "제작자", "제작사", "운영자", "운영진", "대표자", "책임자", "본명", "실명", "신상", "몇 살", "나이가")) return botMsg("🙋 <b>담당자 안내</b><br>개발자나 운영진의 개인 신상은 알려드리지 않습니다. 대신 <b>이메일</b>로 문의를 받고 있어요.<br>👉 <a href=\"mailto:moahagwon@gmail.com?subject=%5B%EB%AA%A8%EC%95%84%ED%95%99%EC%9B%90%20%EB%AC%B8%EC%9D%98%5D\"><b>moahagwon@gmail.com</b></a> 으로 보내주시면 담당자가 확인 후 답변드립니다.<br>제휴·제안·오류 신고 무엇이든 좋습니다.");
+  // '바꿔'·'변경해'·'잘못' 은 너무 흔한 말이라 단독으로 쓰면 '닉네임 변경' 같은 질문을 가로챈다.
+  // 학원 정보와 관련된 낱말이 함께 있을 때만 수정 요청으로 본다.
+  const _edCtx = has("학원", "전화", "번호", "과목", "주소", "위치");
+  if (has("정보 수정", "수정 요청", "정보가 틀", "틀렸", "틀려", "폐원", "문 닫", "없어진", "과목이 달", "주소가 달", "번호가 달")
+      || (_edCtx && has("잘못", "바뀌었", "변경해", "바꿔", "수정")))
+    return botMsg(`✏️ <b>학원 정보 수정 요청</b><br>
+      전화번호·과목·주소·학원명·폐원 여부가 사실과 다르면 알려주세요. 확인 후 고쳐 드립니다.<br>
+      학원 이름을 적어 주시면 요청 화면을 바로 열어 드릴게요.
+      <div class="row" style="margin-top:8px">
+        <input id="botEdKw" placeholder="학원 이름 (두 글자 이상)" style="flex:1;font-size:13px;padding:6px 8px"
+               onkeydown="if(event.key==='Enter')botFindForEdit()">
+        <button class="btn sm" onclick="botFindForEdit()">찾기</button>
+      </div>
+      <div id="botEdHits" style="margin-top:6px"></div>
+      <span class="mut" style="font-size:12px">학원 원장님이시면 <b>원장센터 → 권한 신청</b>으로 소유권을 인증하시면 직접 수정하실 수 있어요.</span>`);
   if (has("고객센터", "전화번호", "전화 번호", "연락처", "문의처", "관리 전화", "관리전화", "관리자 전화", "담당자", "이메일", "메일", "상담전화", "연락", "전화")) return botMsg("📮 <b>고객센터 문의</b><br>모아학원은 별도 전화 상담 대신 <b>이메일</b>로 문의를 받고 있어요.<br>👉 <a href=\"mailto:moahagwon@gmail.com?subject=%5B%EB%AA%A8%EC%95%84%ED%95%99%EC%9B%90%20%EB%AC%B8%EC%9D%98%5D\"><b>moahagwon@gmail.com</b></a> 으로 문의 내용을 보내주시면, 접수된 순서대로 순차적으로 처리해 답변드립니다.<br>학원 이름·연락처와 함께 문의 내용을 적어주시면 더 빠르게 도와드릴 수 있어요.");
   if (await botSearch(q)) return;
   await botAI(q); // 규칙으로 안 잡히는 질문은 Gemini가 답변
@@ -4336,6 +4388,52 @@ async function promptInstall() {
 // 버튼을 두 번 누르면 같은 INSERT가 두 번 나가 학원 등록·결제 기록이 중복된다.
 // 호출부(onclick 문자열)를 건드리지 않도록 원래 함수를 감싸 같은 이름으로 다시 내보낸다.
 const _busy = new Set();
+// ===== 학원 정보 수정 요청 =====
+function openEditReq(aid, name) {
+  if (needLogin()) return;
+  state.editAca = { id: aid, name };
+  document.getElementById("edAca").textContent = name;
+  document.getElementById("edField").selectedIndex = 0;
+  document.getElementById("edContent").value = "";
+  document.getElementById("edContact").value = "";
+  openModal("m-edit");
+}
+// 모아봇에서 학원을 찾아 바로 수정 요청 화면을 연다
+async function botFindForEdit() {
+  const kw = document.getElementById("botEdKw").value.trim();
+  const box = document.getElementById("botEdHits");
+  if (kw.length < 2) { box.innerHTML = `<p class="mut">두 글자 이상 적어 주세요.</p>`; return; }
+  box.innerHTML = `<p class="mut">찾는 중...</p>`;
+  const sel = "id,name,region_city,dong";
+  const [n, ad] = await Promise.all([
+    sb.from("academies").select(sel).ilike("name", `%${kw}%`).limit(8),
+    sb.from("academies").select(sel).ilike("address", `%${kw}%`).limit(8),
+  ]);
+  const map = new Map();
+  [...(n.data || []), ...(ad.data || [])].forEach(r => map.set(r.id, r));
+  const rows = [...map.values()].slice(0, 8);
+  box.innerHTML = rows.length
+    ? rows.map(a => `<button class="btn sm ghost" style="display:block;width:100%;text-align:left;margin:3px 0"
+        onclick="openEditReq(${a.id},'${escJs(a.name)}')">${esc(a.name)}
+        <span class="mut">${esc(a.region_city || "")} ${esc(a.dong || "")}</span></button>`).join("")
+    : `<p class="mut">찾지 못했어요. 이름이나 주소를 조금 더 정확히 적어 주세요.</p>`;
+}
+
+async function _submitEditReq() {
+  const aca = state.editAca; if (!aca) return;
+  const content = document.getElementById("edContent").value.trim();
+  if (content.length < 5) return toast("바른 내용을 5자 이상 적어 주세요.");
+  const { error } = await sb.from("edit_requests").insert({
+    academy_id: aca.id,
+    field: document.getElementById("edField").value,
+    content,
+    contact: document.getElementById("edContact").value.trim() || null,
+  });
+  if (error) return toast("전송 실패: " + error.message);
+  closeModal("m-edit");
+  toast("보내주셔서 감사합니다. 확인 후 반영하겠습니다.");
+}
+
 const _once = (key, fn) => (...args) => {
   if (_busy.has(key)) { toast("처리 중입니다. 잠시만 기다려 주세요."); return; }
   _busy.add(key);
@@ -4345,6 +4443,7 @@ const saveEnroll = _once("saveEnroll", _saveEnroll);
 const saveChild = _once("saveChild", _saveChild);
 const submitLead = _once("submitLead", _submitLead);
 const submitQuestion = _once("submitQuestion", _submitQuestion);
+const submitEditReq = _once("submitEditReq", _submitEditReq);
 const submitAnswer = _once("submitAnswer", _submitAnswer);
 const addWatch = _once("addWatch", _addWatch);
 const localpaySend = _once("localpaySend", _localpaySend);
@@ -4407,6 +4506,7 @@ const addScheduleEvent = _once("addScheduleEvent", _addScheduleEvent);
   </p>
   <!-- 사업자정보는 사업자등록증과 문자열까지 일치해야 한다(토스·카드사 심사 요건). 임의로 줄이지 말 것. -->
   <p style="margin:6px 0 0">모아학원 (MOA) · 대표 박동춘 · 사업자등록번호 808-27-02108 · 통신판매업신고 제2026-충남아산-0930호</p>
+  <p style="margin:2px 0 0">호스팅 제공 GitHub, Inc. · Cloudflare, Inc.</p>
   <p style="margin:2px 0 0">충청남도 아산시 탕정면 탕정면로 37, 401동 3104호 (탕정삼성트라팰리스아파트)</p>
   <p style="margin:2px 0 0">전화 010-7385-2657 · 이메일 <!--email_off-->moahagwon@gmail.com<!--/email_off--></p>
   <p style="margin:2px 0 0">문의는 이메일 또는 앱 내 <b>모아봇</b>으로 주시면 더 빠르게 답변드립니다.</p>
