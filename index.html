@@ -91,6 +91,16 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
 .modal-bg.on{display:block}
 .modal{background:#fff;border-radius:16px;max-width:760px;margin:0 auto;padding:24px;position:relative}
 .modal .close{position:absolute;top:14px;right:14px;background:none;border:none;font-size:22px;color:var(--mut)}
+/* 모집 팝업. 닫기는 손가락으로 누를 수 있게 44px 을 확보한다 */
+.promo-list{list-style:none;padding:0;margin:0}
+.promo-list li{position:relative;padding:7px 0 7px 24px;font-size:15px;border-top:1px solid #f1f5f9}
+.promo-list li:first-child{border-top:none}
+.promo-list li::before{content:"✓";position:absolute;left:2px;color:var(--p);font-weight:800}
+.promo-never{display:block;margin-top:14px;font-size:12px;color:var(--mut);text-align:center}
+.promo-never input{vertical-align:-1px;margin-right:4px}
+#m-promo-parent .close,#m-promo-owner .close{width:44px;height:44px;top:6px;right:6px}
+/* 44px 닫기 버튼이 제목을 덮지 않도록 제목 쪽에 자리를 비워둔다 */
+#m-promo-parent h2,#m-promo-owner h2{padding-right:40px}
 .stars{color:#f59e0b;letter-spacing:1px}
 .optin{display:flex;gap:8px;align-items:flex-start;margin:12px 0;font-size:13px;line-height:1.55;cursor:pointer}
 .optin input{width:16px;height:16px;flex:0 0 16px;margin-top:2px;padding:0}
@@ -554,6 +564,38 @@ body{padding-bottom:70px}
   <button class="btn" style="width:100%" onclick="submitEditReq()">보내기</button>
   <p class="mut" style="font-size:12px;margin-top:8px">학원 원장님이시면 <b>원장센터에서 소유권을 인증</b>하신 뒤 직접 수정하실 수 있습니다. 그 편이 훨씬 빠릅니다.</p>
 </div></div>
+<!-- 모집 팝업 2종. 학부모용·학원장용이 동시에 뜨지 않게 openPromo() 한 곳에서만 띄운다. -->
+<div class="modal-bg" id="m-promo-parent"><div class="modal" style="max-width:380px"><button class="close" onclick="closePromo('parent')">×</button>
+  <h2 style="font-size:20px;line-height:1.35;margin:4px 0 6px">우리 동네 베스트 학원,<br>지금 확인하세요</h2>
+  <p class="mut" style="margin:0 0 14px">내 주변 학원을 과목별로 한눈에 봅니다.</p>
+  <ul class="promo-list">
+    <li>자녀 등록</li>
+    <li>등·하원 알림 받기</li>
+    <li>학원비 납부 기록</li>
+    <li>마음에 둔 학원 나란히 비교</li>
+  </ul>
+  <p style="font-weight:700;margin:14px 0 16px">전부 무료입니다.</p>
+  <button class="btn" style="width:100%;padding:12px" onclick="promoCta('parent')">3초 만에 시작하기</button>
+  <p class="mut" style="text-align:center;margin:10px 0 0"><a href="#" onclick="promoCta('parent');return false">이미 계정이 있어요</a></p>
+  <p class="mut" style="font-size:12px;text-align:center;margin:12px 0 0">학부모가 결제할 상품은 없습니다.</p>
+  <label class="promo-never"><input type="checkbox" id="promoNeverParent"> 다시 보지 않기</label>
+</div></div>
+
+<div class="modal-bg" id="m-promo-owner"><div class="modal" style="max-width:380px"><button class="close" onclick="closePromo('owner')">×</button>
+  <h2 style="font-size:20px;line-height:1.35;margin:4px 0 6px">홍보는 모아학원이 하겠습니다<br>원장님은 아이들만 보세요</h2>
+  <p class="mut" style="margin:0 0 14px">학부모가 우리 동네 학원을 찾을 때, 원장님 학원이 먼저 보이도록 하겠습니다.</p>
+  <ul class="promo-list">
+    <li>학원 정보 등록·수정</li>
+    <li>검색 결과 상단 노출</li>
+    <li>학생·반, QR 출결 관리</li>
+    <li>학원비 청구·납부 기록</li>
+  </ul>
+  <p style="font-weight:700;margin:14px 0 16px">번거로운 건 저희가 합니다.</p>
+  <button class="btn" style="width:100%;padding:12px" onclick="promoCta('owner')">내 학원 등록하기</button>
+  <p class="mut" style="font-size:12px;text-align:center;margin:12px 0 0">사업자등록증만 있으면 됩니다.</p>
+  <label class="promo-never"><input type="checkbox" id="promoNeverOwner"> 다시 보지 않기</label>
+</div></div>
+
 <!-- 로그인/가입 모달 -->
 <div class="modal-bg" id="m-auth"><div class="modal" style="max-width:400px"><button class="close" onclick="closeModal('m-auth')">×</button>
   <h2 id="authTitle">로그인</h2>
@@ -858,7 +900,7 @@ function go(v) {
   if (v === "compare") renderCompare();
   if (v === "dash") loadDash();
   if (v === "noti") loadNoti();
-  if (v === "owner") loadOwner();
+  if (v === "owner") { loadOwner(); maybePromoOwner(); }
   if (v === "admin") loadAdmin();
   if (v === "attend") loadAttend();
   if (v === "attstat") loadAttStat();
@@ -936,6 +978,47 @@ async function loadEvents() {
   const { data } = await sb.from("academies").select("id,name,region_city,dong,promo").not("promo", "is", null).neq("promo", "").limit(60);
   document.getElementById("eventList").innerHTML = (data || []).map(a => `<div class="review">
     🎉 <b>${esc(a.promo)}</b><div class="mut">${esc(a.name)} · ${esc(a.region_city || "")} ${esc(a.dong || "")} · <a href="#" onclick="openDetail(${a.id});return false">상세 보기</a></div></div>`).join("") || `<div class="empty">진행 중인 이벤트가 없습니다.</div>`;
+}
+// ===== 모집 팝업 =====
+// 학부모용·학원장용이 겹쳐 뜨면 두 번 막는 꼴이 된다. 반드시 이 함수 하나로만 띄운다.
+// 닫아도 다음에 사이트를 열면 다시 띄운다(원장 요청). 같은 방문 안에서만 조용해진다.
+// 「다시 보지 않기」를 체크한 사람에게만 영구 중단한다 — 이 탈출구까지 없애면 이탈을 만든다.
+function promoKey(who) { return "moa_promo_" + who; }
+function promoMuted(who) {
+  try {
+    if (localStorage.getItem(promoKey(who)) === "never") return true;   // 영구 중단
+    return sessionStorage.getItem(promoKey(who)) === "1";               // 이번 방문에만 숨김
+  } catch (e) { return false; }   // 시크릿 모드 등에서 저장소가 막혀도 동작은 해야 한다
+}
+function openPromo(who) {
+  if (promoMuted(who)) return;
+  if (document.querySelector(".modal-bg.on")) return;   // 다른 모달이 떠 있으면 양보한다
+  openModal("m-promo-" + who);
+}
+function closePromo(who) {
+  const never = document.getElementById(who === "parent" ? "promoNeverParent" : "promoNeverOwner")?.checked;
+  try {
+    if (never) localStorage.setItem(promoKey(who), "never");
+    else sessionStorage.setItem(promoKey(who), "1");   // 이번 방문만. 다시 들어오면 또 뜬다
+  } catch (e) {}
+  closeModal("m-promo-" + who);
+}
+function promoCta(who) {
+  try { localStorage.setItem(promoKey(who), "never"); } catch (e) {}  // 눌렀으면 다시 띄울 이유가 없다
+  closeModal("m-promo-" + who);
+  if (who === "parent") openModal("m-auth");
+  else if (state.user) go("owner");
+  else openModal("m-auth");
+}
+// 학부모용 — 비로그인 상태로 20초 머물면 1회. 로그인 모달이 떠 있으면 그게 닫힌 뒤에 본다.
+function schedulePromoParent() {
+  setTimeout(() => { if (!state.user) openPromo("parent"); }, 20000);
+}
+// 학원장용 — 로그인했고 인증한 학원이 없을 때 원장센터 진입 시
+async function maybePromoOwner() {
+  if (!state.user || promoMuted("owner")) return;
+  const { count } = await sb.from("academies").select("id", { count: "exact", head: true }).eq("owner_id", state.user.id);
+  if (!count) openPromo("owner");
 }
 function closeModal(id) { document.getElementById(id).classList.remove("on"); }
 function openModal(id) { document.getElementById(id).classList.add("on"); }
@@ -4497,6 +4580,8 @@ const addScheduleEvent = _once("addScheduleEvent", _addScheduleEvent);
     loadAcademies(); loadBest(); if (!handleCompareShare()) go("search");
     // 비로그인 상태로 앱 실행 시 로그인 안내 (딥링크·OAuth 콜백 진행 중이면 건너뜀)
     if (!state.user && !pendingFlow) openModal("m-auth");
+    // 로그인 모달을 닫고 둘러보기만 하는 사람에게 20초 뒤 한 번 더 권한다
+    if (!pendingFlow) schedulePromoParent();
   };
   // initAuth 가 실패해도 화면은 떠야 한다. catch 가 없으면 빈 화면이 된다.
   initAuth().catch(e => { logError("initAuth", e.message); toast("로그인 상태를 확인하지 못했어요. 다시 로그인해 주세요."); })
