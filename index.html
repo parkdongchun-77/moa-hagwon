@@ -3231,6 +3231,14 @@ async function renderOwnRoster(id) {
         <div class="field"><input id="stuPhone-${id}" inputmode="tel" placeholder="학부모 연락처 (예: 010-1234-5678)"></div>
       </div>
       <button class="btn sm" onclick="addStudent(${id})">원생 등록</button>
+      <div style="border-top:1px dashed var(--line);margin-top:14px;padding-top:12px">
+        <b>엑셀로 한 번에 등록</b>
+        <p class="mut" style="font-size:13px;margin:4px 0 8px">쓰시던 명부를 그대로 올리세요. 양식을 맞추지 않으셔도 됩니다.</p>
+        <input type="file" id="xlsFile-${id}" accept=".xlsx,.xls,.csv" onchange="xlsPick(${id},this)" style="font-size:13px">
+        <div id="xlsPanel-${id}" style="margin-top:12px"></div>
+        <p class="mut" style="font-size:12px;margin-top:8px">
+          <a href="#" onclick="xlsTemplate();return false">명부가 없으면 양식 내려받기</a></p>
+      </div>
     </div>
 
     <h3 style="margin-top:18px">📚 반</h3>
@@ -3259,6 +3267,169 @@ async function renderOwnRoster(id) {
     </div>`;
 }
 
+// ===== 엑셀 일괄 등록 =====
+// 원장마다 명부 양식이 다르다. 양식을 강제하면 아무도 안 쓰므로,
+// 파일을 그대로 받고 어느 칸이 무엇인지 화면에서 짝지어 준다.
+// students 에서 NOT NULL 은 name 하나뿐이라 나머지는 비어도 들어간다.
+const XLS_FIELDS = [
+  { k: "name", label: "학생 이름", req: true, hints: ["이름", "성명", "학생명", "학생이름", "원생명", "성 명", "name", "student"] },
+  { k: "grade", label: "학년", hints: ["학년", "학 년", "grade"] },
+  { k: "parent_name", label: "학부모 이름", hints: ["학부모", "보호자", "부모", "모친", "부친", "학부모명", "보호자명", "parent", "guardian"] },
+  // 「학부모 연락처」는 학부모·연락처 두 쪽에 다 걸린다. 연락처 쪽이 결정적이므로 동점이면 이기게 한다.
+  { k: "parent_phone", label: "학부모 연락처", prio: 2, hints: ["연락처", "전화", "휴대폰", "핸드폰", "번호", "phone", "hp", "tel", "모바일"] },
+  { k: "memo", label: "메모", hints: ["메모", "비고", "특이사항", "참고", "memo", "note"] },
+];
+let xlsRows = null, xlsHeaders = [], xlsMap = {}, xlsLastIds = [];
+
+// 헤더 글자를 느슨하게 맞춘다. 「학부모 연락처」처럼 두 힌트가 겹치면 더 구체적인 쪽(연락처)이 이긴다.
+function xlsGuess(header) {
+  const h = String(header || "").replace(/[\s_\-()]/g, "").toLowerCase();
+  if (!h) return "";
+  let best = "", bestLen = 0, bestPrio = 0;
+  for (const f of XLS_FIELDS)
+    for (const hint of f.hints) {
+      const t = hint.replace(/\s/g, "").toLowerCase(), p = f.prio || 1;
+      if (!h.includes(t)) continue;
+      if (t.length > bestLen || (t.length === bestLen && p > bestPrio)) { best = f.k; bestLen = t.length; bestPrio = p; }
+    }
+  return best;
+}
+async function xlsLoadLib() {
+  if (window.XLSX) return true;
+  await new Promise((ok, ng) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    s.onload = ok; s.onerror = ng; document.head.appendChild(s);
+  }).catch(() => {});
+  return !!window.XLSX;
+}
+async function xlsPick(id, input) {
+  const file = input.files?.[0]; if (!file) return;
+  const panel = document.getElementById(`xlsPanel-${id}`);
+  panel.innerHTML = `<div class="mut">파일을 읽는 중...</div>`;
+  if (!await xlsLoadLib()) { panel.innerHTML = `<div class="mut">엑셀 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.</div>`; return; }
+  try {
+    const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, defval: "" });
+    if (rows.length < 2) { panel.innerHTML = `<div class="mut">내용이 없습니다. 첫 줄은 제목, 둘째 줄부터 학생이어야 합니다.</div>`; return; }
+    xlsHeaders = rows[0].map(h => String(h).trim());
+    xlsRows = rows.slice(1).filter(r => r.some(c => String(c).trim() !== ""));
+    xlsMap = {};
+    xlsHeaders.forEach((h, i) => { const g = xlsGuess(h); if (g && !Object.values(xlsMap).includes(g)) xlsMap[i] = g; });
+    xlsRenderMap(id);
+  } catch (e) {
+    panel.innerHTML = `<div class="mut">파일을 읽지 못했습니다. xlsx 또는 csv 인지 확인해 주세요.</div>`;
+    logError("xlsPick", e.message);
+  }
+}
+function xlsRenderMap(id) {
+  const opts = k => `<option value="">사용 안 함</option>` +
+    XLS_FIELDS.map(f => `<option value="${f.k}" ${k === f.k ? "selected" : ""}>${f.label}${f.req ? " *" : ""}</option>`).join("");
+  const rowsHtml = xlsHeaders.map((h, i) => `<div class="row" style="gap:8px;align-items:center;padding:3px 0">
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h) || `<span class="mut">(빈 제목)</span>`}</span>
+      <span class="mut">→</span>
+      <select onchange="xlsSetMap(${id},${i},this.value)" style="flex:1;min-width:0">${opts(xlsMap[i])}</select>
+    </div>`).join("");
+  document.getElementById(`xlsPanel-${id}`).innerHTML =
+    `<div class="card" style="background:#fff;margin:0">
+      <b>${xlsRows.length}명을 찾았습니다</b>
+      <p class="mut" style="font-size:12px;margin:4px 0 8px">엑셀의 칸이 어떤 항목인지 확인해 주세요. 자동으로 맞춰 둔 것은 그대로 두셔도 됩니다.</p>
+      ${rowsHtml}
+      <div id="xlsPrev-${id}" style="margin-top:10px"></div>
+    </div>`;
+  xlsRenderPreview(id);
+}
+function xlsSetMap(id, i, v) {
+  if (v) for (const k of Object.keys(xlsMap)) if (xlsMap[k] === v && +k !== i) delete xlsMap[k];  // 같은 항목 중복 금지
+  if (v) xlsMap[i] = v; else delete xlsMap[i];
+  xlsRenderMap(id);
+}
+// 010-1234-5678 / 01012345678 / 010 1234 5678 이 섞여 온다. 숫자만 남겨 하이픈으로 통일한다.
+function xlsPhone(v) {
+  const d = String(v ?? "").replace(/[^0-9]/g, "");
+  if (!d) return null;
+  if (d.length === 11) return d.replace(/(\d{3})(\d{4})(\d{4})/, "$1-$2-$3");
+  if (d.length === 10) return d.replace(/(\d{2,3})(\d{3,4})(\d{4})/, "$1-$2-$3");
+  return d;   // 길이가 이상해도 버리지 않는다. 원장이 보고 고치면 된다
+}
+// 매핑대로 행을 학생 레코드로 바꾼다. 이름이 없으면 넣을 수 없으므로 사유와 함께 돌려준다.
+function xlsBuild(id) {
+  const ok = [], bad = [];
+  xlsRows.forEach((r, n) => {
+    const rec = { academy_id: id };
+    for (const [i, k] of Object.entries(xlsMap)) {
+      const raw = String(r[i] ?? "").trim();
+      if (!raw) continue;
+      rec[k] = k === "parent_phone" ? xlsPhone(raw) : raw;
+    }
+    if (!rec.name) bad.push({ line: n + 2, why: "학생 이름이 비어 있습니다" });
+    else ok.push(rec);
+  });
+  return { ok, bad };
+}
+function xlsRenderPreview(id) {
+  const { ok, bad } = xlsBuild(id);
+  const hasName = Object.values(xlsMap).includes("name");
+  const cols = XLS_FIELDS.filter(f => Object.values(xlsMap).includes(f.k));
+  const head = cols.map(f => `<th style="text-align:left;padding:3px 6px;font-size:12px">${f.label}</th>`).join("");
+  const body = ok.slice(0, 10).map(r => `<tr>${cols.map(f =>
+    `<td style="padding:3px 6px;border-top:1px solid #f1f5f9;font-size:13px">${esc(r[f.k] || "")}</td>`).join("")}</tr>`).join("");
+  document.getElementById(`xlsPrev-${id}`).innerHTML =
+    (!hasName
+      ? `<div class="mut" style="color:#dc2626">「학생 이름」 칸을 지정해 주세요. 이름만 있으면 등록됩니다.</div>`
+      : `<div class="mut" style="font-size:12px;margin-bottom:4px">이렇게 들어갑니다 ${ok.length > 10 ? `(상위 10명만 표시)` : ""}</div>
+         <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><tr>${head}</tr>${body}</table></div>
+         ${bad.length ? `<p class="mut" style="font-size:12px;margin:8px 0 0;color:#dc2626">
+            ${bad.length}줄은 건너뜁니다 — ${bad.slice(0, 3).map(b => `${b.line}번째 줄(${b.why})`).join(", ")}${bad.length > 3 ? " 외" : ""}</p>` : ""}
+         ${xlsRows.length > 2000 ? `<p class="mut" style="font-size:12px;margin:8px 0 0">파일이 큽니다(${xlsRows.length}줄). 나눠서 올리시면 더 안정적입니다.</p>` : ""}
+         <div id="xlsProg-${id}" class="mut" style="font-size:13px;margin-top:8px"></div>
+         <button class="btn" style="width:100%;margin-top:8px" id="xlsGo-${id}" onclick="xlsRun(${id})">${ok.length}명 등록하기</button>`);
+}
+// 한 번에 다 보내면 authenticated 제한(8초)에 걸린다. 100행씩 끊어 넣고,
+// 실패한 묶음은 전체를 버리지 않고 그 묶음만 보고한다.
+async function xlsRun(id) {
+  const { ok } = xlsBuild(id);
+  if (!ok.length) return toast("등록할 학생이 없습니다.");
+  const btn = document.getElementById(`xlsGo-${id}`), prog = document.getElementById(`xlsProg-${id}`);
+  btn.disabled = true;
+  // 같은 이름+연락처가 이미 있으면 건너뛴다. 두 번 올려도 안전해야 한다.
+  const { data: cur } = await sb.from("students").select("name,parent_phone").eq("academy_id", id);
+  const seen = new Set((cur || []).map(s => s.name + "|" + (s.parent_phone || "")));
+  const fresh = ok.filter(r => !seen.has(r.name + "|" + (r.parent_phone || "")));
+  const dup = ok.length - fresh.length;
+  let done = 0, failed = 0; xlsLastIds = [];
+  for (let i = 0; i < fresh.length; i += 100) {
+    const chunk = fresh.slice(i, i + 100);
+    const { data, error } = await sb.from("students").insert(chunk).select("id");
+    if (error) { failed += chunk.length; logError("xlsRun", error.message); }
+    else { done += chunk.length; xlsLastIds.push(...(data || []).map(d => d.id)); }
+    prog.textContent = `${done} / ${fresh.length}명 등록 중...`;
+  }
+  btn.disabled = false;
+  prog.innerHTML = `<b>${done}명을 등록했습니다.</b>`
+    + (dup ? ` 이미 있는 ${dup}명은 건너뛰었습니다.` : "")
+    + (failed ? ` <span style="color:#dc2626">${failed}명은 실패했습니다.</span>` : "")
+    + (xlsLastIds.length ? ` <a href="#" onclick="xlsUndo(${id});return false">방금 등록한 ${xlsLastIds.length}명 취소</a>` : "");
+  renderOwnRoster(id);
+}
+async function xlsUndo(id) {
+  if (!xlsLastIds.length) return;
+  const ids = xlsLastIds.slice(); xlsLastIds = [];
+  for (let i = 0; i < ids.length; i += 100)
+    await sb.from("students").delete().in("id", ids.slice(i, i + 100));
+  toast(`${ids.length}명을 취소했습니다.`);
+  renderOwnRoster(id);
+}
+async function xlsTemplate() {
+  if (!await xlsLoadLib()) return toast("엑셀 도구를 불러오지 못했습니다.");
+  const ws = XLSX.utils.aoa_to_sheet([
+    ["이름", "학년", "학부모 이름", "학부모 연락처", "메모"],
+    ["홍길동", "중2", "홍아버지", "010-1234-5678", ""],
+  ]);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "학생명부");
+  XLSX.writeFile(wb, "모아학원_학생명부_양식.xlsx");
+}
 async function _addStudent(id) {
   const name = document.getElementById(`stuName-${id}`).value.trim();
   if (!name) return toast("학생 이름을 입력하세요.");
