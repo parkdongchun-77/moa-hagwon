@@ -59,7 +59,9 @@ workflows:
         BUNDLE_ID: "kr.moahagwon.app"
         XCODE_SCHEME: "App"
         # App Store Connect 의 버전 번호와 반드시 같아야 한다. 다르면 그 버전에 빌드를 붙일 수 없다.
-        MARKETING_VERSION: "1.0.1"
+        # 1.0.1 은 이미 출시돼 트레인이 닫혔다 (업로드 시 code 90186 Invalid Pre-Release Train).
+        # 출시된 버전으로는 새 빌드를 올릴 수 없으므로 출시할 때마다 여기를 올린다.
+        MARKETING_VERSION: "1.0.2"
       # Capacitor 8 CLI는 NodeJS >=22 를 요구한다 (node:20 이면 cap add ios 가 [fatal] 로 죽음)
       node: 22
       xcode: latest
