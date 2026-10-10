@@ -57,6 +57,21 @@ header{position:sticky;top:0;z-index:1500;background:#fff;border-bottom:1px soli
 /* 레이아웃 */
 main{max-width:1080px;margin:0 auto;padding:20px 16px 80px}
 .view{display:none}.view.on{display:block}
+/* 좌측 바로가기 — 운영센터·원장센터처럼 카드가 많은 화면용.
+   PC 는 왼쪽 고정 사이드바, 좁은 화면은 헤더 아래 붙는 가로 칩바로 바뀐다. */
+.snav-wrap{display:grid;grid-template-columns:184px 1fr;gap:18px;align-items:start}
+.snav{position:sticky;top:72px;display:flex;flex-direction:column;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;max-height:calc(100vh - 92px);overflow-y:auto}
+.snav button{display:block;width:100%;text-align:left;background:none;border:none;border-radius:9px;padding:8px 10px;font-size:13.5px;color:var(--mut);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.snav button:hover{background:var(--bg);color:var(--txt)}
+.snav button.on{background:#eef2ff;color:var(--p);font-weight:700}
+.snav-body>[data-sec]{scroll-margin-top:72px}
+@media(max-width:1023px){
+  .snav-wrap{display:block}
+  .snav{position:sticky;top:56px;z-index:900;flex-direction:row;gap:6px;overflow-x:auto;overflow-y:visible;max-height:none;border-radius:0;border-left:0;border-right:0;margin:-14px -10px 12px;padding:8px 10px;-webkit-overflow-scrolling:touch}
+  .snav::-webkit-scrollbar{display:none}
+  .snav button{width:auto;flex:0 0 auto;border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:13px}
+  .snav-body>[data-sec]{scroll-margin-top:116px}
+}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
 h1,h2{font-size:19px;margin-bottom:12px}
 h3{font-size:16px;margin:14px 0 8px}
@@ -477,9 +492,11 @@ body{padding-bottom:70px}
 
 <!-- ===== 원장센터 ===== -->
 <section class="view" id="v-owner">
+  <!-- 카드가 길어 좌측 바로가기를 붙였다. data-sec 값이 그대로 목록 이름이 된다. -->
+ <div class="snav-wrap"><nav class="snav" id="ownerNav"></nav><div class="snav-body" id="ownerBody">
   <!-- 대시보드 영역. 학원을 보유하면 요약 대시보드가, 아니면 시작 안내가 들어간다 -->
-  <div id="ownerDashBox"></div>
-  <div class="card">
+  <div id="ownerDashBox" data-sec="대시보드"></div>
+  <div class="card" data-sec="권한 신청">
     <h3 style="margin-top:0">🔍 내 학원 찾아 권한 신청</h3>
     <div class="row" style="margin-bottom:10px"><span class="mut" style="flex:1">국가 데이터에 없는 가정형 <b>공부방</b>은 직접 등록해 노출할 수 있어요.</span>
       <button class="btn sm" onclick="openRoomModal()">+ 우리 공부방 직접 등록</button></div>
@@ -490,19 +507,22 @@ body{padding-bottom:70px}
     <div id="claimResults"></div>
     <div id="myClaims"></div>
   </div>
-  <div class="card" id="ownerAdminBox" style="display:none;border:1px solid #c7d2fe;background:#f5f7ff">
+  <div class="card" id="ownerAdminBox" data-sec="관리자 대행" style="display:none;border:1px solid #c7d2fe;background:#f5f7ff">
     <h3 style="margin-top:0">🛠 관리자 대행 — 학원 정보 수정</h3>
     <p class="mut">바쁜 원장을 대신해 아무 학원이나 검색해 직접 수정할 수 있습니다.</p>
     <div class="row"><input id="admAcaKw" placeholder="학원명 또는 주소" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')admSearchAca()"><button class="btn sm" onclick="admSearchAca()">검색</button></div>
     <div id="admAcaResults"></div>
     <div id="admAcaManage"></div>
   </div>
-  <div id="myAcademies"></div>
+  <div id="myAcademies" data-sec="내 학원"></div>
+ </div></div>
 </section>
 
 <!-- ===== 운영(관리자) ===== -->
 <section class="view" id="v-admin">
-  <div class="card"><div class="row"><h2>플랫폼 운영센터</h2>
+ <!-- 카드가 11개라 좌측 바로가기를 붙였다. data-sec 값이 그대로 목록 이름이 된다. -->
+ <div class="snav-wrap"><nav class="snav" id="adminNav"></nav><div class="snav-body" id="adminBody">
+  <div class="card" data-sec="NEIS 동기화"><div class="row"><h2>플랫폼 운영센터</h2>
     <select id="syncSido" class="right"></select>
     <button class="btn sm" id="syncBtn" onclick="runSync()">NEIS 동기화</button></div>
     <div class="row" style="margin:8px 0">
@@ -512,11 +532,11 @@ body{padding-bottom:70px}
     <div id="neisAuto" class="mut" style="margin:2px 0 10px"></div>
     <div class="row" id="adminStats"></div>
   </div>
-  <div class="card"><h3>📊 오늘 · 최근 7일 현황</h3><div class="row" id="adminKpi"><div class="empty">불러오는 중...</div></div></div>
-  <div class="card"><div class="row"><h3 style="margin:0">🩺 에러 · 시스템 로그 <span class="mut">(최근 50건)</span></h3>
+  <div class="card" data-sec="오늘·7일 현황"><h3>📊 오늘 · 최근 7일 현황</h3><div class="row" id="adminKpi"><div class="empty">불러오는 중...</div></div></div>
+  <div class="card" data-sec="에러·로그"><div class="row"><h3 style="margin:0">🩺 에러 · 시스템 로그 <span class="mut">(최근 50건)</span></h3>
       <button class="btn sm gray right" onclick="loadAdminErrors()">새로고침</button></div>
     <div id="adminErrors"><div class="empty">불러오는 중...</div></div></div>
-  <div class="card"><div class="row"><h3 style="margin:0">📈 가입자 추이 <span class="mut">(학생·부모님 / 학원장)</span></h3>
+  <div class="card" data-sec="가입자 추이"><div class="row"><h3 style="margin:0">📈 가입자 추이 <span class="mut">(학생·부모님 / 학원장)</span></h3>
       <select id="suBucket" class="right" onchange="loadSignupChart()">
         <option value="day">일별</option><option value="week">주별</option>
         <option value="month" selected>월별</option><option value="quarter">분기별</option>
@@ -524,24 +544,25 @@ body{padding-bottom:70px}
     <div class="row" id="suStats" style="margin:8px 0"></div>
     <canvas id="signupChart" height="110"></canvas>
   </div>
-  <div class="card"><div class="row"><h3 style="margin:0">🤖 모아봇 문의 내역 <span class="mut">(앱 문제·요청 리스트업)</span></h3>
+  <div class="card" data-sec="모아봇 문의"><div class="row"><h3 style="margin:0">🤖 모아봇 문의 내역 <span class="mut">(앱 문제·요청 리스트업)</span></h3>
       <select id="inqFilter" class="right" onchange="loadInquiries()">
         <option value="all">전체</option><option value="신규">신규</option><option value="확인">확인</option><option value="처리완료">처리완료</option></select></div>
     <div class="row" id="inqStats" style="margin:8px 0"></div>
     <div id="inqList"></div>
   </div>
-  <div class="card"><h3>📢 공지사항 작성</h3>
+  <div class="card" data-sec="공지사항"><h3>📢 공지사항 작성</h3>
     <div class="field"><input id="ntTitle" placeholder="공지 제목"></div>
     <div class="field"><textarea id="ntBody" rows="3" placeholder="공지 내용"></textarea></div>
     <div class="row"><label class="chip" style="display:inline-flex;gap:5px;margin:0"><input type="checkbox" id="ntPin" style="width:auto"> 상단 고정</label>
       <button class="btn sm" onclick="postNotice()">등록</button></div>
     <div id="adminNotices" style="margin-top:10px"></div>
   </div>
-  <div class="card"><h3>소유권 클레임 승인</h3><div id="adminClaims"></div></div>
-  <div class="card"><h3>신고 관리</h3><div id="adminReports"></div></div>
-  <div class="card"><h3>정보 수정 요청</h3><div id="adminEdits"></div></div>
-  <div class="card"><h3>프리미엄 노출(광고) 주문</h3><div id="adminAds"></div></div>
-  <div class="card"><h3>결제 내역</h3><div id="adminPayments"></div></div>
+  <div class="card" data-sec="클레임 승인"><h3>소유권 클레임 승인</h3><div id="adminClaims"></div></div>
+  <div class="card" data-sec="신고 관리"><h3>신고 관리</h3><div id="adminReports"></div></div>
+  <div class="card" data-sec="정보 수정 요청"><h3>정보 수정 요청</h3><div id="adminEdits"></div></div>
+  <div class="card" data-sec="광고 주문"><h3>프리미엄 노출(광고) 주문</h3><div id="adminAds"></div></div>
+  <div class="card" data-sec="결제 내역"><h3>결제 내역</h3><div id="adminPayments"></div></div>
+ </div></div>
 </section>
 
 </main>
@@ -901,14 +922,38 @@ function go(v) {
   if (v === "compare") renderCompare();
   if (v === "dash") loadDash();
   if (v === "noti") loadNoti();
-  if (v === "owner") { loadOwner(); maybePromoOwner(); }
-  if (v === "admin") loadAdmin();
+  // 원장센터는 「관리자 대행」 칸이 권한에 따라 숨겨져서, 다 그린 뒤에 목록을 만든다
+  if (v === "owner") { loadOwner().then(() => buildSideNav("owner")); maybePromoOwner(); }
+  if (v === "admin") { loadAdmin(); buildSideNav("admin"); }
   if (v === "attend") loadAttend();
   if (v === "attstat") loadAttStat();
   if (v === "notices") loadNotices();
   if (v === "events") loadEvents();
   if (v === "records") loadRecords();
   if (v === "location") loadLocation();
+}
+// 좌측 바로가기. `data-sec` 가 붙은 섹션을 읽어 목록을 만들고, 누르면 그 위치로 스크롤한다.
+// URL 해시는 쓰지 않는다 — handleAppleRedirect() 가 해시를 읽기 때문에 충돌한다.
+function buildSideNav(view) {
+  const nav = document.getElementById(view + "Nav"), body = document.getElementById(view + "Body");
+  if (!nav || !body) return;
+  const secs = [...body.querySelectorAll(":scope > [data-sec]")].filter(s => s.offsetParent !== null);
+  nav.innerHTML = secs.map((s, i) => `<button type="button" data-i="${i}">${s.dataset.sec}</button>`).join("");
+  nav.onclick = e => {
+    const b = e.target.closest("button[data-i]");
+    if (b) secs[+b.dataset.i].scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  // 스크롤 위치에 맞춰 현재 항목을 강조한다. 뷰를 다시 열면 이전 감시자는 끊는다.
+  nav._io?.disconnect();
+  const btns = [...nav.children];
+  nav._io = new IntersectionObserver(ens => {
+    for (const en of ens) if (en.isIntersecting) {
+      const i = secs.indexOf(en.target);
+      btns.forEach((b, j) => b.classList.toggle("on", j === i));
+      btns[i]?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, { rootMargin: "-100px 0px -65% 0px" });
+  secs.forEach(s => nav._io.observe(s));
 }
 // 자녀 등록·학원 연결: 대시보드의 자녀 영역으로 바로 이동 (자녀가 없으면 추가 모달 안내)
 async function goChildren() {
