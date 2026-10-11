@@ -3566,6 +3566,55 @@ async function _addStudent(id) {
   renderOwnRoster(id);
 }
 
+// ===== 표 정렬 =====
+// 엑셀처럼 머리글을 눌러 오름/내림으로 본다. 표에 class="sortable" 만 붙이면 된다.
+// 화면에서만 다시 늘어놓고 서버는 건드리지 않는다.
+function sortKey(td) {
+  const t = td.textContent.trim();
+  if (!t || t === "-") return { n: null, s: "" };                 // 빈 칸은 항상 끝으로
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return { n: null, s: t };     // 날짜는 글자 그대로가 맞다
+  // 「250,000원」·「매월 10일」·「3회」처럼 꾸밈만 붙은 숫자는 숫자로 본다
+  if (/^[0-9][0-9,.\s]*[원회명일]?$/.test(t) || /^매월\s*\d+일$/.test(t) || /^\+?-?\d/.test(t) && /^[0-9+,.\s원회명일매월-]+$/.test(t)) {
+    const n = parseFloat(t.replace(/[^0-9.-]/g, ""));
+    if (Number.isFinite(n)) return { n, s: "" };
+  }
+  return { n: null, s: t };
+}
+function sortTable(table, col, dir) {
+  const rows = [...table.rows].slice(1);                           // 첫 줄은 머리글
+  rows.sort((a, b) => {
+    const x = sortKey(a.cells[col]), y = sortKey(b.cells[col]);
+    // 빈 칸은 방향과 무관하게 뒤로. 숫자 0 은 빈 칸이 아니므로 null 로 판정해야 한다.
+    const empty = v => v.n === null && !v.s;
+    if (empty(x) && empty(y)) return 0;
+    if (empty(x)) return 1;
+    if (empty(y)) return -1;
+    const r = (x.n !== null && y.n !== null) ? x.n - y.n : x.s.localeCompare(y.s, "ko");
+    return dir === "desc" ? -r : r;
+  });
+  rows.forEach(r => table.appendChild(r));
+}
+function initSort(scope) {
+  (scope || document).querySelectorAll("table.sortable").forEach(table => {
+    if (table.dataset.sortReady) return;
+    table.dataset.sortReady = "1";
+    [...table.rows[0].cells].forEach((th, i) => {
+      th.style.cursor = "pointer"; th.title = "눌러서 정렬";
+      th.insertAdjacentHTML("beforeend", ` <span class="sort-ar" style="opacity:.3">↕</span>`);
+      th.onclick = () => {
+        const dir = table.dataset.sortCol === String(i) && table.dataset.sortDir === "asc" ? "desc" : "asc";
+        table.dataset.sortCol = i; table.dataset.sortDir = dir;
+        [...table.rows[0].cells].forEach(c => {
+          const ar = c.querySelector(".sort-ar");
+          if (ar) { ar.textContent = "↕"; ar.style.opacity = ".3"; }
+        });
+        const ar = th.querySelector(".sort-ar");
+        if (ar) { ar.textContent = dir === "asc" ? "▲" : "▼"; ar.style.opacity = "1"; }
+        sortTable(table, i, dir);
+      };
+    });
+  });
+}
 // 원생 목록을 반으로 거른다. 다시 불러오지 않고 화면에서만 숨긴다.
 function filterRoster(id, cls) {
   document.querySelectorAll(`#stuList-${id} .stu-row`).forEach(el => {
@@ -3911,7 +3960,7 @@ async function renderOwnAtt(id) {
     </div>
     <div class="row" style="margin-bottom:8px"><span class="stat" style="flex:0 0 auto"><b>${todayCnt}</b><span>오늘 출석</span></span>
       <span class="stat" style="flex:0 0 auto"><b>${(data || []).length}</b><span>최근 100건</span></span></div>
-    ${(data || []).length ? `<div style="overflow-x:auto"><table><tr><th>일시</th><th>이름</th><th>구분</th><th>위치확인</th></tr>
+    ${(data || []).length ? `<div style="overflow-x:auto"><table class="sortable"><tr><th>일시</th><th>이름</th><th>구분</th><th>위치확인</th></tr>
       ${data.map(r => `<tr><td class="mut">${new Date(r.checked_at).toLocaleString("ko-KR")}</td><td>${esc(r.child_name || "")}</td>
         <td><span class="tag ${r.status === "퇴원" ? "gray" : ""}">${esc(r.status || "출석")}</span></td>
         <td>${r.verified ? `<span style="color:var(--good)">✔ 인정 (${r.distance_m}m)</span>` : r.distance_m != null ? `<span style="color:var(--warn)">미인정 (${r.distance_m}m)</span>` : `<span class="mut">위치 없음</span>`}</td></tr>`).join("")}</table></div>` : `<p class="mut">아직 출석 기록이 없습니다.</p>`}
@@ -3919,6 +3968,7 @@ async function renderOwnAtt(id) {
       <span class="mut right" style="font-size:12.5px">QR 없이 직접 체크</span></div>
     <p class="mut" style="font-size:13px;margin:0 0 6px">학부모가 앱을 쓰지 않아도 됩니다. 반과 날짜를 고르고 눌러 주세요.</p>
     <div id="stuAtt-${id}"></div>`;
+  initSort(body);
   renderStuAtt(id);
 }
 
@@ -3944,8 +3994,9 @@ async function renderStuAtt(id, date, cls) {
     .filter(m => !m.left_on).map(m => m.student_id)) : null;
   const list = (stus || []).filter(s => !inCls || inCls.has(s.id));
   const today = (rows || []).filter(r => r.att_date === st.date);
+  // 지각도 출석으로 친다. 결석만 뺀다. (원장님 결정 2026-10-11)
   const monthCnt = new Map();
-  (rows || []).filter(r => r.status === "출석").forEach(r => monthCnt.set(r.student_id, (monthCnt.get(r.student_id) || 0) + 1));
+  (rows || []).filter(r => r.status !== "결석").forEach(r => monthCnt.set(r.student_id, (monthCnt.get(r.student_id) || 0) + 1));
   if (!(stus || []).length) {
     el.innerHTML = `<p class="mut"><b>원생·반</b> 탭에서 학생을 먼저 등록해 주세요.</p>`;
     return;
@@ -3960,7 +4011,7 @@ async function renderStuAtt(id, date, cls) {
       <button class="btn sm gray" onclick="stuAttAll(${id})">전원 출석</button>
     </div>
     <p class="mut" style="font-size:13px">${st.date} · 출석 ${today.filter(r => r.status === "출석").length} / ${list.length}명</p>
-    ${list.length ? `<div style="overflow-x:auto"><table>
+    ${list.length ? `<div style="overflow-x:auto"><table class="sortable">
       <tr><th>학생</th><th>체크</th><th class="num">이번 달 출석</th></tr>
       ${list.map(s => { const cur = today.find(r => r.student_id === s.id)?.status || "";
         return `<tr><td>${esc(s.name)} <span class="mut">${esc(s.grade || "")}</span></td>
@@ -3969,6 +4020,7 @@ async function renderStuAtt(id, date, cls) {
               onclick="stuAttMark(${id},${s.id},'${m}')">${m}</button>`).join("")}</td>
           <td class="num">${monthCnt.get(s.id) || 0}회</td></tr>`;
       }).join("")}</table></div>` : `<p class="mut">이 반에 배정된 학생이 없습니다.</p>`}`;
+  initSort(el);
 }
 async function stuAttMark(id, sid, status) {
   const d = stuAttState[id]?.date || ymdOf(new Date());
@@ -4065,7 +4117,7 @@ async function renderStuPay(id) {
   const paidOf = s => (pays || []).find(p => p.student_id === s.id && p.status === "완료");
   el.innerHTML = `<p class="mut">입금 완료 ${list.filter(paidOf).length} / ${list.length}명`
     + (noFee ? ` · <span style="color:var(--warn)">수강료·납부일이 비어 있는 학생 ${noFee}명은 안내가 나가지 않습니다</span>` : "") + `</p>
-    <div style="overflow-x:auto"><table>
+    <div style="overflow-x:auto"><table class="sortable">
     <tr><th>학생</th><th>과목</th><th class="num">월 수강료</th><th>납부일</th><th>입금</th><th class="no-print">안내</th></tr>
     ${list.map(s => { const paid = !!paidOf(s);
       return `<tr><td>${esc(s.name)} <span class="mut">${esc(s.grade || "")}</span></td>
@@ -4078,6 +4130,7 @@ async function renderStuPay(id) {
           : `<span class="mut" style="color:var(--bad)">연락처 없음</span>`}</td></tr>`;
     }).join("")}</table></div>
     <button class="btn sm" style="margin-top:8px;background:#0ea5e9;color:#fff" onclick="stuPayBulk(${id},'${ym}')">📋 미납자 안내 문구 한 번에 복사</button>`;
+  initSort(el);
 }
 let stuPayCache = {};
 async function toggleStuPay(aid, sid, ym, amount, name, paid) {
@@ -4169,7 +4222,7 @@ async function renderPayRoster(id) {
   const el = document.getElementById("payRoster-" + id);
   if (!active.length) { el.innerHTML = `<p class="mut">이 달에 등록된 학생이 없습니다.</p>`; return; }
   const paidCnt = active.filter(e => (pays || []).find(p => p.child_academy_id === e.id && p.status === "완료")).length;
-  el.innerHTML = `<p class="mut">입금 완료 ${paidCnt} / ${active.length}명</p><div style="overflow-x:auto"><table>
+  el.innerHTML = `<p class="mut">입금 완료 ${paidCnt} / ${active.length}명</p><div style="overflow-x:auto"><table class="sortable">
     <tr><th>학생</th><th>과목</th><th class="num">월 학원비</th><th>납부일</th><th>입금</th><th class="no-print">안내</th></tr>
     ${active.map(e => { const p = (pays || []).find(x => x.child_academy_id === e.id); const paid = p && p.status === "완료"; const selfRep = paid && p.self_reported;
       const nm = escJs(e.children?.name || "");
@@ -4181,6 +4234,7 @@ async function renderPayRoster(id) {
     }).join("")}</table></div>
     <button class="btn sm" style="margin-top:8px;background:#0ea5e9;color:#fff" onclick="sendBulkPayNotice(${id},'${ym}')">💌 입금 안내 한 번에 보내기</button>
     <p class="mut" style="margin-top:6px">💡 학생마다 <b>납부일</b>(매월 N일)을 입력하면, 🔔 입금 안내가 그 학생의 납부일 기준으로 발송됩니다. 위 버튼은 아직 입금이 확인되지 않은 분들께만 정중히 한 번에 안내해요. 부모님은 알림에서 금액과 함께 💳 지역화폐로 결제할 수 있어요.</p>`;
+  initSort(el);
 }
 async function togglePay(aid, caid, childId, ym, amount, name, paid) {
   const status = paid ? "미납" : "완료";
