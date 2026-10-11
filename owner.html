@@ -1,0 +1,186 @@
+<!doctype html>
+<!-- 학원장 안내 — 내 학원 인증하고 직접 관리하세요 | 모아학원 -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>학원장 안내 — 내 학원 인증하고 직접 관리하세요 | 모아학원</title>
+<meta name="description" content="원장님 학원은 이미 모아학원에 등록돼 있습니다. 사업자등록증으로 인증하면 학원 정보·원생·출결·학원비를 직접 관리할 수 있습니다. 인증과 관리 기능은 무료입니다.">
+<link rel="canonical" href="https://moahagwon.com/owner.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="모아학원">
+<meta property="og:title" content="학원장 안내 — 내 학원 인증하고 직접 관리하세요 | 모아학원">
+<meta property="og:description" content="원장님 학원은 이미 모아학원에 등록돼 있습니다. 사업자등록증으로 인증하면 학원 정보·원생·출결·학원비를 직접 관리할 수 있습니다. 인증과 관리 기능은 무료입니다.">
+<meta property="og:url" content="https://moahagwon.com/owner.html">
+<style>
+  :root{--p:#4f46e5;--t:#1f2937;--m:#6b7280;--b:#e5e7eb}
+  *{box-sizing:border-box}
+  body{margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;color:var(--t);line-height:1.75;background:#f9fafb}
+  header{background:#fff;border-bottom:1px solid var(--b)}
+  .wrap{max-width:760px;margin:0 auto;padding:0 20px}
+  header .wrap{display:flex;align-items:center;gap:14px;height:58px}
+  header a{color:var(--p);text-decoration:none;font-weight:700}
+  nav a{color:var(--m);font-weight:400;font-size:14px}
+  main{background:#fff;margin:24px auto;max-width:760px;padding:32px 20px;border:1px solid var(--b);border-radius:12px}
+  h1{font-size:26px;margin:0 0 14px}
+  h2{font-size:19px;margin:30px 0 8px}
+  h3{font-size:16px;margin:18px 0 4px}
+  .mut{color:var(--m);font-size:14px}
+  .cta{display:inline-block;margin-top:8px;background:var(--p);color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600}
+  .usebox{display:flex;gap:24px;align-items:flex-start}
+  .usebox>.txt{flex:1;min-width:0}
+  .qrbox{flex-shrink:0;margin:0;text-align:center;border:1px solid var(--b);border-radius:12px;padding:12px;background:#fff}
+  .qrbox img{display:block;width:130px;height:130px}
+  .qrbox figcaption{font-size:12px;color:var(--m);line-height:1.5;margin-top:8px}
+  /* 휴대폰에서는 QR 을 숨긴다. 자기 화면의 QR 을 스스로 찍을 수 없어 쓸모가 없다. */
+  @media(max-width:640px){ .usebox{display:block} .qrbox{display:none} }
+  .bizinfo{display:grid;grid-template-columns:230px 1fr;gap:6px 16px;margin:12px 0 0;font-size:14px}
+  .bizinfo dt{color:var(--m)}
+  .bizinfo dd{margin:0}
+  @media(max-width:640px){ .bizinfo{grid-template-columns:1fr;gap:0} .bizinfo dt{margin-top:10px} }
+  footer{max-width:760px;margin:0 auto 40px;padding:0 20px;color:var(--m);font-size:13px}
+  footer a{color:var(--m)}
+
+  /* 모집·랜딩 페이지 전용 */
+  .lead{font-size:17px;line-height:1.75}
+  .hero{background:linear-gradient(135deg,#eef2ff,#f8fafc);border:1px solid var(--b);border-radius:16px;padding:28px 22px;margin-bottom:22px}
+  .hero h1{margin:0 0 10px;font-size:27px;line-height:1.35}
+  .hero p{margin:0;color:#374151}
+  .cta{display:inline-block;margin-top:14px;background:var(--p);color:#fff;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:700}
+  .cta.ghost{background:#fff;color:var(--p);border:1px solid var(--p)}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}
+  .cards.two{grid-template-columns:repeat(2,1fr)}
+  .cardx{border:1px solid var(--b);border-radius:12px;padding:16px;background:#fff}
+  .cardx b{display:block;margin-bottom:5px}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:14px 0}
+  .steps li{counter-increment:s;position:relative;padding:12px 0 12px 44px;border-bottom:1px solid var(--b)}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:11px;width:28px;height:28px;border-radius:50%;background:var(--p);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+  .checks{list-style:none;padding:0;margin:10px 0}
+  .checks li{position:relative;padding:6px 0 6px 24px}
+  .checks li::before{content:"\2713";position:absolute;left:2px;color:var(--p);font-weight:800}
+  .offer{border:2px solid var(--p);border-radius:16px;padding:20px;background:#fbfbff;margin:20px 0}
+  .offer h2{margin:0 0 6px;font-size:20px}
+  .bar{height:10px;border-radius:6px;background:#e5e7eb;overflow:hidden;margin:10px 0 6px}
+  .bar i{display:block;height:100%;background:var(--p);width:0;transition:width .6s}
+  .stores{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .stores a{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--b);border-radius:10px;padding:10px 16px;text-decoration:none;color:var(--t);background:#fff;font-weight:600}
+  .qna dt{font-weight:700;margin-top:14px}
+  .qna dd{margin:4px 0 0;color:#374151}
+  @media(max-width:640px){ .cards,.cards.two{grid-template-columns:1fr} .hero h1{font-size:22px} .hero{padding:20px 16px} }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a href="/">모아학원</a>
+  <nav><a href="/contact.html">문의</a> · <a href="/terms.html">이용약관</a> · <a href="/privacy.html">개인정보처리방침</a></nav>
+</div></header>
+
+<main>
+  <div class="hero">
+    <h1>원장님 학원은<br>이미 모아학원에 등록돼 있습니다</h1>
+    <p class="lead">전국 <b>181,294곳</b> 중 한 곳으로 학부모에게 노출되고 있습니다.
+      다만 지금은 <b>공공데이터 그대로</b>입니다. 전화번호·과목·소개가 실제와 다를 수 있습니다.</p>
+    <a class="cta" href="https://moahagwon.com/">내 학원 인증하기</a>
+    <a class="cta ghost" href="#how">인증 절차 보기</a>
+  </div>
+
+  <div class="offer">
+    <h2>🎖 창립 학원 30곳을 모십니다</h2>
+    <p style="margin:0 0 4px"><b>프리미엄 노출 30일 무료</b> <span class="mut">(33,000원 상당)</span></p>
+    <div class="bar"><i id="offerBar"></i></div>
+    <p class="mut" style="margin:0" id="offerTxt">모집 현황을 불러오는 중…</p>
+    <p class="mut" style="margin:8px 0 0;font-size:13px">인증과 관리 기능은 창립 멤버가 아니어도 <b>계속 무료</b>입니다.</p>
+  </div>
+
+  <h2 id="how">인증은 세 단계면 끝납니다</h2>
+  <ol class="steps">
+    <li><b>내 학원을 찾습니다</b><br><span class="mut">앱 하단 「학원장」 → 학원명이나 주소로 검색합니다. 공부방은 직접 등록할 수 있습니다.</span></li>
+    <li><b>사업자등록증을 올립니다</b><br><span class="mut">사업자등록번호와 등록증 사진이면 됩니다. 서류는 비공개로 보관하며 확인 외에 쓰지 않습니다.</span></li>
+    <li><b>승인되면 바로 관리합니다</b><br><span class="mut">보통 하루 안에 확인합니다. 승인되면 아래 기능이 전부 열립니다.</span></li>
+  </ol>
+
+  <h2>인증하면 할 수 있는 일</h2>
+  <div class="cards">
+    <div class="cardx"><b>📝 내 학원 정보</b><span class="mut">전화·과목·수강료·소개·강사·시간표를 직접 고칩니다. 틀린 정보로 손해 보지 않습니다.</span></div>
+    <div class="cardx"><b>🎒 원생·반 관리</b><span class="mut">학생과 반을 등록하고 반에 배정합니다. <b>쓰시던 엑셀 명부를 그대로 올리면</b> 칸을 알아서 맞춥니다.</span></div>
+    <div class="cardx"><b>✅ 출결</b><span class="mut">QR 출석과 손으로 체크하는 출석부 둘 다 됩니다. 학부모 앱이 없어도 출석부는 씁니다.</span></div>
+    <div class="cardx"><b>💰 학원비 관리</b><span class="mut">학생별 수강료와 납부일을 적어두면 월별 입금 현황이 한눈에 보입니다. 미납자 안내 문구도 만들어 줍니다.</span></div>
+    <div class="cardx"><b>💬 상담·소식</b><span class="mut">학부모 문의를 신규→연락완료→등록완료로 관리하고, 학원 소식을 한 번에 보냅니다.</span></div>
+    <div class="cardx"><b>📈 통계</b><span class="mut">등록 학생 추이, 수납 현황, 동네 평균 대비 우리 학원 가격 위치를 봅니다.</span></div>
+  </div>
+
+  <h2>비용</h2>
+  <div class="cards two">
+    <div class="cardx"><b>무료 — 인증과 관리 전부</b>
+      <ul class="checks" style="margin:6px 0 0">
+        <li>학원 정보 수정</li><li>원생·반·출결·학원비 관리</li><li>상담 리드·학원 소식</li><li>통계와 리포트</li></ul>
+    </div>
+    <div class="cardx"><b>유료 — 프리미엄 노출만</b>
+      <p class="mut" style="margin:6px 0 0">검색 결과 상단에 고정 노출됩니다. 월 33,000원.
+        <b>창립 학원 30곳은 30일 무료</b>입니다. 신청하지 않으면 과금되지 않습니다.</p>
+    </div>
+  </div>
+
+  <h2>자주 묻는 질문</h2>
+  <dl class="qna">
+    <dt>등록을 원치 않으면 어떻게 하나요?</dt>
+    <dd>공공데이터(NEIS) 기반이라 기본 정보는 공개 자료입니다. 노출을 원치 않으시면
+      <a href="/contact.html">문의</a>로 알려주시면 내려드립니다.</dd>
+    <dt>사업자등록증은 어디에 쓰이나요?</dt>
+    <dd>소유자 확인에만 씁니다. 비공개 저장소에 보관하며 외부에 공개되지 않습니다.</dd>
+    <dt>학부모가 앱을 안 써도 되나요?</dt>
+    <dd>됩니다. 원장님이 직접 올린 명부로 출석부와 학원비 관리를 쓰실 수 있습니다.
+      다만 등·하원 자동 알림은 학부모가 앱에서 자녀를 연결해야 갑니다.</dd>
+    <dt>약정이 있나요?</dt>
+    <dd>없습니다. 프리미엄 노출도 신청한 기간만 적용되고 자동 갱신하지 않습니다.</dd>
+  </dl>
+
+  <h2>지금 시작하세요</h2>
+  <p>사업자등록증만 있으면 됩니다.</p>
+  <a class="cta" href="https://moahagwon.com/">내 학원 인증하기</a>
+  <p class="mut" style="margin-top:10px">앱으로 하시려면 — <a href="https://apps.apple.com/kr/app/id6801823750">App Store</a> · <a href="https://play.google.com/store/apps/details?id=com.moahagwon.myapp&hl=ko">Google Play</a></p>
+
+</main>
+
+<footer>
+  <p><a href="/">모아학원 홈</a> · <a href="/contact.html">문의</a> · <a href="/terms.html">이용약관</a> · <a href="/privacy.html">개인정보처리방침</a> · <a href="/pricing.html">요금제</a> · <a href="/refund.html">환불정책</a></p>
+  <!-- SNS 채널 8종. 각 사 공식 마크를 인라인 SVG 로 넣는다(Simple Icons 배포본, 상표권은 각 사에 있다).
+       CDN(cdn.simpleicons.org)은 동시 요청에 500 을 내서 쓰지 않는다.
+       30px + 간격 8px = 가로 296px. 아이폰 세로(375px)에서 한 줄에 들어간다. -->
+  <style>.moa-sns a{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;text-decoration:none;transition:transform .15s,box-shadow .15s;box-shadow:0 1px 3px rgba(0,0,0,.18)}.moa-sns a:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(0,0,0,.25)}.moa-sns svg{display:block}</style>
+  <div class="moa-sns" style="margin:14px 0 12px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap">
+  <a href="https://blog.naver.com/moahagwon" target="_blank" rel="noopener" title="네이버 블로그" aria-label="네이버 블로그" style="background:#03C75A"><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" aria-hidden="true" focusable="false"><path d="M16.273 12.845 7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727v12.845Z"/></svg></a>
+  <a href="https://moahagwon.tistory.com" target="_blank" rel="noopener" title="티스토리" aria-label="티스토리" style="background:#EB531F"><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" aria-hidden="true" focusable="false"><path d="M0 3a3 3 0 1 0 6 0 3 3 0 0 0-6 0m9 18a3 3 0 1 0 6 0 3 3 0 0 0-6 0m0-9a3 3 0 1 0 6 0 3 3 0 0 0-6 0m0-9a3 3 0 1 0 6 0 3 3 0 0 0-6 0m9 0a3 3 0 1 0 6 0 3 3 0 0 0-6 0"/></svg></a>
+  <a href="https://moahagwon.blogspot.com" target="_blank" rel="noopener" title="블로거" aria-label="블로거" style="background:#FF8000"><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" aria-hidden="true" focusable="false"><path d="M21.976 24H2.026C.9 24 0 23.1 0 21.976V2.026C0 .9.9 0 2.025 0H22.05C23.1 0 24 .9 24 2.025v19.95C24 23.1 23.1 24 21.976 24zM12 3.975H9c-2.775 0-5.025 2.25-5.025 5.025v6c0 2.774 2.25 5.024 5.025 5.024h6c2.774 0 5.024-2.25 5.024-5.024v-3.975c0-.6-.45-1.05-1.05-1.05H18c-.524 0-.976-.45-.976-.976 0-2.776-2.25-5.026-5.024-5.026zm3.074 12H9c-.525 0-.975-.45-.975-.975s.45-.976.975-.976h6.074c.526 0 .977.45.977.976s-.45.976-.975.976zm-2.55-7.95c.527 0 .976.45.976.975s-.45.975-.975.975h-3.6c-.525 0-.976-.45-.976-.975s.45-.975.975-.975h3.6z"/></svg></a>
+  <a href="https://www.instagram.com/moahagwon_" target="_blank" rel="noopener" title="인스타그램" aria-label="인스타그램" style="background:linear-gradient(135deg,#f9ce34,#ee2a7b 55%,#6228d7)"><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" aria-hidden="true" focusable="false"><path d="M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077"/></svg></a>
+  <a href="https://www.threads.net/@moahagwon_" target="_blank" rel="noopener" title="스레드" aria-label="스레드" style="background:#101010"><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" aria-hidden="true" focusable="false"><path d="M18.263 11.097c-.03-3.486-1.92-5.586-5.111-5.586-2.13 0-3.922.963-4.863 2.499l2.062 1.438c.535-.843 1.272-1.543 2.628-1.543 1.528 0 2.318.85 2.544 2.431a15 15 0 0 0-2.236-.173c-4.125 0-6.068 1.867-6.068 4.336s1.943 3.99 4.804 3.99c3.139 0 5.013-2.115 5.781-4.735.798.361 1.348 1.204 1.348 2.47 0 3.387-3.907 5.232-7.22 5.232-4.885 0-8.077-3.207-8.077-8.424 0-6.392 4.223-10.487 9.9-10.487 3.808 0 5.69 1.671 6.97 3.914l2.108-1.475C21.44 2.078 18.331 0 13.663 0 6.227 0 1.168 5.277 1.168 12.934c0 7 4.953 11.066 10.856 11.066 4.878 0 9.809-2.846 9.809-7.716 0-2.545-1.46-4.231-3.569-5.187m-6.33 4.855c-1.077 0-2.026-.512-2.026-1.453 0-1.483 1.822-1.934 3.606-1.934.678 0 1.34.045 1.927.173-.422 1.927-1.671 3.215-3.508 3.214Z"/></svg></a>
+  <a href="https://www.facebook.com/profile.php?id=61595400712529" target="_blank" rel="noopener" title="페이스북" aria-label="페이스북" style="background:#0866FF"><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" aria-hidden="true" focusable="false"><path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z"/></svg></a>
+  <a href="https://www.youtube.com/@moahagwon" target="_blank" rel="noopener" title="유튜브" aria-label="유튜브" style="background:#FF0000"><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" aria-hidden="true" focusable="false"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></a>
+  <a href="https://www.tiktok.com/@moahagwon" target="_blank" rel="noopener" title="틱톡" aria-label="틱톡" style="background:#010101"><svg width="15" height="15" viewBox="0 0 24 24" fill="#fff" aria-hidden="true" focusable="false"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg></a>
+  </div>
+  <p style="margin-top:10px;line-height:1.8">모아학원 (MOA) · 대표 박동춘 · 사업자등록번호 808-27-02108 · 통신판매업신고 제2026-충남아산-0930호 · 호스팅 제공 GitHub, Inc. · Cloudflare, Inc.<br>
+    충청남도 아산시 탕정면 탕정면로 37, 401동 3104호 (탕정삼성트라팰리스아파트)<br>
+    전화 010-7385-2657 · 이메일 <!--email_off-->moahagwon@gmail.com<!--/email_off--><br>
+    문의는 이메일 또는 앱 내 모아봇으로 주시면 더 빠르게 답변드립니다.</p>
+</footer>
+<script>
+// 창립 학원 모집 현황. 주인이 붙은 학원 수를 실시간으로 읽는다(지어낸 숫자를 쓰지 않는다).
+(async () => {
+  const GOAL = 30;
+  try {
+    const r = await fetch("https://supabase.moahagwon.com/rest/v1/academies?select=id&owner_id=not.is.null", {
+      headers: { apikey: "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogImFub24iLCAiaXNzIjogInN1cGFiYXNlIiwgImlhdCI6IDE3ODc5MjI0NjUsICJleHAiOiAyMTAzMjgyNDY1fQ.Oe_lPHfD-zqq110bi2t8yp4GQNuqW65aYx3aKq4MQds", Prefer: "count=exact", Range: "0-0" }
+    });
+    const n = parseInt((r.headers.get("content-range") || "").split("/")[1], 10);
+    if (!Number.isFinite(n)) throw 0;
+    const left = Math.max(GOAL - n, 0);
+    document.getElementById("offerBar").style.width = Math.min(n / GOAL * 100, 100) + "%";
+    document.getElementById("offerTxt").innerHTML =
+      left ? `<b>${n} / ${GOAL}곳</b> — ${left}자리 남았습니다.` : `<b>${GOAL}곳 모집이 마감됐습니다.</b>`;
+  } catch (e) {
+    document.getElementById("offerTxt").textContent = "선착순 30곳입니다.";
+  }
+})();
+</script>
+</body>
+</html>
