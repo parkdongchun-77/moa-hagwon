@@ -175,6 +175,9 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
 .od-kpi.a{border-left-color:var(--warn)} .od-kpi.a b{color:var(--warn)} .od-kpi.a .od-ico{background:#fffbeb}
 .od-kpi.b{border-left-color:#2563eb}     .od-kpi.b b{color:#2563eb}     .od-kpi.b .od-ico{background:#eff6ff}
 .od-kpi.mute{border-left-color:var(--line)} .od-kpi.mute b{color:var(--mut)} .od-kpi.mute .od-ico{background:#f1f5f9}
+.todo-chip{display:inline-flex;align-items:center;gap:3px;background:#fef3c7;color:#92400e;border-radius:20px;padding:1px 8px 1px 7px;font-size:12px;font-weight:700;vertical-align:middle}
+.todo-chip input{border:0;background:transparent;color:inherit;font:inherit;padding:0;width:104px;cursor:pointer}
+.todo-chip input::-webkit-calendar-picker-indicator{opacity:.55;cursor:pointer}
 .stat.ck,.od-fstep.ck{cursor:pointer;transition:border-color .12s,background .12s}
 .stat.ck:hover,.od-fstep.ck:hover{border-color:var(--p2);background:#fbfbff}
 .od-kpi.ck{cursor:pointer}
@@ -3227,7 +3230,7 @@ async function renderOwnRoster(id) {
   const [{ data: stus }, { data: cls }, { data: cons }] = await Promise.all([
     sb.from("students").select("*").eq("academy_id", id).order("status").order("name"),
     sb.from("classes").select("*, class_students(id, student_id, left_on)").eq("academy_id", id).order("active", { ascending: false }).order("name"),
-    sb.from("consults").select("student_id, next_at, done").eq("academy_id", id),
+    sb.from("consults").select("id, student_id, next_at, done").eq("academy_id", id),
   ]);
   const students = stus || [], classes = cls || [];
   // 원생별 상담 건수와, 아직 안 끝난 후속 약속 중 가장 빠른 날짜
@@ -3237,10 +3240,10 @@ async function renderOwnRoster(id) {
     conCnt.set(c.student_id, (conCnt.get(c.student_id) || 0) + 1);
     if (c.next_at && !c.done) {
       const prev = todoBy.get(c.student_id);
-      if (!prev || c.next_at < prev) todoBy.set(c.student_id, c.next_at);
+      if (!prev || c.next_at < prev.at) todoBy.set(c.student_id, { id: c.id, at: c.next_at });
     }
   });
-  const todoSoon = [...todoBy.values()].filter(d => d <= new Date().toISOString().slice(0, 10)).length;
+  const todoSoon = [...todoBy.values()].filter(v => v.at <= new Date().toISOString().slice(0, 10)).length;
   const active = students.filter(x => x.status === "재원");
 
   // 학생이 어느 반에 들어 있는지 (노션의 「소속」과 같은 자리)
@@ -3252,7 +3255,7 @@ async function renderOwnRoster(id) {
 
   const stuRows = students.map(x => `
     <div class="review stu-row" data-cls="${esc((clsOf.get(x.id) || []).join("|"))}"
-      data-nophone="${x.parent_phone ? "" : "1"}" data-todo="${todoBy.has(x.id) && todoBy.get(x.id) <= new Date().toISOString().slice(0, 10) ? "1" : ""}"
+      data-nophone="${x.parent_phone ? "" : "1"}" data-todo="${todoBy.has(x.id) && todoBy.get(x.id).at <= new Date().toISOString().slice(0, 10) ? "1" : ""}"
       style="${x.status === "재원" ? "" : "opacity:.55"}">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <div>${(clsOf.get(x.id) || []).map(n => `<span class="tag" style="background:#eef2ff;color:var(--p)">${esc(n)}</span> `).join("")}<b>${esc(x.name)}</b>${x.grade ? ` <span class="tag">${esc(x.grade)}</span>` : ""}${x.gender ? ` <span class="tag">${esc(x.gender)}</span>` : ""}
@@ -3265,7 +3268,8 @@ async function renderOwnRoster(id) {
         ${x.parent_name ? esc(x.parent_name) + " " : ""}${x.parent_phone ? esc(x.parent_phone) : `<span style="color:var(--bad)">학부모 연락처 없음</span>`}
         ${x.student_phone ? ` · 본인 ${esc(x.student_phone)}` : ""}
         ${x.subject ? ` · ${esc(x.subject)}` : ""}
-        ${todoBy.has(x.id) ? ` <span class="tag" style="background:#fef3c7;color:#92400e">📌 ${todoBy.get(x.id)}</span>` : ""}
+        ${todoBy.has(x.id) ? ` <span class="todo-chip" title="눌러서 날짜를 바꿉니다. 비우면 약속이 지워집니다">📌
+            <input type="date" value="${todoBy.get(x.id).at}" onchange="setConsultNext(${id},${todoBy.get(x.id).id},this.value)"></span>` : ""}
       </div>
       <!-- 수강료·납부일은 그 자리에서 고친다. 이 둘이 비면 입금 관리와 납부 안내에서 빠진다. -->
       <div class="row no-print" style="margin-top:5px;gap:6px;align-items:center">
@@ -3628,6 +3632,13 @@ function initSort(scope) {
       };
     });
   });
+}
+// 📌 후속 약속 날짜를 그 자리에서 고친다. 비우면 약속만 지운다(상담 기록은 남는다).
+async function setConsultNext(aid, cid, val) {
+  const { error } = await sb.from("consults").update({ next_at: val || null }).eq("id", cid);
+  if (error) return toast("저장 실패: " + error.message);
+  toast(val ? `후속 약속을 ${val} 로 바꿨어요.` : "후속 약속을 지웠어요.");
+  renderOwnRoster(aid);
 }
 // 원생 목록을 거른다. 다시 불러오지 않고 화면에서만 숨긴다.
 // cls 가 __nophone·__todo 면 반이 아니라 그 조건으로 거른다.
