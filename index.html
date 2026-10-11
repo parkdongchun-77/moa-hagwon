@@ -538,6 +538,8 @@ body{padding-bottom:70px}
     </div>
     <div id="neisAuto" class="mut" style="margin:2px 0 10px"></div>
     <div class="row" id="adminStats"></div>
+    <!-- 처리 안 된 신청이 목록에 섞여 안 보이는 일이 있었다(광고 주문 3개월 방치). 맨 위에 모아 띄운다. -->
+    <div id="adminTodo"></div>
   </div>
   <div class="card" data-sec="오늘·7일 현황"><h3>📊 오늘 · 최근 7일 현황</h3><div class="row" id="adminKpi"><div class="empty">불러오는 중...</div></div></div>
   <div class="card" data-sec="에러·로그"><div class="row"><h3 style="margin:0">🩺 에러 · 시스템 로그 <span class="mut">(최근 50건)</span></h3>
@@ -4875,8 +4877,33 @@ async function loadAdmin() {
   const { data: ads } = await sb.from("ad_orders").select("*, academies(name)").in("status", ["신청","진행중"]).order("created_at");
   document.getElementById("adminAds").innerHTML = (ads || []).map(o => `<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)">
     <span><b>${esc(o.academies?.name)}</b> · ${esc(o.product)} · ${won(o.price)}/월 · <span class="tag ${o.status === "진행중" ? "" : "gray"}">${o.status}</span></span>
-    ${o.status === "신청" ? `<button class="btn sm right" onclick="decideAd(${o.id},${o.academy_id},true)">승인(노출 시작)</button>` :
-      `<button class="btn sm gray right" onclick="decideAd(${o.id},${o.academy_id},false)">종료</button>`}</div>`).join("") || `<p class="mut">광고 주문이 없습니다.</p>`;
+    ${o.status === "신청"
+      ? `<button class="btn sm right" onclick="decideAd(${o.id},${o.academy_id},true)">승인(노출 시작)</button>
+         <button class="btn sm gray right" onclick="rejectAd(${o.id})">거절</button>`
+      : `<button class="btn sm gray right" onclick="decideAd(${o.id},${o.academy_id},false)">종료</button>`}</div>`).join("") || `<p class="mut">광고 주문이 없습니다.</p>`;
+  renderAdminTodo({ claims: (cls || []).length, reports: (rps || []).length, edits: (eds || []).length, ads: (ads || []).filter(o => o.status === "신청").length });
+}
+// 처리해야 할 신청을 운영센터 맨 위에 모아 보여준다. 누르면 그 칸으로 내려간다.
+function renderAdminTodo(n) {
+  const box = document.getElementById("adminTodo");
+  if (!box) return;
+  const items = [
+    ["클레임 승인", n.claims, "건"], ["신고 관리", n.reports, "건"],
+    ["정보 수정 요청", n.edits, "건"], ["광고 주문", n.ads, "건"],
+  ].filter(([, c]) => c > 0);
+  box.innerHTML = items.length
+    ? `<div class="od-todo" style="margin-top:10px">${items.map(([sec, c, unit]) =>
+        `<button onclick="adminGo('${sec}')">⏳ ${sec}<span class="od-badge r">${c}${unit}</span></button>`).join("")}</div>`
+    : `<p class="mut" style="margin:8px 0 0">처리할 신청이 없습니다.</p>`;
+}
+function adminGo(sec) {
+  document.querySelector(`#adminBody [data-sec="${sec}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+// 광고 주문 거절. 결제 연동 전이라 승인 대신 거절할 일이 생긴다.
+async function rejectAd(oid) {
+  const { error } = await sb.from("ad_orders").update({ status: "거절" }).eq("id", oid);
+  toast(error ? "처리 실패: " + error.message : "거절 처리했습니다.");
+  loadAdmin();
 }
 async function decideClaim(id, ok) {
   const { error } = await sb.rpc("approve_claim", { claim_id: id, approve: ok });
