@@ -3244,9 +3244,18 @@ async function renderOwnRoster(id) {
       </div>
       <div class="mut" style="font-size:13px;margin-top:3px">
         ${x.parent_name ? esc(x.parent_name) + " " : ""}${x.parent_phone ? esc(x.parent_phone) : `<span style="color:var(--bad)">학부모 연락처 없음</span>`}
+        ${x.subject ? ` · ${esc(x.subject)}` : ""}
         ${todoBy.has(x.id) ? ` <span class="tag" style="background:#fef3c7;color:#92400e">📌 ${todoBy.get(x.id)}</span>` : ""}
       </div>
-      <div class="row no-print" style="margin-top:5px">
+      <!-- 수강료·납부일은 그 자리에서 고친다. 이 둘이 비면 입금 관리와 납부 안내에서 빠진다. -->
+      <div class="row no-print" style="margin-top:5px;gap:6px;align-items:center">
+        <span class="mut" style="font-size:12.5px">월</span>
+        <input type="number" inputmode="numeric" value="${x.monthly_fee || ""}" placeholder="수강료"
+          style="width:108px;padding:5px 8px;font-size:13px" onchange="setStudentBilling(${id},${x.id},'monthly_fee',this.value)">
+        <span class="mut" style="font-size:12.5px">매월</span>
+        <input type="number" inputmode="numeric" min="1" max="31" value="${x.billing_day || ""}" placeholder="일"
+          style="width:64px;padding:5px 8px;font-size:13px" onchange="setStudentBilling(${id},${x.id},'billing_day',this.value)">
+        <span class="mut" style="font-size:12.5px">일</span>
         <button class="btn sm gray" onclick="openConsults(${id},${x.id},'${escJs(x.name)}')">💬 상담 ${conCnt.get(x.id) || 0}</button>
       </div>
       <div id="stuCon-${x.id}"></div>
@@ -3296,6 +3305,13 @@ async function renderOwnRoster(id) {
         <div class="field"><input id="stuPName-${id}" placeholder="학부모 이름"></div>
         <div class="field"><input id="stuPhone-${id}" inputmode="tel" placeholder="학부모 연락처 (예: 010-1234-5678)"></div>
       </div>
+      <!-- 수강료·납부일이 있어야 입금 관리와 납부 안내가 돈다 -->
+      <div class="grid3">
+        <div class="field"><input id="stuSubj-${id}" placeholder="과목 (예: 수학)"></div>
+        <div class="field"><input id="stuFee-${id}" type="number" inputmode="numeric" placeholder="월 수강료 (예: 250000)"></div>
+        <div class="field"><input id="stuBday-${id}" type="number" inputmode="numeric" min="1" max="31" placeholder="납부일 (예: 10)"></div>
+      </div>
+      <div class="field"><label>등록일</label><input id="stuStart-${id}" type="date"></div>
       <button class="btn sm" onclick="addStudent(${id})">원생 등록</button>
       <div style="border-top:1px dashed var(--line);margin-top:14px;padding-top:12px">
         <b>엑셀로 한 번에 등록</b>
@@ -3343,6 +3359,10 @@ const XLS_FIELDS = [
   { k: "parent_name", label: "학부모 이름", hints: ["학부모", "보호자", "부모", "모친", "부친", "학부모명", "보호자명", "parent", "guardian"] },
   // 「학부모 연락처」는 학부모·연락처 두 쪽에 다 걸린다. 연락처 쪽이 결정적이므로 동점이면 이기게 한다.
   { k: "parent_phone", label: "학부모 연락처", prio: 2, hints: ["연락처", "전화", "휴대폰", "핸드폰", "번호", "phone", "hp", "tel", "모바일"] },
+  { k: "subject", label: "과목", hints: ["과목", "수강과목", "반", "클래스", "subject", "class"] },
+  // 금액은 「수강료」가 결정적이다. 「원비」·「학원비」도 같이 본다.
+  { k: "monthly_fee", label: "월 수강료", prio: 2, hints: ["수강료", "학원비", "원비", "교습비", "월회비", "금액", "fee", "tuition", "amount"] },
+  { k: "billing_day", label: "납부일", prio: 2, hints: ["납부일", "결제일", "입금일", "청구일", "수납일", "납부", "billingday", "payday"] },
   { k: "memo", label: "메모", hints: ["메모", "비고", "특이사항", "참고", "memo", "note"] },
 ];
 let xlsRows = null, xlsHeaders = [], xlsMap = {}, xlsLastIds = [];
@@ -3427,7 +3447,13 @@ function xlsBuild(id) {
     for (const [i, k] of Object.entries(xlsMap)) {
       const raw = String(r[i] ?? "").trim();
       if (!raw) continue;
-      rec[k] = k === "parent_phone" ? xlsPhone(raw) : raw;
+      // 숫자 칸은 「250,000원」·「매월 10일」처럼 적힌 것도 받아 숫자만 뽑는다
+      if (k === "monthly_fee" || k === "billing_day") {
+        const n = parseInt(raw.replace(/[^0-9]/g, ""), 10);
+        if (!Number.isFinite(n)) continue;
+        if (k === "billing_day" && (n < 1 || n > 31)) continue;
+        rec[k] = n;
+      } else rec[k] = k === "parent_phone" ? xlsPhone(raw) : raw;
     }
     if (!rec.name) bad.push({ line: n + 2, why: "학생 이름이 비어 있습니다" });
     else ok.push(rec);
@@ -3490,8 +3516,8 @@ async function xlsUndo(id) {
 async function xlsTemplate() {
   if (!await xlsLoadLib()) return toast("엑셀 도구를 불러오지 못했습니다.");
   const ws = XLSX.utils.aoa_to_sheet([
-    ["이름", "학년", "학부모 이름", "학부모 연락처", "메모"],
-    ["홍길동", "중2", "홍아버지", "010-1234-5678", ""],
+    ["이름", "학년", "학부모 이름", "학부모 연락처", "과목", "월 수강료", "납부일", "메모"],
+    ["홍길동", "중2", "홍아버지", "010-1234-5678", "수학", 250000, 10, ""],
   ]);
   const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "학생명부");
   XLSX.writeFile(wb, "모아학원_학생명부_양식.xlsx");
@@ -3499,17 +3525,30 @@ async function xlsTemplate() {
 async function _addStudent(id) {
   const name = document.getElementById(`stuName-${id}`).value.trim();
   if (!name) return toast("학생 이름을 입력하세요.");
+  const bd = +document.getElementById(`stuBday-${id}`).value || null;
+  if (bd && (bd < 1 || bd > 31)) return toast("납부일은 1~31 사이로 넣어 주세요.");
   const { error } = await sb.from("students").insert({
     academy_id: id, name,
     grade: document.getElementById(`stuGrade-${id}`).value.trim() || null,
     parent_name: document.getElementById(`stuPName-${id}`).value.trim() || null,
     parent_phone: document.getElementById(`stuPhone-${id}`).value.trim() || null,
+    subject: document.getElementById(`stuSubj-${id}`).value.trim() || null,
+    monthly_fee: +document.getElementById(`stuFee-${id}`).value || null,
+    billing_day: bd,
+    started_on: document.getElementById(`stuStart-${id}`).value || null,
   });
   if (error) return toast("등록 실패: " + error.message);
   toast(`${name} 학생을 등록했습니다.`);
   renderOwnRoster(id);
 }
 
+// 수강료·납부일 인라인 수정. 비우면 null 로 지운다(= 입금 관리에서 빠진다).
+async function setStudentBilling(id, sid, field, raw) {
+  const v = raw === "" ? null : +raw;
+  if (field === "billing_day" && v !== null && (v < 1 || v > 31)) return toast("납부일은 1~31 사이로 넣어 주세요.");
+  const { error } = await sb.from("students").update({ [field]: v }).eq("id", sid);
+  toast(error ? "저장 실패: " + error.message : "저장했습니다.");
+}
 async function setStudentStatus(id, sid, status) {
   const { error } = await sb.from("students").update({ status }).eq("id", sid);
   if (error) return toast("변경 실패: " + error.message);
@@ -3861,7 +3900,8 @@ async function renderOwnStudents(id) {
     <div class="row" style="margin-bottom:8px">
       <div class="stat"><b>${cur}명</b><span>현재 등록 학생</span></div>
       <div class="stat"><b style="color:${diff >= 0 ? "var(--good)" : "var(--bad)"}">${diff >= 0 ? "+" : ""}${diff}명</b><span>지난달 대비</span></div>
-      <div class="stat"><b>${ownEnr[id].length}명</b><span>누적 등록</span></div></div>
+      <div class="stat"><b>${ownEnr[id].length}명</b><span>누적 등록</span></div>
+      <div class="stat"><b id="stuPayCnt-${id}">-</b><span>명부 학생</span></div></div>
     <div class="card" style="background:#f0f9ff;border:1px solid #bae6fd;margin:8px 0;padding:12px">
       <b>📨 학원 생활 소식 보내기</b> <span class="mut">전체 학부모에게 한 번에</span>
       <textarea id="msgBox-${id}" rows="2" placeholder="예: 오늘 수업 분위기 정말 좋았어요! 이번 주 숙제는 ○○ 입니다." style="width:100%;margin-top:6px"></textarea>
@@ -3873,10 +3913,101 @@ async function renderOwnStudents(id) {
         <option value="quarter">분기별</option><option value="half">반기별</option><option value="year">연도별</option></select></div>
     <canvas id="stuChart-${id}" height="110"></canvas>
     <div class="row" style="margin:16px 0 4px"><b>💰 월별 입금 관리</b>
-      <input type="month" id="payYm-${id}" value="${nowYm}" class="right" onchange="renderPayRoster(${id})"></div>
-    <div id="payRoster-${id}"></div>`;
+      <input type="month" id="payYm-${id}" value="${nowYm}" class="right" onchange="renderPayRoster(${id});renderStuPay(${id})"></div>
+    <p class="mut" style="font-size:13px;margin:0 0 6px">앱에 가입한 학부모가 자녀를 연결한 건입니다. 알림이 앱으로 바로 갑니다.</p>
+    <div id="payRoster-${id}"></div>
+    <div class="row" style="margin:22px 0 4px"><b>🎒 명부 학생 입금 관리</b>
+      <span class="mut right" style="font-size:12.5px">원생·반에서 등록한 학생</span></div>
+    <p class="mut" style="font-size:13px;margin:0 0 6px">학부모가 앱을 쓰지 않아도 됩니다. 안내는 문자로 보냅니다.</p>
+    <div id="stuPay-${id}"></div>`;
   renderStudentTrend(id);
   renderPayRoster(id);
+  renderStuPay(id);
+}
+
+// 원장이 명부(students)에 올린 학생의 월별 입금. 학부모 계정이 없어도 쓴다.
+// 학부모가 앱에서 연결한 건(child_id 가 child_academies 에 있는 학생)은 위 표에 이미 있으므로 뺀다.
+async function renderStuPay(id) {
+  const el = document.getElementById("stuPay-" + id);
+  if (!el) return;
+  const ym = document.getElementById("payYm-" + id).value || ymOf(new Date());
+  const [{ data: stus }, { data: pays }] = await Promise.all([
+    sb.from("students").select("id,name,grade,parent_name,parent_phone,subject,monthly_fee,billing_day,started_on,ended_on,child_id,status")
+      .eq("academy_id", id).neq("status", "퇴원").order("name"),
+    sb.from("payments").select("*").eq("academy_id", id).eq("year_month", ym),
+  ]);
+  const linked = new Set((ownEnr[id] || []).map(e => e.child_id).filter(Boolean));
+  const last = ym + "-31";
+  const list = (stus || []).filter(s => !(s.child_id && linked.has(s.child_id)))
+    .filter(s => (!s.started_on || s.started_on <= last) && (!s.ended_on || s.ended_on >= ym + "-01"));
+  stuPayCache[id] = list;
+  const cnt = document.getElementById("stuPayCnt-" + id);
+  if (cnt) cnt.textContent = list.length + "명";
+  if (!list.length) {
+    el.innerHTML = `<p class="mut">이 달에 해당하는 명부 학생이 없습니다. <b>원생·반</b> 탭에서 학생을 등록하고 수강료·납부일을 넣어 주세요.</p>`;
+    return;
+  }
+  const noFee = list.filter(s => !s.monthly_fee || !s.billing_day).length;
+  const paidOf = s => (pays || []).find(p => p.student_id === s.id && p.status === "완료");
+  el.innerHTML = `<p class="mut">입금 완료 ${list.filter(paidOf).length} / ${list.length}명`
+    + (noFee ? ` · <span style="color:var(--warn)">수강료·납부일이 비어 있는 학생 ${noFee}명은 안내가 나가지 않습니다</span>` : "") + `</p>
+    <div style="overflow-x:auto"><table>
+    <tr><th>학생</th><th>과목</th><th class="num">월 수강료</th><th>납부일</th><th>입금</th><th class="no-print">안내</th></tr>
+    ${list.map(s => { const paid = !!paidOf(s);
+      return `<tr><td>${esc(s.name)} <span class="mut">${esc(s.grade || "")}</span></td>
+        <td>${esc(s.subject || "")}</td><td class="num">${s.monthly_fee ? won(s.monthly_fee) : `<span class="mut">-</span>`}</td>
+        <td style="white-space:nowrap">${s.billing_day ? `매월 ${s.billing_day}일` : `<span class="mut">-</span>`}</td>
+        <td><button class="btn sm ${paid ? "" : "gray"}" onclick="toggleStuPay(${id},${s.id},'${ym}',${s.monthly_fee || 0},'${escJs(s.name)}',${paid})">${paid ? "✅ 완료" : "입금 전"}</button></td>
+        <td class="no-print">${paid ? `<span class="mut">✅ 확인됨</span>`
+          : s.parent_phone ? `<button class="btn sm ghost" onclick="stuPayNotice(${id},${s.id},'${ym}')">💬 문자 안내</button>`
+          : `<span class="mut" style="color:var(--bad)">연락처 없음</span>`}</td></tr>`;
+    }).join("")}</table></div>
+    <button class="btn sm" style="margin-top:8px;background:#0ea5e9;color:#fff" onclick="stuPayBulk(${id},'${ym}')">📋 미납자 안내 문구 한 번에 복사</button>`;
+}
+let stuPayCache = {};
+async function toggleStuPay(aid, sid, ym, amount, name, paid) {
+  const status = paid ? "미납" : "완료";
+  const { error } = await sb.from("payments").upsert({
+    academy_id: aid, student_id: sid, student_name: name, year_month: ym, amount, status,
+    paid_at: status === "완료" ? new Date().toISOString() : null,
+  }, { onConflict: "student_id,year_month" });
+  if (error) return toast("오류: " + error.message);
+  toast(status === "완료" ? "입금 완료로 표시했어요." : "미납으로 변경했어요.");
+  renderStuPay(aid);
+}
+// 납부일을 그 달에 맞춰 계산한다 (31일 지정인데 2월이면 말일로 당긴다)
+function stuDueDate(ym, day) {
+  const [y, m] = ym.split("-").map(Number);
+  return new Date(y, m - 1, Math.min(day || 1, new Date(y, m, 0).getDate()));
+}
+function stuPayText(aca, s, ym) {
+  const d = s.billing_day ? stuDueDate(ym, s.billing_day) : null;
+  const when = d ? `${d.getMonth() + 1}월 ${d.getDate()}일` : "이번 달";
+  return `[${aca}] ${s.name} 학생 학원비 안내\n`
+    + `${when}이 납부일입니다.`
+    + (s.monthly_fee ? ` 금액은 ${won(s.monthly_fee)}입니다.` : "")
+    + `\n확인 부탁드립니다. 감사합니다.`;
+}
+// 문구를 복사하고, 휴대폰이면 문자앱을 바로 연다. 발송은 원장님이 누른다.
+async function stuPayNotice(aid, sid, ym) {
+  const s = (stuPayCache[aid] || []).find(x => x.id === sid);
+  if (!s) return;
+  const aca = document.querySelector(`#own-${aid} h3`)?.textContent.trim() || "학원";
+  const msg = stuPayText(aca, s, ym);
+  try { await navigator.clipboard.writeText(msg); toast("안내 문구를 복사했어요."); }
+  catch (e) { toast("복사가 안 되면 문자앱에서 붙여넣어 주세요."); }
+  const phone = (s.parent_phone || "").replace(/[^0-9]/g, "");
+  if (phone) location.href = `sms:${phone}${/iphone|ipad|ipod|mac/i.test(navigator.userAgent) ? "&" : "?"}body=${encodeURIComponent(msg)}`;
+}
+async function stuPayBulk(aid, ym) {
+  const { data: pays } = await sb.from("payments").select("student_id,status").eq("academy_id", aid).eq("year_month", ym);
+  const done = new Set((pays || []).filter(p => p.status === "완료").map(p => p.student_id));
+  const aca = document.querySelector(`#own-${aid} h3`)?.textContent.trim() || "학원";
+  const rows = (stuPayCache[aid] || []).filter(s => !done.has(s.id) && s.parent_phone);
+  if (!rows.length) return toast("안내할 미납자가 없습니다.");
+  const text = rows.map(s => `${s.parent_phone}\n${stuPayText(aca, s, ym)}`).join("\n\n────────\n\n");
+  try { await navigator.clipboard.writeText(text); toast(`미납 ${rows.length}명의 안내 문구를 복사했어요.`); }
+  catch (e) { toast("복사에 실패했습니다."); }
 }
 function renderStudentTrend(id) {
   const list = ownEnr[id] || [];
