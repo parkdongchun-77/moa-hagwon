@@ -1502,6 +1502,7 @@ async function setUser(user) {
   refreshNotiBadge();
   await loadBlocks();
   notifyIfNewSignup(p);
+  setTimeout(maybeAskPush, 1500); // initPush 의 구독 확인이 끝난 뒤에 판단한다
   const pend = sessionStorage.getItem("pendingCheckin");
   if (pend) { sessionStorage.removeItem("pendingCheckin"); closeModal("m-auth"); doCheckin(+pend); }
 }
@@ -1939,6 +1940,30 @@ async function enablePush() {
     sendCheckinPush({ kind: "welcome" }); // 켜진 걸 눈으로 확인시켜 주는 환영 알림 1발
     refreshPushBtn(); syncSettingsPush();
   } catch (e) { toast("푸시 등록 실패: " + e.message); }
+}
+// 로그인한 사용자의 알림이 꺼져 있으면 하루 한 번 전체 화면으로 켜기를 권한다 (2026-10-25, emoi 와 같은 방식).
+// 앱 심사 기준상 「나중에」는 남긴다. 앱에서 이미 권한을 허용했으면 띄우지 않는다.
+async function maybeAskPush() {
+  if (!state.user || pushIsOn() || document.getElementById("pushGate")) return;
+  const isNative = !!window.MoaNative?.isNative;
+  if (!isNative && (!("Notification" in window) || !swReg)) return; // 아이폰 사파리처럼 푸시가 없는 브라우저
+  const key = "moa_push_ask_at", now = Date.now();
+  try { if (now - (+localStorage.getItem(key) || 0) < 86400000) return; } catch (e) {}
+  if (isNative) {
+    try { const p = await window.Capacitor?.Plugins?.PushNotifications?.checkPermissions?.(); if (p?.receive === "granted") return; } catch (e) {}
+  }
+  try { localStorage.setItem(key, String(now)); } catch (e) {}
+  const g = document.createElement("div");
+  g.id = "pushGate";
+  g.style.cssText = "position:fixed;inset:0;z-index:99999;background:var(--card,#fff);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 28px;text-align:center";
+  g.innerHTML = '<div style="font-size:72px;line-height:1">🔔</div>' +
+    '<h2 style="margin:24px 0 10px;font-size:1.5em">알림을 켜 주세요</h2>' +
+    '<p style="margin:0 0 32px;color:var(--mut,#64748b);line-height:1.6;max-width:360px">알림이 꺼져 있으면 자녀 등·하원과 학원 소식을 바로 받을 수 없어요.</p>' +
+    '<button class="btn" id="pushGateOn" style="width:100%;max-width:360px;padding:15px;font-size:1.05em">🔔 알림 켜기</button>' +
+    '<button id="pushGateLater" style="margin-top:12px;background:none;border:0;color:var(--mut,#64748b);font:inherit;padding:10px;cursor:pointer">나중에</button>';
+  document.body.appendChild(g);
+  g.querySelector("#pushGateOn").onclick = () => { g.remove(); enablePush(); };
+  g.querySelector("#pushGateLater").onclick = () => g.remove();
 }
 // 성공 여부를 돌려준다. 긴급(SOS) 알림은 실패를 반드시 사용자에게 알려야 하므로 삼키지 않는다.
 async function sendCheckinPush(payload) {
