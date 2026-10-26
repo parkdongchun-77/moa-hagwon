@@ -4635,9 +4635,9 @@ async function orderAd(aid) {
 // iOS 네이티브 앱에서는 결제를 띄우지 않는다.
 // 토스 결제창은 모바일에서 반드시 페이지를 이동시키는데(문서 명시), Capacitor 웹뷰는 로컬 파일에서 뜨므로
 // 돌아올 successUrl 을 만들 수 없고, 외부 사파리로 나가면 App Store 가이드라인 4에 걸린다.
-// 웹·안드로이드(TWA는 크롬이라 웹과 동일)에서는 정상 동작한다.
+// 안드로이드도 2026-10-27 TWA → 네이티브(Capacitor)로 바뀌어 같은 이유로 앱 안 결제를 막는다. 웹에서는 정상 동작한다.
 const PAY_ENABLED_ON_IOS = false;
-function canPayHere() { return PAY_ENABLED_ON_IOS || !isIosApp(); }
+function canPayHere() { return isIosApp() ? PAY_ENABLED_ON_IOS : !isInApp(); }
 
 async function tossPay(payload) {
   if (needLogin()) return null;
