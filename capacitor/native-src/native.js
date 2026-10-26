@@ -4,6 +4,8 @@ import { PushNotifications } from "@capacitor/push-notifications";
 import { CapacitorBarcodeScanner } from "@capacitor/barcode-scanner";
 import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { Geolocation } from "@capacitor/geolocation";
+import { App } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
 
 // 문서의 Html5QrcodeSupportedFormats 표 기준 QR_CODE = 0 (플러그인이 이 enum을 재수출하지 않아 값을 직접 쓴다)
 const HINT_QR_CODE = 0;
@@ -80,6 +82,17 @@ if (Capacitor.isNativePlatform()) {
   if (!geoShimmed) console.error("navigator.geolocation 대체 실패 — 위치 기능이 동작하지 않을 수 있음");
 }
 
+// 카카오·구글 로그인은 앱 웹뷰 안에서 끝낼 수 없다(구글은 웹뷰 OAuth 차단, 카카오는 웹 주소로 돌아옴).
+// 시스템 브라우저로 열고, app-auth.html 이 moahagwon://auth?... 로 돌려보내면 그 주소를 cb 로 넘긴다.
+function openAuth(url) { return Browser.open({ url }); }
+function onAuthUrl(cb) {
+  App.addListener("appUrlOpen", ({ url }) => {
+    if (!url || !url.startsWith("moahagwon://auth")) return;
+    Browser.close().catch(() => {});
+    cb(url);
+  });
+}
+
 window.MoaNative = {
   platform: Capacitor.getPlatform(),
   isNative: Capacitor.isNativePlatform(),
@@ -87,4 +100,6 @@ window.MoaNative = {
   scanQr,
   registerPush,
   appleSignIn,
+  openAuth,
+  onAuthUrl,
 };

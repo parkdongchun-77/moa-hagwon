@@ -1547,6 +1547,8 @@ const KAKAO_REST_KEY = "aa2789f17b58a4941235c74b5250a32d";
 const GOOGLE_CLIENT_ID = "332050617570-g404e20aj20nbkjgl5dv9l4dchecsq7g.apps.googleusercontent.com";
 // 카카오·구글 콘솔 양쪽에 등록된 주소여야 한다. github.io 는 구버전 앱 번들용으로 콘솔에 남겨둔다.
 const APP_REDIRECT = "https://moahagwon.com/";
+// 네이티브 앱 전용: 시스템 브라우저에서 로그인한 뒤 moahagwon:// 으로 앱에 돌려보내는 페이지. 카카오·구글 콘솔에도 등록돼 있어야 한다.
+const APP_AUTH_REDIRECT = "https://moahagwon.com/app-auth.html";
 // 애플 로그인(iOS 전용). 애플 개발자 키 발급 후 APPLE_SERVICE_ID를 실제 Service ID로 교체.
 const APPLE_SERVICE_ID = "com.moahagwon.web";
 const APPLE_REDIRECT = SUPABASE_URL + "/functions/v1/apple-login";
@@ -1558,16 +1560,20 @@ function isInApp() { return !!(window.MoaNative?.isNative || window.Capacitor?.i
 // QR 스캔 버튼은 브리지 주입 시점이 늦을 수 있어 호출 때마다 다시 확인한다.
 function refreshQrScanBtn() { const qb = document.getElementById("qrScanBtn"); if (qb) qb.style.display = window.MoaNative?.scanQr ? "" : "none"; }
 function socialLogin(provider) {
+  // 네이티브 앱은 시스템 브라우저로 열고 app-auth.html 을 거쳐 앱으로 돌아온다(웹뷰 안 OAuth 는 구글이 막는다).
+  const nativeAuth = !!window.MoaNative?.openAuth;
+  const redirect = nativeAuth ? APP_AUTH_REDIRECT : APP_REDIRECT;
+  const go = (url) => nativeAuth ? window.MoaNative.openAuth(url) : (location.href = url);
   if (provider === "kakao") {
-    location.href = "https://kauth.kakao.com/oauth/authorize?response_type=code"
+    go("https://kauth.kakao.com/oauth/authorize?response_type=code"
       + "&client_id=" + KAKAO_REST_KEY
-      + "&redirect_uri=" + encodeURIComponent(APP_REDIRECT) + "&state=kakao";
+      + "&redirect_uri=" + encodeURIComponent(redirect) + "&state=kakao");
   } else if (provider === "google") {
-    location.href = "https://accounts.google.com/o/oauth2/v2/auth?response_type=code"
+    go("https://accounts.google.com/o/oauth2/v2/auth?response_type=code"
       + "&client_id=" + GOOGLE_CLIENT_ID
-      + "&redirect_uri=" + encodeURIComponent(APP_REDIRECT)
+      + "&redirect_uri=" + encodeURIComponent(redirect)
       + "&scope=" + encodeURIComponent("openid email profile")
-      + "&state=google&prompt=select_account";
+      + "&state=google&prompt=select_account");
   } else if (provider === "apple") {
     // 네이티브 앱: 시스템 시트로 바로 로그인 (리다이렉트가 없어 앱 origin·세션이 유지됨)
     if (window.MoaNative?.isNative) return appleNativeLogin();
@@ -1622,6 +1628,11 @@ async function handleSocialRedirect() {
   const code = p.get("code"), state = p.get("state");
   if (!code || (state !== "kakao" && state !== "google")) return;
   history.replaceState({}, "", location.pathname); // URL에서 code 제거
+  await exchangeSocialCode(code, state, APP_REDIRECT);
+}
+// 인가코드를 세션으로 바꾼다. 웹은 APP_REDIRECT, 네이티브 앱은 APP_AUTH_REDIRECT 로 받은 코드다(교환 때 같은 주소를 보내야 한다).
+async function exchangeSocialCode(code, state, redirectUri) {
+  if (!code || (state !== "kakao" && state !== "google")) return;
   const label = state === "kakao" ? "카카오" : "구글";
   // 인가코드는 한 번만 쓸 수 있다. 이미 로그인된 채로 콜백 URL 에 다시 들어오면(뒤로가기 등)
   // 재교환은 반드시 실패하므로, 교환하지 않고 조용히 끝낸다.
@@ -1631,7 +1642,7 @@ async function handleSocialRedirect() {
   try {
     const res = await fetch(SUPABASE_URL + "/functions/v1/" + state + "-login", {
       method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ANON_KEY },
-      body: JSON.stringify({ code, redirectUri: APP_REDIRECT })
+      body: JSON.stringify({ code, redirectUri })
     });
     const j = await fnJson(res);
     const { data, error } = await sb.auth.verifyOtp({ email: j.email, token: j.otp, type: "email" });
@@ -5224,7 +5235,9 @@ const addScheduleEvent = _once("addScheduleEvent", _addScheduleEvent);
   if (isIOS()) { const ab = document.getElementById("appleBtn"); if (ab) ab.style.display = "block"; }
   // iOS 앱: 카카오·구글은 외부 Safari로 나가 앱으로 돌아오지 못한다(App Store 가이드라인 4 반려 사유).
   // 앱 안에서 끝나는 이메일·Apple 로그인만 남긴다. 웹·안드로이드는 그대로 노출.
-  if (isIosApp()) ["kakaoBtn", "googleBtn"].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = "none"; });
+  // 시스템 브라우저 로그인(openAuth)이 있는 새 앱은 버튼을 보이고, 없는 옛 iOS 앱만 숨긴다.
+  if (isIosApp() && !window.MoaNative?.openAuth) ["kakaoBtn", "googleBtn"].forEach(id => { const b = document.getElementById(id); if (b) b.style.display = "none"; });
+  window.MoaNative?.onAuthUrl?.((url) => { const p = new URL(url).searchParams; exchangeSocialCode(p.get("code"), p.get("state"), APP_AUTH_REDIRECT); });
   // 네이티브 앱에서만 QR 스캔 버튼 노출 (capacitor-native.js가 주입된 환경)
   refreshQrScanBtn();
   initAppBanner();
