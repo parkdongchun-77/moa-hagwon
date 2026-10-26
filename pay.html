@@ -1,0 +1,67 @@
+<!doctype html>
+<!-- 알림톡 「청구 확인·결제」 버튼이 여는 청구 확인 페이지. pay.html?c=청구코드 로 get_bill RPC 를 읽는다 -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>학원비 청구 확인 — 모아학원</title>
+<style>
+  :root{--p:#4f46e5;--t:#1f2937;--m:#6b7280;--b:#e5e7eb}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;color:var(--t);line-height:1.6;background:#f9fafb}
+  main{background:#fff;margin:24px auto;max-width:480px;padding:28px 20px;border:1px solid var(--b);border-radius:12px}
+  h1{font-size:22px;margin:0 0 4px}
+  .mut{color:var(--m);font-size:14px}
+  table{border-collapse:collapse;width:100%;font-size:15px;margin-top:16px}
+  th,td{border-bottom:1px solid var(--b);padding:10px 4px;text-align:left}
+  th{color:var(--m);font-weight:600;width:90px}
+  .tag{display:inline-block;padding:2px 10px;border-radius:999px;font-size:13px;font-weight:700}
+  .paid{background:#dcfce7;color:#166534}
+  .due{background:#fef3c7;color:#92400e}
+  a.tel{color:var(--p);font-weight:600}
+  footer{max-width:480px;margin:0 auto 32px;padding:0 20px;color:var(--m);font-size:13px}
+</style>
+</head>
+<body>
+<main id="box"><p class="mut">청구 내역을 불러오는 중입니다.</p></main>
+<footer>이 청구서는 학원이 등록한 내용이며, Moa(모아플러스)를 통해 안내됩니다.</footer>
+<script>
+const SUPABASE_URL = "https://supabase.moahagwon.com";
+const ANON_KEY = "eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogImFub24iLCAiaXNzIjogInN1cGFiYXNlIiwgImlhdCI6IDE3ODc5MjI0NjUsICJleHAiOiAyMTAzMjgyNDY1fQ.Oe_lPHfD-zqq110bi2t8yp4GQNuqW65aYx3aKq4MQds";
+const box = document.getElementById("box");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const won = n => (n ?? 0).toLocaleString("ko-KR") + "원";
+
+(async () => {
+  const code = new URLSearchParams(location.search).get("c") || "";
+  let bill = null;
+  if (code) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_bill`, {
+      method: "POST",
+      headers: { apikey: ANON_KEY, Authorization: `Bearer ${ANON_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_code: code }),
+    }).catch(() => null);
+    const rows = res && res.ok ? await res.json() : [];
+    bill = rows[0] || null;
+  }
+  if (!bill) {
+    box.innerHTML = `<h1>청구서를 찾을 수 없습니다</h1><p class="mut">링크가 올바른지 확인해 주세요. 문의는 다니시는 학원으로 연락해 주세요.</p>`;
+    return;
+  }
+  const [y, m] = bill.year_month.split("-");
+  box.innerHTML = `
+    <h1>${esc(bill.academy_name)}</h1>
+    <p class="mut">${esc(y)}년 ${Number(m)}월 학원비 청구 내역입니다.</p>
+    <table>
+      <tr><th>학생</th><td>${esc(bill.student_name)}</td></tr>
+      <tr><th>금액</th><td><b>${won(bill.amount)}</b></td></tr>
+      <tr><th>납부 기한</th><td>${esc(bill.due_date || "-")}</td></tr>
+      <tr><th>상태</th><td>${bill.paid ? '<span class="tag paid">납부 완료</span>' : '<span class="tag due">납부 대기</span>'}</td></tr>
+    </table>
+    <p class="mut" style="margin-top:18px">${bill.paid ? "납부가 확인되었습니다." : "납부 방법은 학원으로 문의해 주세요."}
+    ${bill.academy_tel ? `<br>학원 연락처 <a class="tel" href="tel:${esc(bill.academy_tel)}">${esc(bill.academy_tel)}</a>` : ""}</p>`;
+})();
+</script>
+</body>
+</html>
