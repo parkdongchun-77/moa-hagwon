@@ -1924,7 +1924,7 @@ async function enablePush() {
         toast("푸시 알림이 켜졌습니다. 자녀 출석 시 휴대폰으로 알려드려요.");
         sendCheckinPush({ kind: "welcome" }); // 켜진 걸 눈으로 확인시켜 주는 환영 알림 1발
         refreshPushBtn(); syncSettingsPush();
-      });
+      }, null, (err) => { logError("push-register", err); toast("푸시 등록 실패: " + err); });
       if (!granted) toast("알림 권한이 거부되었습니다. 설정 > 모아학원 > 알림에서 허용해 주세요.");
     } catch (e) { toast("푸시 등록 실패: " + e.message); }
     return;

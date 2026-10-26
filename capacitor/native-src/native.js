@@ -51,10 +51,11 @@ async function scanQr() {
 }
 
 // APNs 푸시 등록. 권한 허용 시 onToken(디바이스 토큰) 을 호출한다.
-async function registerPush(onToken, onNotification) {
+async function registerPush(onToken, onNotification, onError) {
   const perm = await PushNotifications.requestPermissions();
   if (perm.receive !== "granted") return false;
   PushNotifications.addListener("registration", (t) => onToken(t.value));
+  if (onError) PushNotifications.addListener("registrationError", (e) => onError(e?.error || String(e)));
   if (onNotification) {
     PushNotifications.addListener("pushNotificationReceived", onNotification);
     PushNotifications.addListener("pushNotificationActionPerformed", onNotification);
