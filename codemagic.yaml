@@ -42,6 +42,120 @@ workflows:
       - $CM_BUILD_DIR/*.aab
       - app/build/outputs/**/*.aab
 
+  # 2026-10-27 TWA → 네이티브 전환. 앱 알림(FCM)을 받으려면 네이티브여야 한다. 패키지 이름·업로드 키는 TWA 와 같아 플레이 업데이트로 나간다.
+  android-capacitor:
+    name: 모아학원 Android 네이티브(Capacitor) AAB
+    instance_type: linux_x2
+    max_build_duration: 60
+    working_directory: capacitor
+    environment:
+      android_signing:
+        - moa_keystore
+      # firebase_moa 그룹: GOOGLE_SERVICES_JSON = google-services.json 을 base64 로 인코딩한 값
+      groups:
+        - firebase_moa
+      vars:
+        PACKAGE_NAME: "com.moahagwon.myapp"
+        # 플레이에 올라간 마지막 versionCode 보다 커야 한다. 출시할 때마다 올린다.
+        VERSION_CODE: "10"
+        VERSION_NAME: "1.1.0"
+      node: 22
+      java: 21
+    scripts:
+      - name: 웹 자산을 저장소 루트에서 가져오기
+        script: |
+          rm -rf www && mkdir -p www
+          cp ../index.html ../manifest.json ../sw.js ../privacy.html ../terms.html www/
+          cp ../icon-192.png ../icon-512.png ../icon-maskable-512.png www/
+          ls -la www
+      - name: 의존성 설치
+        script: npm install
+      - name: 네이티브 기능 번들 생성 + index.html에 주입
+        script: |
+          npm run build:native
+          test -s www/capacitor-native.js || { echo "번들 생성 실패"; exit 1; }
+          node -e '
+            const fs=require("fs");
+            const p="www/index.html";
+            let s=fs.readFileSync(p,"utf8");
+            const tag="<script src=\"capacitor-native.js\"></script>\n";
+            if(!s.includes(tag.trim())){
+              if(!s.includes("</head>")) { console.error("</head> 없음"); process.exit(1); }
+              s=s.replace("</head>", tag+"</head>");
+              fs.writeFileSync(p,s);
+            }
+            if(!fs.readFileSync(p,"utf8").includes(tag.trim())) { console.error("주입 실패: script 태그 없음"); process.exit(1); }
+            console.log("주입 확인: script 태그 있음");
+          '
+      # iOS 번들 ID(kr.moahagwon.app)와 플레이 패키지 이름이 달라 안드로이드 빌드에서만 바꾼다.
+      - name: 패키지 이름을 플레이 앱과 맞춤
+        script: |
+          node -e '
+            const fs=require("fs");
+            const c=JSON.parse(fs.readFileSync("capacitor.config.json","utf8"));
+            c.appId=process.env.PACKAGE_NAME;
+            fs.writeFileSync("capacitor.config.json",JSON.stringify(c,null,2));
+            console.log("appId =",c.appId);
+          '
+      - name: 안드로이드 네이티브 프로젝트 생성
+        script: |
+          npx cap add android
+          npx @capacitor/assets generate --android --iconBackgroundColor '#4f46e5' --splashBackgroundColor '#ffffff' || true
+      - name: google-services.json (FCM)
+        script: |
+          [ -n "$GOOGLE_SERVICES_JSON" ] || { echo "GOOGLE_SERVICES_JSON 없음"; exit 1; }
+          echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+          grep -q "\"package_name\": \"$PACKAGE_NAME\"" android/app/google-services.json || { echo "google-services.json 패키지 이름 불일치"; exit 1; }
+      # 위치 권한은 앱이 직접 적어야 한다(Geolocation 플러그인 안내). moahagwon://auth 는 카카오·구글 로그인 뒤 앱으로 돌아오는 주소.
+      - name: 권한·로그인 복귀 주소 추가
+        script: |
+          python3 - <<'PY'
+          import sys
+          p = "android/app/src/main/AndroidManifest.xml"
+          s = open(p).read()
+          perms = ["android.permission.ACCESS_COARSE_LOCATION", "android.permission.ACCESS_FINE_LOCATION"]
+          for perm in perms:
+              if perm not in s:
+                  s = s.replace("</manifest>", f'    <uses-permission android:name="{perm}" />\n</manifest>')
+          if 'android:scheme="moahagwon"' not in s:
+              filt = """            <intent-filter>
+                  <action android:name="android.intent.action.VIEW" />
+                  <category android:name="android.intent.category.DEFAULT" />
+                  <category android:name="android.intent.category.BROWSABLE" />
+                  <data android:scheme="moahagwon" android:host="auth" />
+              </intent-filter>
+          """
+              if s.count("</activity>") < 1:
+                  sys.exit("activity 없음")
+              s = s.replace("</activity>", filt + "        </activity>", 1)
+          open(p, "w").write(s)
+          for k in perms + ['android:scheme="moahagwon"']:
+              if k not in s: sys.exit("누락: " + k)
+          print(s)
+          PY
+      - name: 자산 동기화
+        script: npx cap sync android
+      - name: 버전 설정
+        script: |
+          G=android/app/build.gradle
+          sed -i -E "s/versionCode [0-9]+/versionCode $VERSION_CODE/; s/versionName \"[^\"]*\"/versionName \"$VERSION_NAME\"/" $G
+          grep -E 'applicationId|versionCode|versionName|compileSdk|targetSdk' $G android/variables.gradle || true
+          grep -q "versionCode $VERSION_CODE" $G || { echo "versionCode 설정 실패"; exit 1; }
+      - name: AAB 빌드 (서명 없이)
+        script: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew bundleRelease --stacktrace
+      - name: AAB 서명 (Codemagic 업로드 키)
+        script: |
+          AAB=$(find android -path '*/bundle/release/*.aab' | head -1)
+          echo "unsigned aab: $AAB"
+          jarsigner -sigalg SHA256withRSA -digestalg SHA-256 \
+            -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" \
+            -keypass "$CM_KEY_PASSWORD" "$AAB" "$CM_KEY_ALIAS"
+          cp "$AAB" "$CM_BUILD_DIR/moahagwon-$VERSION_NAME-$VERSION_CODE.aab"
+    artifacts:
+      - $CM_BUILD_DIR/*.aab
   ios-appstore:
     name: 모아학원 iOS App Store 빌드·TestFlight 업로드
     instance_type: mac_mini_m2
