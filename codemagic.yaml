@@ -45,7 +45,7 @@ workflows:
   # 2026-10-27 TWA → 네이티브 전환. 앱 알림(FCM)을 받으려면 네이티브여야 한다. 패키지 이름·업로드 키는 TWA 와 같아 플레이 업데이트로 나간다.
   android-capacitor:
     name: 모아학원 Android 네이티브(Capacitor) AAB
-    instance_type: linux_x2
+    instance_type: mac_mini_m2
     max_build_duration: 60
     working_directory: capacitor
     environment:
@@ -138,7 +138,7 @@ workflows:
       - name: 버전 설정
         script: |
           G=android/app/build.gradle
-          sed -i -E "s/versionCode [0-9]+/versionCode $VERSION_CODE/; s/versionName \"[^\"]*\"/versionName \"$VERSION_NAME\"/" $G
+          perl -pi -e "s/versionCode [0-9]+/versionCode $VERSION_CODE/; s/versionName \"[^\"]*\"/versionName \"$VERSION_NAME\"/" $G
           grep -E 'applicationId|versionCode|versionName|compileSdk|targetSdk' $G android/variables.gradle || true
           grep -q "versionCode $VERSION_CODE" $G || { echo "versionCode 설정 실패"; exit 1; }
       - name: AAB 빌드 (서명 없이)
