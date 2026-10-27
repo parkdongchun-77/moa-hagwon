@@ -57,8 +57,8 @@ workflows:
       vars:
         PACKAGE_NAME: "com.moahagwon.myapp"
         # 플레이에 올라간 마지막 versionCode 보다 커야 한다. 출시할 때마다 올린다.
-        VERSION_CODE: "10"
-        VERSION_NAME: "1.1.0"
+        VERSION_CODE: "11"
+        VERSION_NAME: "1.1.1"
       node: 22
       java: 21
     scripts:
@@ -128,8 +128,16 @@ workflows:
               if s.count("</activity>") < 1:
                   sys.exit("activity 없음")
               s = s.replace("</activity>", filt + "        </activity>", 1)
+          # 카메라·위치는 있으면 쓰는 기능이다. 플러그인이 필수(required=true)로 넣으면 카메라·GPS 없는 태블릿·크롬북이 설치 대상에서 빠진다
+          if 'xmlns:tools=' not in s:
+              s = s.replace("<manifest ", '<manifest xmlns:tools="http://schemas.android.com/tools" ', 1)
+          feats = ["android.hardware.camera", "android.hardware.camera.any", "android.hardware.camera.autofocus",
+                   "android.hardware.location", "android.hardware.location.gps", "android.hardware.location.network"]
+          for f in feats:
+              if f'"{f}"' not in s:
+                  s = s.replace("</manifest>", f'    <uses-feature android:name="{f}" android:required="false" tools:replace="android:required" />\n</manifest>')
           open(p, "w").write(s)
-          for k in perms + ['android:scheme="moahagwon"']:
+          for k in perms + ['android:scheme="moahagwon"'] + feats:
               if k not in s: sys.exit("누락: " + k)
           print(s)
           PY
