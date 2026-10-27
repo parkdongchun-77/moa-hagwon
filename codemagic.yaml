@@ -141,6 +141,9 @@ workflows:
           perl -pi -e "s/versionCode [0-9]+/versionCode $VERSION_CODE/; s/versionName \"[^\"]*\"/versionName \"$VERSION_NAME\"/" $G
           grep -E 'applicationId|versionCode|versionName|compileSdk|targetSdk' $G android/variables.gradle || true
           grep -q "versionCode $VERSION_CODE" $G || { echo "versionCode 설정 실패"; exit 1; }
+          # 바코드 스캐너 플러그인(ionbarcode)이 minSdk 26 을 요구한다. Capacitor 기본값 24 로는 매니페스트 병합이 실패한다
+          perl -pi -e 's/minSdkVersion = \d+/minSdkVersion = 26/' android/variables.gradle
+          grep -q 'minSdkVersion = 26' android/variables.gradle || { echo "minSdk 설정 실패"; exit 1; }
       - name: AAB 빌드 (서명 없이)
         script: |
           cd android
