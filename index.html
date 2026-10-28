@@ -1521,6 +1521,8 @@ async function setUser(user) {
   setTimeout(maybeAskPush, 1500); // initPush 의 구독 확인이 끝난 뒤에 판단한다
   const pend = sessionStorage.getItem("pendingCheckin");
   if (pend) { sessionStorage.removeItem("pendingCheckin"); closeModal("m-auth"); doCheckin(+pend); }
+  const pendAca = sessionStorage.getItem("pendingAca");
+  if (pendAca) { sessionStorage.removeItem("pendingAca"); closeModal("m-auth"); openDetail(+pendAca); }
 }
 // 방금 만들어진 계정이면 관리자에게 가입 사실을 알린다.
 // setUser 는 이메일·카카오·구글·애플 모든 로그인 경로가 지나므로 여기 한 곳이면 충분하다.
@@ -2327,6 +2329,8 @@ function handleAcaLink() {
   if (to === "owner") { history.replaceState({}, "", location.pathname); if (state.user) go("owner"); else openModal("m-auth"); return; }
   if (!id || !/^\d+$/.test(id)) return;
   history.replaceState({}, "", location.pathname);
+  // 원장님이 보낸 학원 링크를 로그인 전 학부모가 열면, 로그인 뒤 그 학원을 연다(setUser)
+  if (!state.user) sessionStorage.setItem("pendingAca", id);
   openDetail(Number(id));
 }
 async function openDetail(id) {
