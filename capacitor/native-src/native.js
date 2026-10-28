@@ -93,6 +93,20 @@ function onAuthUrl(cb) {
   });
 }
 
+// 공유 링크(https://moahagwon.com/?aca=…·?go=owner)가 앱 링크·유니버설 링크로 앱을 열면 그 주소를 cb 로 넘긴다.
+// 꺼진 앱이 링크로 켜진 경우는 getLaunchUrl 로 받는다.
+function onWebLink(cb) {
+  const isWeb = (url) => /^https:\/\/(www\.)?moahagwon\.com\//.test(url || "");
+  // 꺼진 앱이 켜질 때는 두 길로 같은 주소가 올 수 있어 3초 안의 같은 주소는 한 번만 넘긴다
+  let last = "", lastAt = 0;
+  const fire = (url) => {
+    if (!isWeb(url) || (url === last && Date.now() - lastAt < 3000)) return;
+    last = url; lastAt = Date.now(); cb(url);
+  };
+  App.addListener("appUrlOpen", ({ url }) => fire(url));
+  App.getLaunchUrl().then((r) => { if (r) fire(r.url); }).catch(() => {});
+}
+
 window.MoaNative = {
   platform: Capacitor.getPlatform(),
   isNative: Capacitor.isNativePlatform(),
@@ -102,4 +116,5 @@ window.MoaNative = {
   appleSignIn,
   openAuth,
   onAuthUrl,
+  onWebLink,
 };
