@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "GRF3HK77HU.kr.moahagwon.app",
+        "appIDs": ["GRF3HK77HU.kr.moahagwon.app"],
+        "paths": ["/"],
+        "components": [{ "/": "/", "comment": "학원 링크 ?aca=, 원장 안내 ?go=owner" }]
+      }
+    ]
+  }
+}
