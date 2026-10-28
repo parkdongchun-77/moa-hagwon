@@ -2306,8 +2306,11 @@ async function toggleFav(id) {
 <script id="part3">
 // ===== 학원 상세 =====
 // 알림의 '우리 동네 학원' 링크(?aca=학원번호)로 들어오면 그 학원 상세를 연다 (2026-10-28)
+// ?go=owner 는 원장님 안내 알림에서 학원 관리 화면으로 바로 보낸다
 function handleAcaLink() {
-  const id = new URLSearchParams(location.search).get("aca");
+  const q = new URLSearchParams(location.search);
+  const id = q.get("aca"), to = q.get("go");
+  if (to === "owner") { history.replaceState({}, "", location.pathname); if (state.user) go("owner"); else openModal("m-auth"); return; }
   if (!id || !/^\d+$/.test(id)) return;
   history.replaceState({}, "", location.pathname);
   openDetail(Number(id));
@@ -4451,6 +4454,7 @@ async function renderOwnInfo(id) {
     <div class="field"><label>학원 소개</label><textarea id="oi-intro-${id}" rows="2">${esc(a.intro || "")}</textarea></div>
     <div class="field"><label>🏆 학원 자랑거리 · 수상/실적 (학부모에게 어필됩니다 · 수강료 공개 부담 없이 강점을 보여주세요)</label><textarea id="oi-achv-${id}" rows="3" placeholder="예: 2025 수학경시대회 대상 홍길동 / 피아노 콩쿠르 금상 / 태권도 3단 보유 강사진">${esc(a.achievements || "")}</textarea></div>
     <div class="field"><label>📸 학원 사진 (학부모 상세에 보여집니다)</label>
+      <div class="mut" style="font-size:.85em;margin:-2px 0 6px">💡 사진을 올리면 우리 동네 학부모에게 가는 '우리 동네 학원' 알림에 사진과 함께 소개될 수 있어요.</div>
       <div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:6px">${(a.photos || []).map(u => `<div style="position:relative"><img src="${esc(u)}" style="width:74px;height:74px;object-fit:cover;border-radius:8px"><button onclick="delAcademyPhoto(${id},'${escJs(u)}')" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;line-height:1">×</button></div>`).join("") || `<span class="mut">아직 등록된 사진이 없어요.</span>`}</div>
       <input type="file" id="oi-photo-file-${id}" accept="image/*" onchange="uploadAcademyPhoto(${id})"></div>
     <div class="field"><label>📅 일정 (휴원·보강·시험 — 학부모 캘린더에 표시)</label>
