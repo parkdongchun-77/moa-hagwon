@@ -18,3 +18,4 @@ Disallow: /*?tosspay=
 Disallow: /*?code=
 
 Sitemap: https://moahagwon.com/sitemap.xml
+Sitemap: https://moahagwon.com/sitemap-a.xml
