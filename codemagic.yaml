@@ -141,6 +141,31 @@ workflows:
               if k not in s: sys.exit("누락: " + k)
           print(s)
           PY
+      # 앱 링크 (2026-10-29). 학원 링크(?aca=)·원장 안내(?go=owner)를 설치된 앱이 바로 연다.
+      # 경로는 "/" 하나만 받는다 — app-auth.html·pay.html 같은 다른 페이지는 브라우저에 남아야 한다.
+      # 확인 파일은 https://moahagwon.com/.well-known/assetlinks.json (Play 서명키·업로드키 지문 2개).
+      - name: 앱 링크 등록 (https://moahagwon.com/)
+        script: |
+          python3 - <<'PY'
+          import sys
+          p = "android/app/src/main/AndroidManifest.xml"
+          s = open(p).read()
+          if 'android:host="moahagwon.com"' not in s:
+              filt = """            <intent-filter android:autoVerify="true">
+                  <action android:name="android.intent.action.VIEW" />
+                  <category android:name="android.intent.category.DEFAULT" />
+                  <category android:name="android.intent.category.BROWSABLE" />
+                  <data android:scheme="https" android:host="moahagwon.com" android:path="/" />
+              </intent-filter>
+          """
+              if s.count("</activity>") < 1:
+                  sys.exit("activity 없음")
+              s = s.replace("</activity>", filt + "        </activity>", 1)
+              open(p, "w").write(s)
+          if 'android:host="moahagwon.com"' not in s:
+              sys.exit("앱 링크 등록 실패")
+          print("앱 링크 인텐트 필터 있음")
+          PY
       - name: 자산 동기화
         script: npx cap sync android
       - name: 버전 설정
@@ -298,6 +323,10 @@ workflows:
           /usr/libexec/PlistBuddy -c "Delete :com.apple.developer.applesignin" "$ENT" 2>/dev/null || true
           /usr/libexec/PlistBuddy -c "Add :com.apple.developer.applesignin array" "$ENT"
           /usr/libexec/PlistBuddy -c "Add :com.apple.developer.applesignin:0 string Default" "$ENT"
+          # 유니버설 링크 (2026-10-29) — 학원 링크 https://moahagwon.com/?aca=… 를 앱이 연다
+          /usr/libexec/PlistBuddy -c "Delete :com.apple.developer.associated-domains" "$ENT" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.associated-domains array" "$ENT"
+          /usr/libexec/PlistBuddy -c "Add :com.apple.developer.associated-domains:0 string applinks:moahagwon.com" "$ENT"
           echo "----- entitlements 확인 -----"
           /usr/libexec/PlistBuddy -c "Print" "$ENT"
           # Xcode 프로젝트가 entitlements 파일을 참조하도록 연결
@@ -347,12 +376,20 @@ workflows:
             exit 1
           fi
           keychain initialize
+          # 유니버설 링크는 App ID 에 Associated Domains 기능이 켜져 있어야 프로파일에 들어간다.
+          # 켜면 예전 프로파일은 무효가 되고 아래 --create 가 기능이 들어간 새 프로파일을 만든다. 이미 켜져 있으면 그대로 지나간다.
+          BID=$(app-store-connect bundle-ids list --bundle-id-identifier "$BUNDLE_ID" --strict-match-identifier --json \
+                | python3 -c 'import sys,json; print(json.load(sys.stdin)[0]["id"])')
+          app-store-connect bundle-ids enable-capabilities "$BID" --capability "Associated Domains" \
+            || echo "  Associated Domains 켜기 실패(이미 켜져 있으면 정상) — 아래 프로파일 확인에서 다시 본다"
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --platform IOS \
             --strict-match-identifier \
             --certificate-key "@env:CERTIFICATE_PRIVATE_KEY" \
             --create
+          grep -rlaq 'com.apple.developer.associated-domains' "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" "$HOME/Library/MobileDevice/Provisioning Profiles" 2>/dev/null \
+            || { echo "★ 받은 프로파일에 Associated Domains 가 없다 — Apple Developer > Identifiers > $BUNDLE_ID 에서 기능을 켜고 다시 빌드"; exit 1; }
           keychain add-certificates
       - name: 인증서·프로파일 적용
         script: xcode-project use-profiles
