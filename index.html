@@ -4492,7 +4492,7 @@ function kitHtml(a) {
     <div id="kitQr-${a.id}" style="width:110px;height:110px;margin-top:8px"></div></div>`;
 }
 async function shareAcaLink(id) {
-  const a = _kitAca[id] || {}, url = acaLink(id), text = `${a.name || "우리 학원"} — ${kitCopy(a)}`;
+  const a = _kitAca[id] || {}, url = "https://moahagwon.com/a/" + id + ".html", text = `${a.name || "우리 학원"} — ${kitCopy(a)}`;
   if (navigator.share) { try { await navigator.share({ title: a.name || "모아학원", text, url }); return; } catch (e) { if (e.name === "AbortError") return; } }
   try { await navigator.clipboard.writeText(text + "\n" + url); toast("링크를 복사했어요. 단톡방에 붙여 넣어 보내세요."); }
   catch (e) { const el = document.getElementById("kitLink-" + id); if (el) el.select(); toast("링크를 길게 눌러 복사해 주세요."); }

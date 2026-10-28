@@ -1,0 +1,20 @@
+<!doctype html>
+<!-- 없는 주소 안내. 아직 정적 페이지가 없는 학원 주소(/a/<번호>)는 앱 학원 상세(?aca=)로 보낸다. -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>페이지를 찾을 수 없어요 | 모아학원</title>
+<script>
+  var m = location.pathname.match(/^\/a\/(\d+)(\.html)?\/?$/);
+  if (m) location.replace("/?aca=" + m[1]);
+</script>
+<style>body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;background:#f9fafb;color:#1f2937;text-align:center;padding:60px 16px}a{color:#4f46e5}</style>
+</head>
+<body>
+<h1>페이지를 찾을 수 없어요</h1>
+<p>주소가 바뀌었거나 없는 페이지입니다.</p>
+<p><a href="/">모아학원 홈으로 가기</a> · <a href="/a/">지역별 학원 페이지</a></p>
+</body>
+</html>
