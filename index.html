@@ -260,6 +260,20 @@ body{padding-bottom:70px}
 .bot-input{display:flex;gap:6px;padding:10px;border-top:1px solid var(--line)}
 .bot-input input{flex:1}
 @media print{header,.no-print,.botbar,.sheet,.sheet-bg{display:none!important}body{background:#fff;padding-bottom:0}}
+/* 원장님 홍보 키트 — QR 포스터 (화면 미리보기는 --u 로 축소, 인쇄는 1mm 단위) */
+#posterWrap{position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.6);overflow:auto;padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px}
+#poster{--u:calc(min(92vw,440px)/186);width:calc(var(--u)*186);height:calc(var(--u)*263);flex:0 0 auto;overflow:hidden;background:#fff;color:#111827;box-sizing:border-box;padding:calc(var(--u)*12);display:flex;flex-direction:column;align-items:center;text-align:center;font-size:calc(var(--u)*6);border-radius:6px}
+#poster .pb{font-weight:800;color:#4f46e5}
+#poster h1{font-size:calc(var(--u)*14);margin:calc(var(--u)*3) 0;line-height:1.25;word-break:keep-all}
+#poster .pp{width:100%;height:calc(var(--u)*56);object-fit:cover;border-radius:calc(var(--u)*4)}
+#poster .ps{margin:calc(var(--u)*2) 0}
+#poster .ps span{display:inline-block;border:1px solid #c7d2fe;color:#4338ca;border-radius:999px;padding:0 calc(var(--u)*3);margin:calc(var(--u)*1)}
+#poster .pq{width:calc(var(--u)*74);height:calc(var(--u)*74);margin-top:auto}
+#poster.nophoto .pq{width:calc(var(--u)*100);height:calc(var(--u)*100);margin:auto 0}
+#poster .pq svg{width:100%;height:100%;display:block}
+#poster .pc{font-size:calc(var(--u)*8);font-weight:700;margin:calc(var(--u)*3) 0 calc(var(--u)*1);line-height:1.35;word-break:keep-all}
+#poster .pu{color:#6b7280;font-size:calc(var(--u)*4.5)}
+@media print{body.poster-on>*:not(#posterWrap){display:none!important}#posterWrap{position:static;background:none;padding:0;overflow:visible}#posterWrap .no-print{display:none!important}#poster{--u:1mm;border-radius:0}body.poster-a5 #poster{zoom:.69}}
 </style>
 </head>
 <body>
@@ -4445,12 +4459,70 @@ async function callSendMessage(payload) {
     return true;
   } catch (e) { toast("전송 실패: " + e.message); logError("send-message", e.message); return false; }
 }
+// ===== 원장님 홍보 키트 — 학원 링크(?aca=)·QR·인쇄용 포스터 (2026-10-29) =====
+// QR 은 cdnjs 의 qrcode-generator 를 필요할 때만 불러와 브라우저에서 만든다(외부 QR 서버에 주소를 보내지 않는다).
+const _kitAca = {};
+let _qrLib = null;
+const acaLink = id => "https://moahagwon.com/?aca=" + id;
+function loadQrLib() {
+  if (window.qrcode) return Promise.resolve();
+  return _qrLib ||= new Promise((ok, no) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
+    s.onload = ok; s.onerror = () => { _qrLib = null; no(new Error("QR 도구를 불러오지 못했어요.")); };
+    document.head.appendChild(s);
+  });
+}
+async function qrSvg(url) { await loadQrLib(); const q = qrcode(0, "M"); q.addData(url); q.make(); return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); }
+// 학부모에게 보내는 문구 — 학원이 실제로 채운 항목만 이름을 넣는다
+function kitCopy(a) {
+  const has = [a.timetable && "시간표", a.fee_public && a.min_monthly && "수강료", a.intro && "학원 소개"].filter(Boolean).slice(0, 2);
+  return has.length ? `모아학원에서 ${has.join("·")} 확인하고 상담해 보세요` : "모아학원에서 학원 정보를 보고 상담해 보세요";
+}
+function kitHtml(a) {
+  return `<div class="field" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px">
+    <label style="font-weight:700">📣 우리 학원 홍보 키트</label>
+    <p class="mut" style="margin:2px 0 6px">이 링크나 QR을 단톡방·상담 때 학부모님께 보내면 우리 학원 상세 화면이 바로 열려요.</p>
+    <div class="row" style="gap:6px;flex-wrap:wrap"><input id="kitLink-${a.id}" readonly value="${acaLink(a.id)}" onclick="this.select()" style="flex:1;min-width:180px">
+      <button class="btn sm" onclick="shareAcaLink(${a.id})">🔗 공유</button><button class="btn sm ghost" onclick="openAcaPoster(${a.id})">🖨 QR 포스터</button></div>
+    <div id="kitQr-${a.id}" style="width:110px;height:110px;margin-top:8px"></div></div>`;
+}
+async function shareAcaLink(id) {
+  const a = _kitAca[id] || {}, url = acaLink(id), text = `${a.name || "우리 학원"} — ${kitCopy(a)}`;
+  if (navigator.share) { try { await navigator.share({ title: a.name || "모아학원", text, url }); return; } catch (e) { if (e.name === "AbortError") return; } }
+  try { await navigator.clipboard.writeText(text + "\n" + url); toast("링크를 복사했어요. 단톡방에 붙여 넣어 보내세요."); }
+  catch (e) { const el = document.getElementById("kitLink-" + id); if (el) el.select(); toast("링크를 길게 눌러 복사해 주세요."); }
+}
+async function openAcaPoster(id) {
+  const a = _kitAca[id]; if (!a) return;
+  let qr; try { qr = await qrSvg(acaLink(id)); } catch (e) { return toast(e.message); }
+  const photo = (a.photos || [])[0], where = [a.region_city, a.dong].filter(Boolean).join(" ");
+  document.getElementById("posterWrap")?.remove();
+  const w = document.createElement("div"); w.id = "posterWrap";
+  w.innerHTML = `<div class="row no-print" style="gap:6px"><button class="btn sm" onclick="printAcaPoster('A4')">A4 인쇄</button><button class="btn sm" onclick="printAcaPoster('A5')">A5 인쇄</button><button class="btn sm gray" onclick="closeAcaPoster()">닫기</button></div>
+    <div id="poster" class="${photo ? "" : "nophoto"}"><div class="pb">모아학원</div><h1>${esc(a.name)}</h1>
+      ${photo ? `<img class="pp" src="${esc(photo)}" alt="">` : ""}
+      ${(a.subjects || []).length ? `<div class="ps">${a.subjects.map(s => `<span>${esc(s)}</span>`).join("")}</div>` : ""}
+      ${where ? `<div>📍 ${esc(where)}</div>` : ""}
+      <div class="pq">${qr}</div><div class="pc">${esc(kitCopy(a))}</div>
+      <div class="pu">휴대폰 카메라로 QR을 비춰 보세요 · moahagwon.com/?aca=${a.id}</div></div>`;
+  document.body.appendChild(w); document.body.classList.add("poster-on");
+}
+function printAcaPoster(size) {
+  let st = document.getElementById("posterPage");
+  if (!st) { st = document.createElement("style"); st.id = "posterPage"; document.head.appendChild(st); }
+  st.textContent = `@page{size:${size};margin:${size === "A5" ? 10 : 12}mm}`;
+  document.body.classList.toggle("poster-a5", size === "A5");
+  window.print();
+}
+function closeAcaPoster() { document.getElementById("posterWrap")?.remove(); document.body.classList.remove("poster-on", "poster-a5"); document.getElementById("posterPage")?.remove(); }
 async function renderOwnInfo(id) {
   const { data: a, error } = await sb.from("academies").select("*").eq("id", id).maybeSingle();
   const box = document.getElementById("ownBody-" + id);
   if (error || !a) { if (box) box.innerHTML = `<p class="mut">학원 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</p>`; return; }
+  _kitAca[id] = a;
   const extra = Array.isArray(a.extra_fees) ? a.extra_fees : [];
-  document.getElementById("ownBody-" + id).innerHTML = `
+  document.getElementById("ownBody-" + id).innerHTML = kitHtml(a) + `
     <div class="field"><label>학원 소개</label><textarea id="oi-intro-${id}" rows="2">${esc(a.intro || "")}</textarea></div>
     <div class="field"><label>🏆 학원 자랑거리 · 수상/실적 (학부모에게 어필됩니다 · 수강료 공개 부담 없이 강점을 보여주세요)</label><textarea id="oi-achv-${id}" rows="3" placeholder="예: 2025 수학경시대회 대상 홍길동 / 피아노 콩쿠르 금상 / 태권도 3단 보유 강사진">${esc(a.achievements || "")}</textarea></div>
     <div class="field"><label>📸 학원 사진 (학부모 상세에 보여집니다)</label>
@@ -4503,6 +4575,7 @@ async function renderOwnInfo(id) {
     </div><button class="btn sm gray" onclick="addExtraRow(${id})">+ 항목 추가</button></div>
     <button class="btn" onclick="saveOwnInfo(${id})">저장</button>`;
   loadOwnSchedule(id); loadOwnShuttles(id);
+  qrSvg(acaLink(id)).then(s => { const q = document.getElementById("kitQr-" + id); if (q) q.innerHTML = s; }).catch(e => logError("kitQr", e.message));
 }
 async function _addShuttle(id) {
   const name = document.getElementById("oi-sh-name-" + id).value.trim(), sched = document.getElementById("oi-sh-sched-" + id).value.trim();
