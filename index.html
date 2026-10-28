@@ -2305,6 +2305,13 @@ async function toggleFav(id) {
 </script>
 <script id="part3">
 // ===== 학원 상세 =====
+// 알림의 '우리 동네 학원' 링크(?aca=학원번호)로 들어오면 그 학원 상세를 연다 (2026-10-28)
+function handleAcaLink() {
+  const id = new URLSearchParams(location.search).get("aca");
+  if (!id || !/^\d+$/.test(id)) return;
+  history.replaceState({}, "", location.pathname);
+  openDetail(Number(id));
+}
 async function openDetail(id) {
   if (needLogin()) return;
   bumpStats("detail", [id]);
@@ -5250,6 +5257,7 @@ const addScheduleEvent = _once("addScheduleEvent", _addScheduleEvent);
   const boot = () => {
     handleSocialRedirect(); handleAppleRedirect(); handleCheckin(); handleTossRedirect();
     loadAcademies(); loadBest(); if (!handleCompareShare()) go("search");
+    handleAcaLink();
     // 비로그인 상태로 앱 실행 시 로그인 안내 (딥링크·OAuth 콜백 진행 중이면 건너뜀)
     if (!state.user && !pendingFlow) openModal("m-auth");
     // 로그인 모달을 닫고 둘러보기만 하는 사람에게 20초 뒤 한 번 더 권한다

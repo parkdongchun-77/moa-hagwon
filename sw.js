@@ -30,6 +30,7 @@ self.addEventListener("push", (event) => {
     body: d.body,
     icon: "https://moahagwon.com/icon-192.png",
     badge: "https://moahagwon.com/icon-192.png",
+    image: d.image || undefined,   // 학원 소개 알림의 학원 사진 (2026-10-28)
     data: { url: d.url },
     tag: "moa-att",
   }));
