@@ -1861,7 +1861,7 @@ function acaCard(a) {
 }
 // ===== 웹푸시 (VAPID) =====
 // 서버(send-push)의 VAPID_PUBLIC 시크릿과 반드시 같은 값이어야 한다. 다르면 구독이 무효가 된다.
-const VAPID_PUBLIC = "BNrkuhgW6F_o6kAY6GEwfgJIT8EM0Yd8J3S3Ab34TUF_P5L25UdUA_tyPJuxpsH4FGLHqJoifYPnpSalAOdAGbc";
+const VAPID_PUBLIC = "BAUo7jmn_G3xmWU2TDHjJiM1tRrYPZ0DBECBK7cw7sHZjqX3oMWZJkMxao43ql7CxNwP7FgC0erB8LmjywIBZJ0";
 function urlB64ToU8(s) {
   const pad = "=".repeat((4 - s.length % 4) % 4);
   const b = atob((s + pad).replace(/-/g, "+").replace(/_/g, "/"));
@@ -1877,7 +1877,7 @@ async function initPush() {
   if (window.MoaNative?.isNative) { refreshPushBtn(); return; }
   if (!("serviceWorker" in navigator) || !location.protocol.startsWith("http")) return;
   try { swReg = await navigator.serviceWorker.register(location.pathname.replace(/[^/]*$/, "") + "sw.js"); } catch (e) {}
-  try { webPushOn = !!(swReg && await swReg.pushManager.getSubscription()); } catch (e) {}
+  try { const s = swReg && await swReg.pushManager.getSubscription(), k = s?.options?.applicationServerKey; webPushOn = !!(s && k && new Uint8Array(k).join() === urlB64ToU8(VAPID_PUBLIC).join()); } catch (e) {}
   refreshPushBtn();
 }
 // 지금 푸시를 받는 상태인가. 네이티브는 토큰 등록 여부, 웹은 구독 존재 여부로 본다.
@@ -1945,6 +1945,9 @@ async function enablePush() {
   if (perm !== "granted") return toast("알림 권한이 거부되었습니다. 브라우저 설정에서 허용해 주세요.");
   try {
     let sub = await swReg.pushManager.getSubscription();
+    // 예전 공개키로 만든 구독은 서버에서 403 이 나므로 지우고 새 키로 다시 만든다 (2026-10-28)
+    const want = urlB64ToU8(VAPID_PUBLIC), have = sub?.options?.applicationServerKey;
+    if (sub && (!have || new Uint8Array(have).join() !== want.join())) { await sub.unsubscribe(); sub = null; }
     if (!sub) sub = await swReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToU8(VAPID_PUBLIC) });
     const j = sub.toJSON();
     await sb.from("push_subscriptions").upsert({ user_id: state.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: "endpoint" });
