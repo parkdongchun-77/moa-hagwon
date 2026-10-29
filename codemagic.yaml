@@ -57,8 +57,8 @@ workflows:
       vars:
         PACKAGE_NAME: "com.moahagwon.myapp"
         # 플레이에 올라간 마지막 versionCode 보다 커야 한다. 출시할 때마다 올린다.
-        VERSION_CODE: "11"
-        VERSION_NAME: "1.1.1"
+        VERSION_CODE: "12"
+        VERSION_NAME: "1.1.2"
       node: 22
       java: 21
     scripts:
