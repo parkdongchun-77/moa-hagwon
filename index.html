@@ -142,7 +142,13 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
 @media(max-width:640px){
   #appDlQr{display:none}
   .grid2,.grid3{grid-template-columns:1fr}
-  .nav{overflow-x:auto;gap:2px}
+  .nav{overflow-x:auto;gap:0}
+  /* 좁은 화면에서도 상단 메뉴는 한 줄. 글자가 세로로 꺾이지 않게 줄이지 않고, 이름 칸은 숨긴다 */
+  header{padding:0 10px}
+  .nav>*{flex-shrink:0;white-space:nowrap}
+  #userInfo{display:none!important}
+  #langBtn,#authBtn{padding:4px 8px;font-size:12px}
+  #langBtn{min-width:0!important}
   main{padding:14px 10px 80px}
   .card{padding:14px}
   h1,h2{font-size:17px}h3{font-size:15px}
@@ -151,8 +157,9 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
   table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
   .aca-card{gap:8px}
   .aca-actions{flex-direction:row;flex-wrap:wrap;width:100%}
-  .logo{font-size:18px;margin-right:4px}
-  .nav-btn{padding:7px 6px;font-size:13px}
+  .logo{font-size:17px;margin-right:4px}
+  .nav-btn{padding:7px 5px;font-size:13px}
+  #authBtn{margin-left:4px}
   #map{min-height:170px!important;height:30vh!important}
 }
 .stat{flex:1;min-width:140px;background:#eef2ff;border-radius:12px;padding:14px;text-align:center}
