@@ -290,7 +290,6 @@ body{padding-bottom:70px}
   <button class="nav-btn" data-v="compare" onclick="go('compare')">비교함<span class="badge" id="cmpBadge" style="display:none"></span></button>
   <button class="nav-btn" data-v="dash" onclick="go('dash')">학원비</button>
   <button class="nav-btn" data-v="owner" id="navOwner" onclick="go('owner')" style="display:none">원장센터</button>
-  <button class="nav-btn" id="navPremium" onclick="go('owner')" style="display:none">📈 프리미엄</button>
   <button class="nav-btn" data-v="admin" id="navAdmin" onclick="go('admin')" style="display:none">운영</button>
   <div class="spacer"></div>
   <span class="mut" id="userInfo" style="display:none"></span>
@@ -1178,7 +1177,6 @@ const SHEETS = {
   ] },
   owner: { title: "학원장", items: () => {
     const arr = [["🏫", "원장센터 (내 학원 관리)", "go('owner')"]];
-    arr.push(["📈", "프리미엄 노출·광고 신청", "go('owner')"]);
     return arr;
   } },
   more: { title: "더보기", items: () => {
@@ -1502,7 +1500,7 @@ function clearUser(expired) {
   document.getElementById("userInfo").textContent = "";
   document.getElementById("userInfo").style.display = "none";
   document.getElementById("authBtn").textContent = "로그인";
-  ["navOwner", "navPremium", "navAdmin", "bestNotice"].forEach(id => {
+  ["navOwner", "navAdmin", "bestNotice"].forEach(id => {
     const el = document.getElementById(id); if (el) el.style.display = "none";
   });
   refreshNotiBadge();
@@ -1519,7 +1517,6 @@ async function setUser(user) {
   document.getElementById("userInfo").textContent = (p?.nickname || user.email) + (p?.role === "admin" ? " (관리자)" : p?.role === "owner" ? " (원장)" : "");
   document.getElementById("authBtn").textContent = "로그아웃";
   document.getElementById("navOwner").style.display = (p?.role === "owner" || p?.role === "admin") ? "" : "none";
-  document.getElementById("navPremium").style.display = (p?.role === "owner" || p?.role === "admin") ? "" : "none";
   document.getElementById("navAdmin").style.display = p?.role === "admin" ? "" : "none";
   document.getElementById("bestNotice").style.display = p?.role === "admin" ? "" : "none";
   refreshNotiBadge();
