@@ -37,7 +37,7 @@
 - [ ] 라이선스 테스터·샌드박스 계정
 
 ## 5단계 — 빌드·테스트
-- [ ] Android 1.1.3(13) AAB(Codemagic android-capacitor) → 내부 테스트 트랙, iOS 1.0.6 → Codemagic → TestFlight (빌드 시작 2026-10-31 20:0x)
+- [ ] Android 1.1.3(13) AAB(Codemagic android-capacitor) → 내부 테스트 트랙, iOS 1.0.6 → Codemagic → TestFlight — iOS 1.0.6(21) TestFlight 업로드 완료, Android 1.1.3(13) AAB 빌드 완료(Codemagic 산출물, 업로드 대기: 서비스 계정 테스트 트랙 출시 권한 필요)
 - [ ] 실제 테스트 결제로 premium_until·결제 내역 확인 (신규·연장 둘 다)
 
 ## 6단계 — 안내 문서
