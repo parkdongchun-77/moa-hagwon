@@ -15,3 +15,7 @@
 - 지금 코드에서 발견한 것: toss-payment 의 프리미엄 확정이 premium_until 을 "오늘 + 기간"으로 덮어써서, 노출 중에 다시 사면 남은 기간이 사라진다. 새 함수에서는 남은 기간에 이어 붙인다.
 - 현재 구조: 웹은 GitHub Pages(moahagwon.com), DB·함수는 supabase.moahagwon.com, 함수 원본은 C:\Users\user\moa-fn\supabase\functions (git 아님). 앱은 capacitor/ (Capacitor 8), Android 는 Codemagic android-capacitor, iOS 는 Codemagic.
 - 관련 테이블: premium_plans(code,name,price,days,sort,active), payment_transactions, ad_orders, academies(is_premium, premium_until).
+- 가격 확정(사용자): 33,000 / 88,000 / 165,000 / 297,000. 토스는 계약서가 아직 안 와서 보류 — 웹 결제 화면·코드는 만들되 계약 전에는 꺼 둔다.
+- 발견: 운영 함수의 TOSS_SECRET_KEY 가 test_ 키다. 지금 웹에서 결제하면 토스 테스트 결제로 돈은 안 나가는데 프리미엄은 켜진다(지금까지 결제 완료 0건, 미결제 3건). 3단계에서 test 키일 때는 프리미엄을 켜지 않도록 서버에서 막는다.
+- 1단계 SQL 은 moa-fn/sql 에 둔다(moa-fn 은 git 아님). 상품 code 를 스토어 상품 ID 로 쓴다: premium_1m·premium_3m·premium_6m·premium_12m. 예전 premium_30·90 은 지난 주문이 FK 로 참조해서 지우지 않고 active=false.
+- 만료는 기존 cron moa-premium-expire(매일 23:30 UTC)가 처리하므로 새 함수는 켜기·연장만 한다.

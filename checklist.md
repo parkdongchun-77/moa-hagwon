@@ -4,15 +4,17 @@
 상품 4개(1·3·6·12개월). 학부모 결제는 웹/앱에서 하지 않는다(학원 ↔ PG사 직접 계약).
 
 ## 0단계 — 결정 (사용자 승인 필요)
-- [ ] 가격 확정: 1개월 33,000 / 3개월 88,000 / 6개월 165,000 / 12개월 297,000 (부가세 포함, 웹·앱 같은 가격)
+- [x] 가격 확정(2026-10-31 사용자): 1개월 33,000 / 3개월 88,000 / 6개월 165,000 / 12개월 297,000 (부가세 포함, 웹·앱 같은 가격)
 - [x] 웹·앱 둘 다 결제 (2026-10-31 사용자 결정) — 웹 브라우저는 토스, 앱은 스토어
 - [ ] 앱 안에서는 웹 결제를 안내하거나 링크하지 않는다 (Apple·Google 규정). 지금 앱의 "moahagwon.com 에서 결제해 주세요" 문구 제거
 
 ## 1단계 — DB (운영 DB 적용은 사용자 승인 뒤)
-- [ ] premium_plans 에 1·3·6·12개월 4개 (code = 스토어 상품 ID 와 같게: premium_1m·premium_3m·premium_6m·premium_12m), 기존 30일·90일 active=false
-- [ ] payment_transactions 에 store_tx_id(유일), platform 열 — 같은 영수증 두 번 적립 방지
-- [ ] 노출 기간 연장 규칙: 노출 중에 사면 premium_until 에서 이어 붙인다 (지금은 오늘부터 다시 계산해 남은 기간이 사라진다)
-      → verify: 테스트 SQL — 신규/연장/중복 영수증 3가지
+- [x] (작성·검사 끝, 운영 적용 대기) premium_plans 에 1·3·6·12개월 4개 (code = 스토어 상품 ID 와 같게: premium_1m·premium_3m·premium_6m·premium_12m), 기존 30일·90일 active=false
+- [x] (작성·검사 끝) payment_transactions 에 store_tx_id(유일), platform 열 — 같은 영수증 두 번 적립 방지
+- [x] (작성·검사 끝) 노출 기간 연장 규칙 — extend_premium(academy, days), 서비스 키만 실행: 노출 중에 사면 premium_until 에서 이어 붙인다 (지금은 오늘부터 다시 계산해 남은 기간이 사라진다)
+      → verify: 테스트 SQL — 신규/연장/만료 뒤 재시작/중복 영수증/권한 ALL PASS (한 트랜잭션 rollback, 운영 DB 변화 없음 확인)
+      파일: C:\\Users\\user\\moa-fn\\sql\\2026-10-31-premium-store-iap.sql (+ _test.sql)
+- [ ] 운영 DB 적용 (사용자 승인 필요)
 
 ## 2단계 — 영수증 확인 함수 (KBizV verify-credit-purchase 재사용)
 - [ ] functions/verify-premium-purchase: {platform, sku, transactionId, academy_id} → Apple·Google 서버 조회 → 학원 소유자 확인 → 기간 적용
