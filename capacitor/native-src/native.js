@@ -6,6 +6,7 @@ import { SignInWithApple } from "@capacitor-community/apple-sign-in";
 import { Geolocation } from "@capacitor/geolocation";
 import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
+import { NativePurchases } from "@capgo/native-purchases";
 
 // 문서의 Html5QrcodeSupportedFormats 표 기준 QR_CODE = 0 (플러그인이 이 enum을 재수출하지 않아 값을 직접 쓴다)
 const HINT_QR_CODE = 0;
@@ -107,8 +108,14 @@ function onWebLink(cb) {
   App.getLaunchUrl().then((r) => { if (r) fire(r.url); }).catch(() => {});
 }
 
+// 원장 프리미엄 인앱결제. 결과의 transactionId 는 iOS 거래 ID, Android purchaseToken 이다 — 서버가 스토어에 다시 확인한다
+async function iapBuy(sku) {
+  return NativePurchases.purchaseProduct({ productIdentifier: sku, productType: "inapp", quantity: 1 });
+}
+
 window.MoaNative = {
   platform: Capacitor.getPlatform(),
+  iapBuy,
   isNative: Capacitor.isNativePlatform(),
   geoShimmed,
   scanQr,

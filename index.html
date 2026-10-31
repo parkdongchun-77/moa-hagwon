@@ -1178,7 +1178,7 @@ const SHEETS = {
   ] },
   owner: { title: "학원장", items: () => {
     const arr = [["🏫", "원장센터 (내 학원 관리)", "go('owner')"]];
-    if (!isIosApp()) arr.push(["📈", "프리미엄 노출·광고 신청", "go('owner')"]);
+    arr.push(["📈", "프리미엄 노출·광고 신청", "go('owner')"]);
     return arr;
   } },
   more: { title: "더보기", items: () => {
@@ -1519,7 +1519,7 @@ async function setUser(user) {
   document.getElementById("userInfo").textContent = (p?.nickname || user.email) + (p?.role === "admin" ? " (관리자)" : p?.role === "owner" ? " (원장)" : "");
   document.getElementById("authBtn").textContent = "로그아웃";
   document.getElementById("navOwner").style.display = (p?.role === "owner" || p?.role === "admin") ? "" : "none";
-  document.getElementById("navPremium").style.display = ((p?.role === "owner" || p?.role === "admin") && !isIosApp()) ? "" : "none";
+  document.getElementById("navPremium").style.display = (p?.role === "owner" || p?.role === "admin") ? "" : "none";
   document.getElementById("navAdmin").style.display = p?.role === "admin" ? "" : "none";
   document.getElementById("bestNotice").style.display = p?.role === "admin" ? "" : "none";
   refreshNotiBadge();
@@ -2975,7 +2975,7 @@ async function loadOwner() {
   if (!acas?.length) { wrap.innerHTML = ""; return; }
   wrap.innerHTML = acas.map(a => `<div class="card" id="own-${a.id}">
     <div class="row"><h3 style="margin:0">${esc(a.name)}</h3><span class="mut">${esc(a.dong || "")}</span>
-      ${isIosApp() ? "" : (a.is_premium ? `<span class="tag ad">프리미엄 노출 중</span>` : `<span class="right" style="display:inline-flex;gap:6px"><button class="btn sm ghost" onclick="askOrderAd(${a.id},this)">노출 신청</button><button class="btn sm" style="background:#3182f6;color:#fff;font-weight:700" onclick="openPremiumPay(${a.id})">💳 결제 노출(베타)</button></span>`)}</div>
+      ${a.is_premium ? `<span class="tag ad">프리미엄 노출 중</span>` : `<span class="right" style="display:inline-flex;gap:6px"><button class="btn sm ghost" onclick="askOrderAd(${a.id},this)">노출 신청</button><button class="btn sm" style="background:#3182f6;color:#fff;font-weight:700" onclick="openPremiumPay(${a.id})">💳 결제 노출</button></span>`}</div>
     <div class="tabbar"><button class="tab on" onclick="ownTab(this,${a.id},'info')">학원 정보</button>
       <button class="tab" onclick="ownTab(this,${a.id},'fee')">수강료 관리</button>
       <button class="tab" onclick="ownTab(this,${a.id},'lead')">상담 리드</button>
@@ -3104,7 +3104,7 @@ async function renderOwnerDash(acas) {
         <span class="od-pill">👩‍🎓 학생 ${active.length}명</span>
         <span class="od-pill">💰 이번 달 수납 ${won(collected)}</span>
         ${unpaid ? `<span class="od-pill">⏳ 입금 전 ${unpaid}명</span>` : ""}
-        ${isIosApp() || !premCnt ? "" : `<span class="od-pill">⭐ 프리미엄 ${premCnt}곳</span>`}
+        ${!premCnt ? "" : `<span class="od-pill">⭐ 프리미엄 ${premCnt}곳</span>`}
       </div>
     </div>
     ${todo.length ? `<div class="od-sec">지금 할 일</div><div class="od-todo">${todo.join("")}</div>` : ""}
@@ -3130,7 +3130,7 @@ async function renderOwnerDash(acas) {
       ${kpi("💬", "미답변 문의", unread + "건", unread ? "r" : "mute", null, "chat")}
       ${kpi("⭐", "후기", revCnt + "건", revCnt ? "a" : "mute", avgRating ? `평균 ★${avgRating}` : "아직 후기가 없어요", "info")}
       ${kpi("🚪", "최근 7일 등원", inn7 + "회", null, null, "att")}
-      ${isIosApp() ? "" : kpi("📣", "프리미엄 노출", premCnt + "곳", premCnt ? "a" : "mute", premCnt ? "검색 상단에 고정됩니다" : "아래 학원 카드에서 신청", "info")}
+      ${kpi("📣", "프리미엄 노출", premCnt + "곳", premCnt ? "a" : "mute", premCnt ? "검색 상단에 고정됩니다" : "아래 학원 카드에서 신청", "info")}
     </div>
     <div class="od-sec">최근 6개월 추이</div>
     <div class="od-charts">
@@ -3179,7 +3179,7 @@ async function renderPromoDash(acas) {
   // 학원이 한 곳일 때만 「어디로 갈지」가 분명하다. 여러 곳이면 누르는 기능을 넣지 않는다.
   const single = acas.length === 1 ? acas[0].id : null;
   const box = document.getElementById("ownerPromoBox");
-  if (!box || isIosApp()) return;   // iOS 앱에서는 광고·결제를 노출하지 않는다
+  if (!box) return;
   const ids = acas.map(a => a.id);
   const since = ymdLocal(new Date(Date.now() - 29 * 864e5));
   const [{ data: stats }, { data: orders }, { data: lds }, { data: plans }] = await Promise.all([
@@ -4740,9 +4740,10 @@ function canPayHere() { return isIosApp() ? PAY_ENABLED_ON_IOS : !isInApp(); }
 
 async function tossPay(payload) {
   if (needLogin()) return null;
-  if (!canPayHere()) { toast("앱에서는 결제를 지원하지 않습니다. moahagwon.com 에서 결제해 주세요."); return null; }
+  if (!canPayHere()) { toast("앱에서는 이 결제를 지원하지 않습니다."); return null; }
   const create = await sb.functions.invoke("toss-payment", { body: { action: "create", ...payload } });
   const d = create.data;
+  if (d?.error === "web_payment_not_ready") { toast("웹 결제는 준비 중이에요. 조금만 기다려 주세요."); return null; }
   if (create.error || !d?.orderId) { toast("결제 생성 실패: " + (create.error?.message || d?.error || "")); return null; }
 
   // 토스 키가 등록되지 않은 동안에는 예전처럼 테스트 처리로 흐른다.
@@ -4800,8 +4801,28 @@ async function openPremiumPay(aid) {
   openModal("m-premium");
 }
 async function _payPremium(aid, code) {
+  // 앱은 App Store·Google Play 결제, 웹 브라우저는 토스 결제. 어느 쪽이든 서버가 같은 노출 기간에 이어 붙인다
+  if (window.MoaNative?.iapBuy) return payPremiumInApp(aid, code);
   const r = await tossPay({ kind: "premium", academy_id: aid, plan_code: code });
   if (r) { closeModal("m-premium"); loadOwner(); }
+}
+async function payPremiumInApp(aid, code) {
+  if (needLogin()) return;
+  let t;
+  try { t = await window.MoaNative.iapBuy(code); }
+  catch (e) { const m = String(e?.message || e || ""); if (!/cancel/i.test(m)) toast("결제가 끝나지 않았어요. (" + m + ")"); return; }
+  const platform = window.MoaNative.platform;
+  let res = null;
+  // 스토어 확인이 잠깐 안 될 때(server_error)만 다시 묻는다
+  for (let i = 0; i < 3; i++) {
+    const r = await sb.functions.invoke("verify-premium-purchase", { body: { platform, sku: code, transactionId: t?.transactionId, academy_id: aid } });
+    res = r.data;
+    if (res?.ok || res?.code !== "server_error") break;
+    await new Promise(ok => setTimeout(ok, 2000 * (i + 1)));
+  }
+  if (res?.ok) { toast("결제가 완료되어 프리미엄 노출이 시작됐어요 ✅"); closeModal("m-premium"); loadOwner(); }
+  else if (res?.code === "server_error") toast("결제는 확인 중이에요. 잠시 뒤에도 노출이 켜지지 않으면 moahagwon@gmail.com 으로 알려 주세요.");
+  else toast("결제를 확인하지 못했어요" + (res?.code ? ` (${res.code})` : ""));
 }
 async function payTuition(caid, amount, ym, aid) {
   const r = await tossPay({ kind: "tuition", child_academy_id: caid, amount: amount, year_month: ym, academy_id: aid, order_name: ym + " 학원비" });
