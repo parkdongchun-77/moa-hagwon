@@ -33,11 +33,11 @@
 
 ## 4단계 — 스토어 상품 등록 (사용자가 확인 버튼)
 - [x] App Store Connect: 비갱신형 구독 4개 생성(현지화 ko, 판매 국가 한국, 1·3·6개월 가격). 12개월은 Apple 가격대에 297,000 이 없어 웹·앱 모두 295,000 으로 통일(사용자 결정, DB·Apple 반영). 남은 것: 심사 스크린샷 (기간제 이용권), 현지화 ko, 가격, 심사 스크린샷
-- [ ] Google Play: 일회성 상품 4개 — 앱 정보 관리 권한은 받음(10/31). 결제 권한이 든 AAB(1.1.3/13)를 먼저 올려야 상품을 만들 수 있다(400 request billing permission), 가격, 활성화
+- [x] Google Play: 일회성 상품 4개 생성(10/31 20:2x, 한국·원화, 12개월 295,000) — 초안 상태. 남은 것: 사용자가 콘솔에서 4개 활성화, 가격, 활성화
 - [ ] 라이선스 테스터·샌드박스 계정
 
 ## 5단계 — 빌드·테스트
-- [ ] Android 1.1.3(13) AAB(Codemagic android-capacitor) → 내부 테스트 트랙, iOS 1.0.6 → Codemagic → TestFlight — iOS 1.0.6(21) TestFlight 업로드 완료, Android 1.1.3(13) AAB 빌드 완료(Codemagic 산출물, 업로드 대기: 서비스 계정 테스트 트랙 출시 권한 필요)
+- [ ] Android 1.1.3(13) AAB(Codemagic android-capacitor) → 내부 테스트 트랙, iOS 1.0.6 → Codemagic → TestFlight — iOS 1.0.6(21) TestFlight 업로드 완료, Android 1.1.3(13) 내부 테스트 트랙 업로드 완료(10/31 20:2x, play_internal_moa.py)
 - [ ] 실제 테스트 결제로 premium_until·결제 내역 확인 (신규·연장 둘 다)
 
 ## 6단계 — 안내 문서
