@@ -215,6 +215,10 @@ th{background:#f8fafc;font-size:13px;color:var(--mut);white-space:nowrap}
 .od-plan{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px;text-align:left;width:100%;cursor:pointer}
 .od-plan:hover{border-color:var(--p2);background:#fbfbff}
 .od-plan b{display:block;font-size:18px;color:var(--p);margin-top:4px}
+.pc-card{border:2px solid #6d5dfc;border-radius:16px;padding:16px;margin-bottom:14px;background:linear-gradient(135deg,#f5f3ff,#fff)}
+.pc-zap{display:inline-flex;align-items:center;gap:3px;background:linear-gradient(90deg,#ff7a18,#ff2e63);color:#fff;font-weight:800;font-size:12px;border-radius:999px;padding:3px 9px 3px 6px;box-shadow:0 2px 6px rgba(255,46,99,.35)}
+.pc-zap svg{width:13px;height:13px}
+.pc-best{display:inline-block;background:#6d5dfc;color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px;margin-left:4px}
 .od-empty{background:linear-gradient(135deg,#eef2ff,#faf5ff);border:1px solid #ddd6fe;border-radius:16px;padding:22px}
 .od-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:14px}
 .od-step{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px}
@@ -3094,7 +3098,7 @@ async function renderOwnerDash(acas) {
   if (single && unbilled) todo.push(`<button onclick="ownJump(${single},'roster')">🧾 이번 달 청구서를 안 만든 원생이 있어요<span class="od-badge">${unbilled}명</span></button>`);
   if (single && unpaid) todo.push(`<button onclick="ownJump(${single},'students')">💌 입금 확인이 필요해요<span class="od-badge r">${unpaid}명</span></button>`);
   if (single && pendLeads) todo.push(`<button onclick="ownJump(${single},'lead')">📞 답해야 할 상담이 있어요<span class="od-badge">${pendLeads}건</span></button>`);
-  box.innerHTML = `<div class="od-hero">
+  box.innerHTML = `<div id="ownerPremiumCard"></div><div class="od-hero">
       <h2>${heroName}</h2>
       <p>${now.getFullYear()}년 ${now.getMonth() + 1}월 기준 요약입니다.</p>
       <div class="od-pills">
@@ -3136,6 +3140,7 @@ async function renderOwnerDash(acas) {
       <div class="od-chart"><h4>상담 유입</h4><p class="od-cap">새로 들어온 상담 신청</p><canvas id="ownerLeadChart" height="130"></canvas></div>
     </div>
     <div id="ownerPromoBox"></div>`;
+  renderPremiumCard(acas);
   renderPromoDash(acas);
   // 최근 6개월 추이 3종. 수납만 pays6 를 쓰고, 학생 수·상담은 위에서 이미 받아온 enr·leads 로 계산한다(추가 조회 없음).
   const labels = [], vals = [], stuVals = [], leadVals = [];
@@ -3170,6 +3175,58 @@ async function renderOwnerDash(acas) {
     options: axis(v => v + "건")
   });
 }
+// 원장센터 맨 위 프리미엄 노출 카드 — 노출 상태, 요금제(⚡할인 배지), 앱은 자동 갱신 구독 안내·구독 관리·구매 복원
+const ZAP = `<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>`;
+async function renderPremiumCard(acas) {
+  const box = document.getElementById("ownerPremiumCard");
+  if (!box || !acas.length) return;
+  const { data: plans } = await sb.from("premium_plans").select("*").eq("active", true).order("sort");
+  window._premiumPlans = plans || [];
+  const app = !!window.MoaNative?.iapBuy;
+  const aid = (acas.find(a => !a.is_premium) || acas[0]).id;
+  const months = p => Math.max(1, Math.round(p.days / 30.42));
+  const base = window._premiumPlans.find(p => months(p) === 1);
+  const off = p => base && months(p) > 1 ? Math.round((1 - p.price / (base.price * months(p))) * 100) : 0;
+  const best = window._premiumPlans.find(p => months(p) === 6);
+  const status = acas.map(a => {
+    const d = a.premium_until ? Math.ceil((new Date(a.premium_until) - Date.now()) / 864e5) : null;
+    return `<div class="row" style="gap:8px;margin:4px 0"><b style="flex:1;min-width:0">${esc(a.name)}</b>${a.is_premium && d != null && d > 0
+      ? `<span class="tag ad">노출 중 · D-${d} (${String(a.premium_until).slice(0, 10)}까지)</span>` : `<span class="tag gray">노출 안 함</span>`}</div>`;
+  }).join("");
+  const plansHtml = window._premiumPlans.map(p => `<button class="od-plan" onclick="payPremium(${aid},'${p.code}')">
+      <span>${esc(p.name)}${p === best ? `<span class="pc-best">추천</span>` : ""}</span>
+      <b>${won(p.price)}</b>
+      ${off(p) > 0 ? `<span class="pc-zap">${ZAP}${off(p)}% 할인</span>` : `<span class="mut">기본</span>`}
+    </button>`).join("");
+  const notice = app
+    ? `<p class="mut" style="font-size:12px;margin:10px 0 0;line-height:1.6">· 선택한 기간마다 자동으로 갱신되어 결제됩니다. 표시 금액은 부가세 포함입니다.<br>
+        · 다음 결제일 24시간 전까지 ${window.MoaNative.platform === "ios" ? "App Store" : "Google Play"} 구독 관리에서 해지할 수 있으며, 해지해도 남은 기간까지 노출됩니다.<br>
+        <a href="/terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
+       <div class="row" style="gap:6px;margin-top:8px"><button class="btn sm ghost" onclick="window.MoaNative.iapManage()">구독 관리</button><button class="btn sm ghost" onclick="restorePremium(${aid})">구매 복원</button></div>`
+    : `<p class="mut" style="font-size:12px;margin:10px 0 0">표시 금액은 부가세 포함 최종 금액입니다. <a href="/pricing.html" target="_blank" rel="noopener">요금제 안내</a> · <a href="/refund.html" target="_blank" rel="noopener">환불정책</a></p>`;
+  box.innerHTML = `<div class="pc-card">
+      <div class="row" style="gap:8px"><b style="font-size:17px">⭐ 프리미엄 노출</b></div>
+      <p class="mut" style="margin:4px 0 8px">검색 결과 맨 위에 AD 표시와 함께 노출돼요.</p>
+      ${status}
+      <div class="od-grid" style="margin-top:10px">${plansHtml}</div>
+      ${notice}
+    </div>`;
+}
+// 구매 복원 — 지금 유효한 구독을 서버가 스토어에 다시 확인해 노출 기간을 맞춘다
+async function restorePremium(aid) {
+  let list = [];
+  try { list = await window.MoaNative.iapActiveSubs(); } catch (e) { return toast("구매 내역을 불러오지 못했어요. (" + (e?.message || e) + ")"); }
+  if (!list.length) return toast("복원할 구독이 없어요.");
+  const anySub = (window._premiumPlans || []).find(p => p.is_subscription);
+  let ok = 0;
+  for (const it of list) {
+    const sku = window.MoaNative.platform === "android" ? anySub?.code : it.productIdentifier;
+    const r = await sb.functions.invoke("verify-premium-purchase", { body: { platform: window.MoaNative.platform, sku, transactionId: it.transactionId, academy_id: aid } });
+    if (r.data?.ok) ok++;
+  }
+  toast(ok ? "구독을 복원했어요 ✅" : "복원할 구독을 찾지 못했어요.");
+  loadOwner();
+}
 // 홍보(프리미엄 노출) 대시보드. 본 대시보드가 먼저 그려진 뒤 이어서 채워진다.
 function ymdLocal(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
 async function renderPromoDash(acas) {
@@ -3179,11 +3236,10 @@ async function renderPromoDash(acas) {
   if (!box) return;
   const ids = acas.map(a => a.id);
   const since = ymdLocal(new Date(Date.now() - 29 * 864e5));
-  const [{ data: stats }, { data: orders }, { data: lds }, { data: plans }] = await Promise.all([
+  const [{ data: stats }, { data: orders }, { data: lds }] = await Promise.all([
     sb.from("academy_stats").select("academy_id,day,views,detail_views").in("academy_id", ids).gte("day", since),
     sb.from("ad_orders").select("*").in("academy_id", ids).order("created_at", { ascending: false }),
     sb.from("leads").select("created_at").in("academy_id", ids).gte("created_at", since),
-    sb.from("premium_plans").select("*").eq("active", true).order("sort"),
   ]);
 
   const views = (stats || []).reduce((s, r) => s + (r.views || 0), 0);
@@ -3216,13 +3272,6 @@ async function renderPromoDash(acas) {
     </div>`;
   }).join("");
 
-  const planCards = (plans || []).length && acas.some(a => !a.is_premium)
-    ? `<div class="od-sec">요금제</div>
-       <div class="od-grid">${(plans || []).map(p => `<button class="od-plan" onclick="openPremiumPay(${acas.find(a => !a.is_premium).id})">
-          ${esc(p.name)}<b>${won(p.price)}</b><span class="mut">${p.days}일 · 자동 갱신 없음</span></button>`).join("")}</div>
-       <p class="mut" style="margin:8px 0 0"><a href="/pricing.html" target="_blank" rel="noopener">요금제 안내</a> · <a href="/refund.html" target="_blank" rel="noopener">환불정책</a></p>`
-    : "";
-
   const orderRows = (orders || []).length
     ? `<div class="od-sec">신청 내역</div><div class="od-panel" style="display:block"><div style="overflow-x:auto"><table>
         <tr><th>신청일</th><th>상품</th><th>기간</th><th>금액</th><th>상태</th></tr>
@@ -3243,7 +3292,6 @@ async function renderPromoDash(acas) {
       ? `<div class="od-panel" style="display:block;margin-top:10px">노출 기간 하루 평균 <b style="color:var(--p)">${onAvg}회</b> · 그 외 기간 <b>${offAvg}회</b>
           ${offAvg ? ` <span class="mut">(${(onAvg / offAvg).toFixed(1)}배)</span>` : ""}</div>`
       : `<p class="mut" style="margin:8px 0 0">노출수는 오늘부터 쌓입니다. 프리미엄 전후 비교는 데이터가 모이면 여기에 나타납니다.</p>`}
-    ${planCards}
     ${orderRows}`;
 }
 // 노출 신청 — 브라우저 confirm 대신 버튼이 두 단계로 바뀐다
@@ -4789,13 +4837,8 @@ async function handleTossRedirect() {
 }
 async function openPremiumPay(aid) {
   if (needLogin()) return;
-  const { data: plans } = await sb.from("premium_plans").select("*").eq("active", true).order("sort");
-  document.getElementById("premiumBox").innerHTML = (plans || []).map(p =>
-    `<button class="btn" style="width:100%;margin:6px 0;display:flex;justify-content:space-between" onclick="payPremium(${aid},'${p.code}')"><span>${esc(p.name)}</span><b>${won(p.price)}</b></button>`).join("")
-    + `<p class="mut" style="font-size:12px;margin-top:8px">표시된 금액은 <b>부가세가 포함된 최종 결제 금액</b>입니다.<br>
-      결제하시면 노출이 바로 시작되고, 기간이 끝나면 자동으로 종료됩니다(자동 갱신 없음).<br>
-      <a href="/pricing.html" target="_blank" rel="noopener">요금제 안내</a> · <a href="/refund.html" target="_blank" rel="noopener">환불정책</a></p>`;
-  openModal("m-premium");
+  const el = document.getElementById("ownerPremiumCard");
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 async function _payPremium(aid, code) {
   // 앱은 App Store·Google Play 결제, 웹 브라우저는 토스 결제. 어느 쪽이든 서버가 같은 노출 기간에 이어 붙인다
@@ -4806,7 +4849,13 @@ async function _payPremium(aid, code) {
 async function payPremiumInApp(aid, code) {
   if (needLogin()) return;
   let t;
-  try { t = await window.MoaNative.iapBuy(code); }
+  const plan = (window._premiumPlans || []).find(p => p.code === code);
+  const android = window.MoaNative.platform === "android";
+  try {
+    t = plan?.is_subscription
+      ? await window.MoaNative.iapBuy(android ? "premium_sub" : code, "subs", android ? plan.google_base_plan : undefined)
+      : await window.MoaNative.iapBuy(code);
+  }
   catch (e) { const m = String(e?.message || e || ""); if (!/cancel/i.test(m)) toast("결제가 끝나지 않았어요. (" + m + ")"); return; }
   const platform = window.MoaNative.platform;
   let res = null;

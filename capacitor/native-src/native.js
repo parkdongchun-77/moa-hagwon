@@ -109,13 +109,25 @@ function onWebLink(cb) {
 }
 
 // 원장 프리미엄 인앱결제. 결과의 transactionId 는 iOS 거래 ID, Android purchaseToken 이다 — 서버가 스토어에 다시 확인한다
-async function iapBuy(sku) {
-  return NativePurchases.purchaseProduct({ productIdentifier: sku, productType: "inapp", quantity: 1 });
+// 구독은 productType "subs", Android 는 구독 상품 ID + 기본 요금제(planIdentifier)로 산다
+async function iapBuy(sku, productType = "inapp", planIdentifier) {
+  return NativePurchases.purchaseProduct({ productIdentifier: sku, productType, planIdentifier, quantity: 1 });
+}
+// 구매 복원: 지금 유효한 구독 목록 (서버에 다시 확인을 맡긴다)
+async function iapActiveSubs() {
+  const r = await NativePurchases.getPurchases({ productType: "subs", onlyCurrentEntitlements: true });
+  return (r?.purchases || []).map((p) => ({ productIdentifier: p.productIdentifier, transactionId: p.purchaseToken || p.transactionId }));
+}
+// App Store·Google Play 구독 관리(해지) 화면을 연다
+async function iapManage() {
+  return NativePurchases.manageSubscriptions();
 }
 
 window.MoaNative = {
   platform: Capacitor.getPlatform(),
   iapBuy,
+  iapActiveSubs,
+  iapManage,
   isNative: Capacitor.isNativePlatform(),
   geoShimmed,
   scanQr,
