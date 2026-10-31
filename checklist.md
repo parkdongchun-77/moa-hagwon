@@ -38,7 +38,7 @@
 
 ## 5단계 — 빌드·테스트
 - [ ] Android 1.1.3(13) AAB(Codemagic android-capacitor) → 내부 테스트 트랙, iOS 1.0.6 → Codemagic → TestFlight — iOS 1.0.6(21) TestFlight 업로드 완료, Android 1.1.3(13) 내부 테스트 트랙 업로드 완료(10/31 20:2x, play_internal_moa.py)
-- [ ] 실제 테스트 결제로 premium_until·결제 내역 확인 (신규·연장 둘 다)
+- [x] iOS 실제 테스트 결제로 premium_until·결제 내역 확인 (신규) — 10/31 20:42 성공. [ ] 연장·Android 는 남음
 
 ## 6단계 — 안내 문서
 - [x] pricing.html: 4개 상품, 결제 수단을 "웹: 신용카드·계좌이체 / 앱: App Store·Google Play 인앱결제"로
