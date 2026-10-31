@@ -14,7 +14,7 @@
 - [x] (작성·검사 끝) 노출 기간 연장 규칙 — extend_premium(academy, days), 서비스 키만 실행: 노출 중에 사면 premium_until 에서 이어 붙인다 (지금은 오늘부터 다시 계산해 남은 기간이 사라진다)
       → verify: 테스트 SQL — 신규/연장/만료 뒤 재시작/중복 영수증/권한 ALL PASS (한 트랜잭션 rollback, 운영 DB 변화 없음 확인)
       파일: C:\\Users\\user\\moa-fn\\sql\\2026-10-31-premium-store-iap.sql (+ _test.sql)
-- [ ] 운영 DB 적용 (사용자 승인 필요)
+- [x] 운영 DB 적용 (2026-10-31 19:43, 사용자 승인) — 백업 /root/moa-backups/db-20261031-premium-iap/premium_tables.sql, 상품 4개 활성·30·90일 비활성, extend_premium 서비스 키만 실행 확인
 
 ## 2단계 — 영수증 확인 함수 (KBizV verify-credit-purchase 재사용)
 - [ ] functions/verify-premium-purchase: {platform, sku, transactionId, academy_id} → Apple·Google 서버 조회 → 학원 소유자 확인 → 기간 적용
