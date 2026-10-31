@@ -46,3 +46,41 @@
 - [ ] 토스 상점관리자에 최고 결제 금액 변경 알림이 필요한지 확인 (사용자)
 - [x] terms.html 결제 조항 확인 — 바꿀 것 없음
 - [ ] 첫 인앱 상품은 새 앱 버전과 함께 심사 제출 (iOS)
+
+
+# 체크리스트 — 프리미엄 노출 자동 갱신 구독 전환 + 원장센터 프리미엄 카드 + 할인 배지 (2026-10-31 사용자 승인)
+
+목표: 앱 결제를 기간제 이용권에서 자동 갱신 구독(1·3·6·12개월)으로 바꾸고, 원장센터 맨 위에 항상 보이는 프리미엄 카드(상태·연장/구독 관리·할인 배지)를 둔다.
+웹(토스) 자동 결제는 토스 계약 뒤. 메인 화면 프리미엄 버튼은 제거 완료(2648fc9).
+
+## A. 스토어 상품
+- [ ] Apple: 구독 그룹 "프리미엄 노출" + 자동 갱신 구독 4개(premium_sub_1m·3m·6m·12m, ONE_MONTH·THREE_MONTHS·SIX_MONTHS·ONE_YEAR), 현지화 ko, KOR 가격 33,000·88,000·165,000·295,000, 판매 국가 한국
+- [ ] Google: 구독 premium_sub + 기본 요금제 m1·m3·m6·m12(자동 갱신), KR 원화 가격, 활성화
+- [ ] 오늘 만든 기간제 상품(premium_1m 등)은 판매 중단 — 구매자는 테스트 1건뿐
+      → verify: API 로 상품·가격·상태 조회
+
+## B. DB (운영 적용은 승인 뒤)
+- [ ] premium_plans: 구독 상품 4개(code = Apple 상품 ID, google_base_plan 열 추가), 기간제 4개 active=false
+- [ ] payment_transactions: expires_at, original_tx_id, auto_renew 열 — 구독 한 건을 계속 추적
+- [ ] set_premium_until(academy, until): 스토어가 알려 준 만료일까지 노출(지금 값보다 짧게 줄이지 않음), 서비스 키만
+      → verify: 한 트랜잭션 테스트 후 rollback
+
+## C. 서버 함수
+- [ ] verify-premium-purchase: 구독이면 Apple expiresDate·originalTransactionId / Google subscriptionsv2 expiryTime 으로 만료일 적용, 구독 승인(acknowledge)
+- [ ] premium-sub-sync(매일 cron): 활성 구독을 스토어에 다시 물어 갱신되면 만료일 연장, 해지·환불이면 그대로 만료되게 둔다 — 알림 서버(Pub/Sub) 없이 처리
+      → verify: deno check, 가짜 영수증 점검, sync 수동 실행
+
+## D. 앱·웹 화면
+- [ ] 원장센터 맨 위 "⭐ 프리미엄 노출" 카드: 노출 전 = 요금제 4개 + ⚡할인 배지(3개월 11%·6개월 17% 추천·12개월 26%), 노출 중 = "노출 중 · D-n" + 구독 관리/연장
+- [ ] 구독 안내 문구(자동 갱신·해지 방법), 이용약관·개인정보처리방침 링크, 구매 복원 버튼 (Apple 3.1.2)
+- [ ] 앱 결제 호출: productType subs, Android planIdentifier
+      → verify: 문법 검사, 번들 빌드, TestFlight 화면
+
+## E. 안내 문서
+- [ ] pricing.html·refund.html: 앱 결제는 자동 갱신 구독, 해지 방법(App Store·Google Play 구독 관리), 웹은 준비 중
+- [ ] App Store 설명에 이용약관(EULA) 링크
+
+## F. 빌드·테스트·심사
+- [ ] iOS 1.0.6 새 빌드(아직 심사 전), Android 1.1.4(14) 내부 트랙
+- [ ] 샌드박스 구독 결제 → 노출 켜짐, 샌드박스 자동 갱신(5분 주기) 반영 확인 → 테스트 노출 되돌림
+- [ ] 구독 심사 스크린샷 → 1.0.6 과 함께 심사 제출
