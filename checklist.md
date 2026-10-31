@@ -18,8 +18,8 @@
 
 ## 2단계 — 영수증 확인 함수 (KBizV verify-credit-purchase 재사용)
 - [x] (배포 2026-10-31) functions/verify-premium-purchase: {platform, sku, transactionId, academy_id} → Apple·Google 서버 조회 → 학원 소유자 확인 → 기간 적용
-- [ ] (사용자) 비밀값 넣기 — moa-repo/tools/set-iap-keys.ps1 실행. compose 연결·APPLE_BUNDLE_ID·ANDROID_PACKAGE_NAME 은 완료. 비밀값: APPLE_IAP_KEY_ID·ISSUER_ID·PRIVATE_KEY·BUNDLE_ID, PLAY_SERVICE_ACCOUNT, ANDROID_PACKAGE_NAME (사용자가 직접 입력)
-      → verify: 키 없는 지금 가짜 영수증 → server_error(정상), 옛 상품 → unknown_product, 노출 기간 변화 없음. 키 넣은 뒤 verification_failed 확인 필요
+- [x] (사용자 10/31 20:31) 비밀값 넣기 — moa-repo/tools/set-iap-keys.ps1 실행. compose 연결·APPLE_BUNDLE_ID·ANDROID_PACKAGE_NAME 은 완료. 비밀값: APPLE_IAP_KEY_ID·ISSUER_ID·PRIVATE_KEY·BUNDLE_ID, PLAY_SERVICE_ACCOUNT, ANDROID_PACKAGE_NAME (사용자가 직접 입력)
+      → verify: 키 없는 지금 가짜 영수증 → server_error(정상), 옛 상품 → unknown_product, 노출 기간 변화 없음. 키 넣은 뒤 가짜 영수증 → android·ios 모두 verification_failed 확인(스토어 인증 정상)
 
 ## 3단계 — 앱 화면 (index.html + capacitor)
 - [x] @capgo/native-purchases 8.9.6 추가, native.js MoaNative.iapBuy (번들 빌드 확인)
