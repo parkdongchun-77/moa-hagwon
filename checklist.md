@@ -54,33 +54,33 @@
 웹(토스) 자동 결제는 토스 계약 뒤. 메인 화면 프리미엄 버튼은 제거 완료(2648fc9).
 
 ## A. 스토어 상품
-- [ ] Apple: 구독 그룹 "프리미엄 노출" + 자동 갱신 구독 4개(premium_sub_1m·3m·6m·12m, ONE_MONTH·THREE_MONTHS·SIX_MONTHS·ONE_YEAR), 현지화 ko, KOR 가격 33,000·88,000·165,000·295,000, 판매 국가 한국
-- [ ] Google: 구독 premium_sub + 기본 요금제 m1·m3·m6·m12(자동 갱신), KR 원화 가격, 활성화
-- [ ] 오늘 만든 기간제 상품(premium_1m 등)은 판매 중단 — 구매자는 테스트 1건뿐
-      → verify: API 로 상품·가격·상태 조회
+- [x] (10/31) Apple: 구독 그룹 "프리미엄 노출"(22531599) + 자동 갱신 구독 4개(premium_sub_1m·3m·6m·12m, ONE_MONTH·THREE_MONTHS·SIX_MONTHS·ONE_YEAR), 현지화 ko, KOR 가격 33,000·88,000·165,000·295,000, 판매 국가 한국
+- [x] (10/31) Google: 구독 premium_sub + 기본 요금제 m1·m3·m6·m12(자동 갱신), KR 원화 가격, 활성화
+- [x] 오늘 만든 기간제 상품(premium_1m 등)은 판매 중단(Google INACTIVE, Apple 은 제출 안 함) — 구매자는 테스트 1건뿐
+      → verify: Apple 4개 201·가격 KOR, Google m1·m3·m6·m12 ACTIVE 33,000·88,000·165,000·295,000
 
 ## B. DB (운영 적용은 승인 뒤)
-- [ ] premium_plans: 구독 상품 4개(code = Apple 상품 ID, google_base_plan 열 추가), 기간제 4개 active=false
-- [ ] payment_transactions: expires_at, original_tx_id, auto_renew 열 — 구독 한 건을 계속 추적
-- [ ] set_premium_until(academy, until): 스토어가 알려 준 만료일까지 노출(지금 값보다 짧게 줄이지 않음), 서비스 키만
-      → verify: 한 트랜잭션 테스트 후 rollback
+- [x] (운영 적용 20:54, 백업 /root/moa-backups/db-20261031-premium-sub) premium_plans: 구독 상품 4개(code = Apple 상품 ID, google_base_plan 열 추가), 기간제 4개 active=false
+- [x] payment_transactions: expires_at, original_tx_id, auto_renew 열 — 구독 한 건을 계속 추적
+- [x] set_premium_until(academy, until) + cron moa-premium-sub-sync(20:20 UTC): 스토어가 알려 준 만료일까지 노출(지금 값보다 짧게 줄이지 않음), 서비스 키만
+      → verify: rollback 테스트 ALL PASS 후 적용
 
 ## C. 서버 함수
-- [ ] verify-premium-purchase: 구독이면 Apple expiresDate·originalTransactionId / Google subscriptionsv2 expiryTime 으로 만료일 적용, 구독 승인(acknowledge)
-- [ ] premium-sub-sync(매일 cron): 활성 구독을 스토어에 다시 물어 갱신되면 만료일 연장, 해지·환불이면 그대로 만료되게 둔다 — 알림 서버(Pub/Sub) 없이 처리
-      → verify: deno check, 가짜 영수증 점검, sync 수동 실행
+- [x] (배포) verify-premium-purchase: 구독이면 Apple expiresDate·originalTransactionId / Google subscriptionsv2 expiryTime 으로 만료일 적용, 구독 승인(acknowledge)
+- [x] (배포) premium-sub-sync(매일 cron): 활성 구독을 스토어에 다시 물어 갱신되면 만료일 연장, 해지·환불이면 그대로 만료되게 둔다 — 알림 서버(Pub/Sub) 없이 처리
+      → verify: deno check OK, 가짜 구독 영수증 android·ios verification_failed, sync 키 없으면 forbidden·있으면 ok
 
 ## D. 앱·웹 화면
-- [ ] 원장센터 맨 위 "⭐ 프리미엄 노출" 카드: 노출 전 = 요금제 4개 + ⚡할인 배지(3개월 11%·6개월 17% 추천·12개월 26%), 노출 중 = "노출 중 · D-n" + 구독 관리/연장
-- [ ] 구독 안내 문구(자동 갱신·해지 방법), 이용약관·개인정보처리방침 링크, 구매 복원 버튼 (Apple 3.1.2)
-- [ ] 앱 결제 호출: productType subs, Android planIdentifier
-      → verify: 문법 검사, 번들 빌드, TestFlight 화면
+- [x] 원장센터 맨 위 "⭐ 프리미엄 노출" 카드: 노출 전 = 요금제 4개 + ⚡할인 배지(3개월 11%·6개월 17% 추천·12개월 26%), 노출 중 = "노출 중 · D-n" + 구독 관리/연장
+- [x] 구독 안내 문구(자동 갱신·해지 방법), 이용약관·개인정보처리방침 링크, 구매 복원 버튼 (Apple 3.1.2)
+- [x] 앱 결제 호출: productType subs, Android planIdentifier
+      → verify: 인라인 스크립트 4개 OK, 번들 빌드 OK. TestFlight 화면은 남음
 
 ## E. 안내 문서
-- [ ] pricing.html·refund.html: 앱 결제는 자동 갱신 구독, 해지 방법(App Store·Google Play 구독 관리), 웹은 준비 중
-- [ ] App Store 설명에 이용약관(EULA) 링크
+- [x] pricing.html·refund.html: 앱 결제는 자동 갱신 구독, 해지 방법(App Store·Google Play 구독 관리), 웹은 준비 중
+- [ ] App Store 설명에 이용약관(EULA) 링크 — 1.0.6 버전을 ASC 에 만들 때 넣는다
 
 ## F. 빌드·테스트·심사
-- [ ] iOS 1.0.6 새 빌드(아직 심사 전), Android 1.1.4(14) 내부 트랙
+- [ ] iOS 1.0.6 새 빌드(아직 심사 전), Android 1.1.4(14) 내부 트랙 — Codemagic 빌드 시작 10/31 21:0x
 - [ ] 샌드박스 구독 결제 → 노출 켜짐, 샌드박스 자동 갱신(5분 주기) 반영 확인 → 테스트 노출 되돌림
 - [ ] 구독 심사 스크린샷 → 1.0.6 과 함께 심사 제출
