@@ -19,3 +19,8 @@
 - 발견: 운영 함수의 TOSS_SECRET_KEY 가 test_ 키다. 지금 웹에서 결제하면 토스 테스트 결제로 돈은 안 나가는데 프리미엄은 켜진다(지금까지 결제 완료 0건, 미결제 3건). 3단계에서 test 키일 때는 프리미엄을 켜지 않도록 서버에서 막는다.
 - 1단계 SQL 은 moa-fn/sql 에 둔다(moa-fn 은 git 아님). 상품 code 를 스토어 상품 ID 로 쓴다: premium_1m·premium_3m·premium_6m·premium_12m. 예전 premium_30·90 은 지난 주문이 FK 로 참조해서 지우지 않고 active=false.
 - 만료는 기존 cron moa-premium-expire(매일 23:30 UTC)가 처리하므로 새 함수는 켜기·연장만 한다.
+- 함수 원본은 moa-fn(git 아님)에 두고, 배포 전 백업은 서버 /root/moa-backups/fn-20261031-premium-iap/ (toss-payment, docker-compose.yml).
+- verify-premium-purchase 는 토큰을 /auth/v1/user 로 확인한다(toss-payment 의 uidOf 는 서명 확인 없이 JWT 를 읽는다 — 관문(VERIFY_JWT)에 기대는 구조). 영수증 한 건 = payment_transactions 한 줄(order_id = platform:tx). paid 로 먼저 바꾼 요청만 extend_premium 을 부른다.
+- Apple 은 같은 계정(동춘 박)에 모아학원 앱(6801823750)이 있어 KBizV 와 같은 .p8(7W6272CJ2D) 키를 쓸 수 있다. 상품 ID: premium_1m 6829190913, premium_3m 6829191011, premium_6m 6829190700, premium_12m 6829191043.
+- Apple KOR 가격대에 297,000 이 없다(가까운 값 295,000·299,000). 12개월 가격 결정 대기.
+- Google: emoi 서비스 계정이 모아학원 앱을 읽을 수는 있지만 상품 생성은 403. 영수증 확인에도 재무 데이터 권한이 필요하다.
