@@ -1981,18 +1981,33 @@ async function enablePush() {
     refreshPushBtn(); syncSettingsPush();
   } catch (e) { toast("푸시 등록 실패: " + e.message); }
 }
+// 네이티브 앱에서 이미 허용된 권한으로 디바이스 토큰을 등록한다. 안내·환영 알림 없이 조용히.
+async function silentNativePush() {
+  try {
+    await window.MoaNative.registerPush(async (token) => {
+      const { error } = await sb.from("push_subscriptions").upsert(
+        { user_id: state.user.id, endpoint: token, platform: window.MoaNative.platform },
+        { onConflict: "endpoint" });
+      if (error) return logError("push-silent", error.message);
+      nativePushOn = true;
+      refreshPushBtn(); syncSettingsPush();
+    }, null, (err) => logError("push-silent", err));
+  } catch (e) { logError("push-silent", e.message); }
+}
 // 로그인한 사용자의 알림이 꺼져 있으면 하루 한 번 전체 화면으로 켜기를 권한다 (2026-10-25, emoi 와 같은 방식).
-// 앱 심사 기준상 「나중에」는 남긴다. 앱에서 이미 권한을 허용했으면 띄우지 않는다.
+// 앱 심사 기준상 「나중에」는 남긴다(웹 화면). 네이티브 앱은 이 화면 없이 시스템 권한 창을 바로 띄운다.
 async function maybeAskPush() {
   if (!state.user || pushIsOn() || document.getElementById("pushGate")) return;
   const isNative = !!window.MoaNative?.isNative;
   if (!isNative && (!("Notification" in window) || !swReg)) return; // 아이폰 사파리처럼 푸시가 없는 브라우저
   const key = "moa_push_ask_at", now = Date.now();
-  try { if (now - (+localStorage.getItem(key) || 0) < 86400000) return; } catch (e) {}
+  // 네이티브: 권한이 이미 있으면(안드로이드 12 이하는 기본 허용) 토큰만 조용히 등록한다. 예전엔 여기서 끝나 토큰이 안 쌓였다 (2026-11-05)
   if (isNative) {
-    try { const p = await window.Capacitor?.Plugins?.PushNotifications?.checkPermissions?.(); if (p?.receive === "granted") return; } catch (e) {}
+    try { const p = await window.Capacitor?.Plugins?.PushNotifications?.checkPermissions?.(); if (p?.receive === "granted") return silentNativePush(); } catch (e) {}
   }
+  try { if (now - (+localStorage.getItem(key) || 0) < 86400000) return; } catch (e) {}
   try { localStorage.setItem(key, String(now)); } catch (e) {}
+  if (isNative) return enablePush(); // 로그인 직후 시스템 알림 권한 창을 바로 띄운다 (2026-11-05)
   const g = document.createElement("div");
   g.id = "pushGate";
   g.style.cssText = "position:fixed;inset:0;z-index:99999;background:var(--card,#fff);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 28px;text-align:center";
