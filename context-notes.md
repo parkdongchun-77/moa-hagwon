@@ -45,3 +45,12 @@
 - 학원 페이지는 지우지 않고 noindex, follow 만 넣어 사용자·앱 링크는 그대로 둔다. 매주 도는 tools/gen_pages.py 에도 meta 를 넣어 재생성 때 유지된다.
 - 지역/ 페이지 생성 스크립트는 repo 안에서 찾지 못했다(파일 주석에 '스크립트로 생성됨'). 다시 생성하면 noindex 가 빠지므로 그 스크립트를 찾으면 같은 meta 를 넣어야 한다.
 - 다음: 정보성 칼럼 25~30편(2,000자 이상, 홍보는 끝에 한두 줄) → 색인 확인 → 재검토 신청.
+
+## 2026-11-05 iOS 1.0.6 + 자동 갱신 구독 심사 제출
+
+- 원인: 아이폰 TestFlight 에서 "Cannot find product for id premium_sub_1m". 구독 4개가 KOR 가격 1개만 있고 나머지 174개 지역 가격이 없어 실제로 MISSING_METADATA(제출 시 STATE_ERROR.IAP_SUBMISSION_NOT_ALLOWED_MISSING_PRICING_DATA). 판매 국가는 그대로 KOR 1곳.
+- 조치: 4개 구독 모두 KOR 가격(33,000/88,000/165,000/295,000)의 Apple 균등 가격점(equalizations)으로 174개 지역 가격 추가 → 175개. KOR 가격 변동 없음.
+- 1.0.6 버전 생성(빌드 22), 설명 끝에 구독 안내 + 이용약관(EULA) https://moahagwon.com/terms.html · 개인정보 https://moahagwon.com/privacy.html (둘 다 200 확인), 새 기능 문구, 심사 메모 맨 위에 1.0.6 구독 위치 안내 추가(데모 계정 그대로).
+- 11:12 제출: 버전 1.0.6 + premium_sub_1m + premium_sub_12m + 그룹(Premium Listing) → WAITING_FOR_REVIEW.
+- premium_sub_3m·6m 은 '첫 자동 갱신 구독은 새 앱 버전으로 제출' 제약으로 이번 제출에 못 들어감(제출 초안에 3M 만 대기). 1.0.6 승인 뒤 3m·6m 을 따로 심사에 추가해야 함.
+- 가격 보완 뒤라 TestFlight 1.0.6 에서 구독 상품 조회가 될 가능성이 있음 — 재시험 필요.
