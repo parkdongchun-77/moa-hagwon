@@ -3245,7 +3245,8 @@ async function renderPremiumCard(acas) {
       ${off(p) > 0 ? `<span class="pc-zap">${ZAP}${off(p)}% 할인</span>` : `<span class="mut">기본</span>`}
     </button>`).join("");
   const notice = app
-    ? `<p class="mut" style="font-size:12px;margin:10px 0 0;line-height:1.6">· 선택한 기간마다 자동으로 갱신되어 결제됩니다. 표시 금액은 부가세 포함입니다.<br>
+    ? `<p class="mut" style="font-size:12px;margin:10px 0 0;line-height:1.6">· 처음 구독하면 첫 1개월은 무료 체험이에요. 결제창에서 확인할 수 있어요.<br>
+        · 선택한 기간마다 자동으로 갱신되어 결제됩니다. 표시 금액은 부가세 포함입니다.<br>
         · 다음 결제일 24시간 전까지 ${window.MoaNative.platform === "ios" ? "App Store" : "Google Play"} 구독 관리에서 해지할 수 있으며, 해지해도 남은 기간까지 노출됩니다.<br>
         <a href="/terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
        <div class="row" style="gap:6px;margin-top:8px"><button class="btn sm ghost" onclick="window.MoaNative.iapManage()">구독 관리</button><button class="btn sm ghost" onclick="restorePremium(${aid})">구매 복원</button></div>`
