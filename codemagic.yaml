@@ -57,8 +57,8 @@ workflows:
       vars:
         PACKAGE_NAME: "com.moahagwon.myapp"
         # 플레이에 올라간 마지막 versionCode 보다 커야 한다. 출시할 때마다 올린다.
-        VERSION_CODE: "15"
-        VERSION_NAME: "1.1.5"
+        VERSION_CODE: "16"
+        VERSION_NAME: "1.1.6"
       node: 22
       java: 21
     scripts:
@@ -70,6 +70,19 @@ workflows:
           ls -la www
       - name: 의존성 설치
         script: npm install
+      # 결제 플러그인은 요금제마다 Play 가 준 첫 오퍼를 고른다. 무료 체험 오퍼(offerId 있음)가 있으면 그걸 고르게 고친다 (2026-11-06)
+      # Play 는 받을 자격이 있는 사람에게만 체험 오퍼를 주므로, 자격이 없으면 기본 요금제로 산다
+      - name: 결제 플러그인 — 체험 오퍼 우선
+        script: |
+          F=$(find node_modules/@capgo/native-purchases/android -name NativePurchasesPlugin.java)
+          node -e '
+            const fs=require("fs"),f=process.argv[1];let s=fs.readFileSync(f,"utf8");
+            const a="if (offerDetails.getBasePlanId().equals(planIdentifier)) {";
+            const b="if (offerDetails.getBasePlanId().equals(planIdentifier) && (selectedOfferDetails == null || offerDetails.getOfferId() != null)) {";
+            const brk=/(Found matching plan: " \+ planIdentifier\);\s*)break;/;
+            if(s.split(a).length!==2||!brk.test(s)){console.error("patch target not found");process.exit(1)}
+            s=s.replace(a,b).replace(brk,"$1");fs.writeFileSync(f,s);console.log("patched",f);
+          ' "$F"
       - name: 네이티브 기능 번들 생성 + index.html에 주입
         script: |
           npm run build:native
