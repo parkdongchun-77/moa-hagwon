@@ -324,6 +324,14 @@ body{padding-bottom:70px}
       </div>
     </div>
   </div>
+  <!-- 원장님 프리미엄 노출 1개월 무료 체험 배너 — 웹에서만(앱은 스토어 체험), 닫으면 기억함 (2026-11-06) -->
+  <div class="card no-print" id="trialBanner" style="display:none;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;position:relative">
+    <button onclick="dismissTrialBanner()" aria-label="배너 닫기"
+      style="position:absolute;top:8px;right:10px;background:transparent;border:0;color:#ffedd5;font-size:20px;line-height:1;cursor:pointer">×</button>
+    <div style="font-size:17px;font-weight:800;margin-bottom:4px;padding-right:14px">🎁 원장님, 프리미엄 노출 1개월 무료 체험</div>
+    <div style="font-size:13px;color:#fff7ed;margin-bottom:10px">학원을 등록하면 검색 결과 맨 위 노출을 한 달 동안 무료로 써 볼 수 있어요. 결제 정보는 필요 없어요.</div>
+    <button class="btn sm" style="background:#fff;color:#ea580c;font-weight:700" onclick="openTrial()">무료 체험 시작하기</button>
+  </div>
   <div class="card no-print" style="padding:0;overflow:hidden;position:relative">
     <div id="map" style="height:33vh;min-height:240px"></div>
     <div class="mut" style="position:absolute;bottom:6px;left:8px;z-index:500;background:rgba(255,255,255,.85);border-radius:6px;padding:2px 8px;font-size:12px">
@@ -1166,6 +1174,29 @@ function initAppBanner() {
   try { dismissed = localStorage.getItem("moa_appdl_dismissed") === "1"; } catch (_e) {}
   if (dismissed) return;
   const b = document.getElementById("appDlBanner"); if (b) b.style.display = "";
+}
+// 원장 1개월 무료 체험 배너 — 앱 안에서는 스토어 체험을 쓰므로 숨긴다
+function initTrialBanner() {
+  if (isInApp()) return;
+  let dismissed = false;
+  try { dismissed = localStorage.getItem("moa_trial_dismissed") === "1"; } catch (_e) {}
+  if (dismissed) return;
+  const b = document.getElementById("trialBanner"); if (b) b.style.display = "";
+}
+function dismissTrialBanner() {
+  try { localStorage.setItem("moa_trial_dismissed", "1"); } catch (_e) {}
+  const b = document.getElementById("trialBanner"); if (b) b.style.display = "none";
+}
+function openTrial() { if (needLogin()) return; go("owner"); }
+// 웹 무료 체험 시작 — 서버가 학원·원장마다 한 번 30일 노출을 켠다
+async function startPremiumTrial(aid) {
+  const { data, error } = await sb.rpc("start_premium_trial", { p_academy: aid });
+  if (error) {
+    const m = error.message || "";
+    return toast(/trial_used/.test(m) ? "이미 무료 체험을 쓰셨어요." : /already_premium/.test(m) ? "이미 노출 중이에요." : "체험을 시작하지 못했어요. (" + m + ")");
+  }
+  toast(`무료 체험을 시작했어요 ✅ ${String(data).slice(0, 10)}까지 노출돼요`);
+  loadOwner();
 }
 function needLogin() { if (!state.user) { toast("로그인이 필요합니다."); openModal("m-auth"); return true; } return false; }
 // ===== 하단 고정 바 + 메뉴 시트 =====
@@ -3219,10 +3250,19 @@ async function renderPremiumCard(acas) {
         <a href="/terms.html" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy.html" target="_blank" rel="noopener">개인정보처리방침</a></p>
        <div class="row" style="gap:6px;margin-top:8px"><button class="btn sm ghost" onclick="window.MoaNative.iapManage()">구독 관리</button><button class="btn sm ghost" onclick="restorePremium(${aid})">구매 복원</button></div>`
     : `<p class="mut" style="font-size:12px;margin:10px 0 0">표시 금액은 부가세 포함 최종 금액입니다. <a href="/pricing.html" target="_blank" rel="noopener">요금제 안내</a> · <a href="/refund.html" target="_blank" rel="noopener">환불정책</a></p>`;
+  // 웹에서만: 노출 중이 아닌 학원이 있고 체험을 안 썼으면 1개월 무료 체험 버튼
+  const trialAca = !app && acas.find(a => !(a.is_premium && a.premium_until && new Date(a.premium_until) > Date.now()));
+  let trialHtml = "";
+  if (trialAca) {
+    const { data: used } = await sb.from("premium_trials").select("academy_id").limit(1);
+    if (!used?.length) trialHtml = `<button class="btn" style="width:100%;margin-top:10px;background:#f97316;color:#fff;font-weight:700" onclick="startPremiumTrial(${trialAca.id})">🎁 1개월 무료 체험 시작 (${esc(trialAca.name)})</button>
+      <p class="mut" style="font-size:12px;margin:6px 0 0">결제 정보 없이 30일 동안 노출돼요. 끝나면 자동으로 꺼지고 결제되지 않아요.</p>`;
+  }
   box.innerHTML = `<div class="pc-card">
       <div class="row" style="gap:8px"><b style="font-size:17px">⭐ 프리미엄 노출</b></div>
       <p class="mut" style="margin:4px 0 8px">검색 결과 맨 위에 AD 표시와 함께 노출돼요.</p>
       ${status}
+      ${trialHtml}
       <div class="od-grid" style="margin-top:10px">${plansHtml}</div>
       ${notice}
     </div>`;
@@ -5422,6 +5462,7 @@ const addScheduleEvent = _once("addScheduleEvent", _addScheduleEvent);
   // 네이티브 앱에서만 QR 스캔 버튼 노출 (capacitor-native.js가 주입된 환경)
   refreshQrScanBtn();
   initAppBanner();
+initTrialBanner();
   // 아래 핸들러들이 첫 await 전에 history.replaceState 로 쿼리를 지우므로, 판단에 쓸 값은 미리 잡아둔다.
   const q0 = new URLSearchParams(location.search);
   const pendingFlow = !!(q0.get("checkin") || q0.get("compare") || q0.get("code") || q0.get("tosspay") || location.hash.includes("apple"));
