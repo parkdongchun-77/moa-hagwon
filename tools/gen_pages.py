@@ -30,7 +30,8 @@ select coalesce(json_agg(t order by t.id), '[]') from (
   select id, name, kind, sido, region_city, dong, subjects, grades, photos, intro, timetable,
          case when fee_public then min_monthly end as min_monthly,
          case when fee_public then max_monthly end as max_monthly,
-         to_char(updated_at at time zone 'Asia/Seoul', 'YYYY-MM-DD') as updated
+         to_char(updated_at at time zone 'Asia/Seoul', 'YYYY-MM-DD') as updated,
+         owner_id is not null as has_owner
   from academies
   where status = '개원' and sido is not null and region_city is not null and name not like '[심사용]%'
     and (owner_id is not null or is_premium or cardinality(photos) > 0
@@ -180,6 +181,9 @@ def academy_page(a):
     if a.get("timetable"):
         body.append(f'<h2>시간표</h2><p class="pre">{e(a["timetable"])}</p>')
     body.append(f'<p><a class="cta" href="{SITE}/?aca={a["id"]}">모아학원에서 상담·자세히 보기</a></p>')
+    if not a.get("has_owner"):
+        # 원장 가입 유도 (2026-11-06): 웹에서 학원을 등록하면 프리미엄 노출 1개월 무료 체험
+        body.append(f'<p class="mut">이 학원 원장님이세요? <a href="{SITE}/?go=owner">학원을 등록하면 프리미엄 노출을 1개월 무료로 체험</a>할 수 있어요.</p>')
     body.append('<p class="mut">학원 정보는 공공데이터와 원장이 등록한 내용을 바탕으로 하며 실제와 다를 수 있습니다. '
                 '등록 전에 학원에 직접 확인해 주세요. 수정·삭제 요청은 <a href="/contact.html">문의</a>로 보내 주세요.</p>')
     return shell(title, desc, url, img or OG_DEFAULT, "\n".join(x for x in body if x), graph, "article")
