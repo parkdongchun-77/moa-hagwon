@@ -54,3 +54,12 @@
 - 11:12 제출: 버전 1.0.6 + premium_sub_1m + premium_sub_12m + 그룹(Premium Listing) → WAITING_FOR_REVIEW.
 - premium_sub_3m·6m 은 '첫 자동 갱신 구독은 새 앱 버전으로 제출' 제약으로 이번 제출에 못 들어감(제출 초안에 3M 만 대기). 1.0.6 승인 뒤 3m·6m 을 따로 심사에 추가해야 함.
 - 가격 보완 뒤라 TestFlight 1.0.6 에서 구독 상품 조회가 될 가능성이 있음 — 재시험 필요.
+## 2026-11-06 원장 프리미엄 노출 1개월 무료 체험 (사용자 승인: 웹·앱 둘 다, 웹 배너)
+- 서버: verify-premium-purchase·_shared/store-verify.ts — Apple offerType=1+FREE_TRIAL, Google lineItems[].offerPhase.freeTrial 이면 payment_transactions amount 0·meta.trial=true. 백업 *.bak-trial-20261106-143326, moa-edge-functions 재시작, 익명 호출 unauthenticated 정상. (deno check 는 컨테이너에 deno 가 없어 못 함)
+- DB: vps-scripts(모아학원 폴더) 60-premium-trial.sql — premium_trials(학원 PK·원장 unique) + start_premium_trial(p_academy) SECURITY DEFINER: 본인 학원, 노출 중 아님, 체험·유료 결제 이력 없음 → extend_premium 30일. 롤백 테스트 통과(남의 학원 not_owner / 정상 / 노출 중 already_premium / 만료 뒤 trial_used / 익명 거부). 운영 적용 + PostgREST 리로드, REST 익명 401.
+- 웹(409e7e5): 검색 화면 주황 배너(앱 안 숨김·닫기 기억 moa_trial_dismissed) → 로그인 → 원장센터. 원장센터 프리미엄 카드에 노출 중 아닌 학원 + 체험 미사용이면 '1개월 무료 체험 시작' 버튼(웹만).
+- /a/ (ffb6510): 원장 미등록 학원 페이지에 '이 학원 원장님이세요? … 1개월 무료로 체험' → /?go=owner. 3,679 페이지 재생성.
+- Play: premium_sub m1·m3·m6·m12 에 오퍼 trial-1m(P1M 무료, KR, 앱 첫 구독자) ACTIVE.
+- Android 1.1.6(16) (1079c6d·10b59ab): Codemagic 에서 @capgo/native-purchases 를 고쳐 같은 요금제의 오퍼 중 offerId 있는(체험) 것을 고른다. 앱 구독 안내에 '처음 구독하면 첫 1개월은 무료 체험' 줄.
+- 주의: 이 안내 줄은 index.html 에 있어 다음 iOS 빌드에도 들어간다 → 다음 iOS 빌드 전에 App Store 도입 오퍼(무료 체험)를 꼭 켠다.
+- 허점(감수): 웹 체험을 쓴 원장도 앱에서 스토어 체험을 한 번 더 받을 수 있다(스토어는 우리 이력을 모름).
