@@ -1558,6 +1558,7 @@ async function setUser(user) {
   await loadBlocks();
   notifyIfNewSignup(p);
   setTimeout(maybeAskPush, 1500); // initPush 의 구독 확인이 끝난 뒤에 판단한다
+  setTimeout(maybeAskMarketing, 4000); // 알림 권한 창 뒤에, 가입 화면의 동의 저장이 끝난 뒤에 묻는다
   const pend = sessionStorage.getItem("pendingCheckin");
   if (pend) { sessionStorage.removeItem("pendingCheckin"); closeModal("m-auth"); doCheckin(+pend); }
   const pendAca = sessionStorage.getItem("pendingAca");
@@ -2050,6 +2051,35 @@ async function maybeAskPush() {
   document.body.appendChild(g);
   g.querySelector("#pushGateOn").onclick = () => { g.remove(); enablePush(); };
   g.querySelector("#pushGateLater").onclick = () => g.remove();
+}
+// 광고성 정보 수신을 아직 정하지 않은 회원에게 로그인 후 한 번 묻는다 (2026-11-15). 체크를 미리 해 두지 않는다(정보통신망법상 명시적 동의).
+// 거부·동의 기록(marketing_opt_in_at)이 있으면 다시 묻지 않고, 「나중에」는 7일 뒤에 다시 묻는다.
+async function maybeAskMarketing() {
+  if (!state.user || document.getElementById("mkGate")) return;
+  if (document.getElementById("pushGate")) return setTimeout(maybeAskMarketing, 3000);
+  const key = "moa_mk_ask_" + state.user.id;
+  try { if (Date.now() - (+localStorage.getItem(key) || 0) < 7 * 86400000) return; } catch (e) {}
+  const { data } = await sb.from("profiles").select("marketing_opt_in,marketing_opt_in_at").eq("id", state.user.id).maybeSingle();
+  if (!data || data.marketing_opt_in || data.marketing_opt_in_at) return;
+  const g = document.createElement("div");
+  g.id = "mkGate";
+  g.className = "modal-bg on";
+  g.innerHTML = '<div class="modal" style="max-width:360px;text-align:center"><div style="font-size:48px;line-height:1">🏫</div>' +
+    '<h3 style="margin:14px 0 8px">우리 동네 학원 소식 받아 볼까요?</h3>' +
+    '<p style="margin:0 0 6px;line-height:1.6">가까운 학원 소개와 할인 정보를 앱 알림으로 보내 드려요.</p>' +
+    '<p style="margin:0 0 18px;font-size:.85em;color:var(--mut,#64748b)">[선택] 광고성 정보 수신 동의 · 동의하지 않아도 이용에 제한이 없고, 설정에서 언제든 해지할 수 있어요.</p>' +
+    '<button class="btn" id="mkGateYes" style="width:100%;padding:13px">받기</button>' +
+    '<button id="mkGateLater" style="margin-top:8px;background:none;border:0;color:var(--mut,#64748b);font:inherit;padding:10px;cursor:pointer">나중에</button></div>';
+  document.body.appendChild(g);
+  g.querySelector("#mkGateLater").onclick = () => { try { localStorage.setItem(key, String(Date.now())); } catch (e) {} g.remove(); };
+  g.querySelector("#mkGateYes").onclick = async () => {
+    const at = new Date().toISOString();
+    const { error } = await sb.from("profiles").update({ marketing_opt_in: true, marketing_opt_in_at: at }).eq("id", state.user.id);
+    if (error) return toast("저장하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    g.remove();
+    if (document.getElementById("setMarketing")) { document.getElementById("setMarketing").checked = true; setMkAtText(true, at); }
+    toast("광고성 정보 수신에 동의하셨습니다.");
+  };
 }
 // 성공 여부를 돌려준다. 긴급(SOS) 알림은 실패를 반드시 사용자에게 알려야 하므로 삼키지 않는다.
 async function sendCheckinPush(payload) {
