@@ -478,7 +478,7 @@ body{padding-bottom:70px}
       <p>서비스는 천재지변, 이용자 귀책, 제3자 서비스(지도·결제·메시지 등) 장애로 인한 손해에 대해 책임을 지지 않습니다. 학원과 학부모 간 거래·계약은 당사자 간의 책임입니다.</p>
       <h3>제10조 (약관의 변경)</h3>
       <p>서비스는 필요 시 약관을 변경할 수 있으며, 변경 시 시행일과 내용을 서비스 내 공지합니다.</p>
-      <p class="mut" style="margin-top:14px">문의: 모아학원 고객센터 (앱 내 모아봇 1:1 문의)</p>
+      <p class="mut" style="margin-top:14px">문의: 모아학원 고객센터 전화 <a href="tel:010-7385-2657">010-7385-2657</a> (앱 내 모아봇 1:1 문의)</p>
     </div>
     <button class="btn gray" style="margin-top:14px" onclick="go('search')">← 홈으로</button>
   </div>
@@ -507,7 +507,7 @@ body{padding-bottom:70px}
       <h3>8. 만 14세 미만 아동</h3>
       <p>만 14세 미만 아동의 정보(자녀 정보 등)는 법정대리인(학부모)의 관리하에 등록·이용되는 것을 전제로 합니다.</p>
       <h3>9. 개인정보 보호책임자</h3>
-      <p>문의: 모아학원 고객센터(앱 내 모아봇 1:1 문의). 처리방침은 변경 시 시행일과 함께 서비스 내 공지합니다.</p>
+      <p>문의: 모아학원 고객센터(전화 010-7385-2657, 앱 내 모아봇 1:1 문의). 처리방침은 변경 시 시행일과 함께 서비스 내 공지합니다.</p>
     </div>
     <button class="btn gray" style="margin-top:14px" onclick="go('search')">← 홈으로</button>
   </div>
@@ -5304,7 +5304,7 @@ async function botReply(q) {
       </div>
       <div id="botEdHits" style="margin-top:6px"></div>
       <span class="mut" style="font-size:12px">학원 원장님이시면 <b>원장센터 → 권한 신청</b>으로 소유권을 인증하시면 직접 수정하실 수 있어요.</span>`);
-  if (has("고객센터", "전화번호", "전화 번호", "연락처", "문의처", "관리 전화", "관리전화", "관리자 전화", "담당자", "이메일", "메일", "상담전화", "연락", "전화")) return botMsg("📮 <b>고객센터 문의</b><br>모아학원은 별도 전화 상담 대신 <b>이메일</b>로 문의를 받고 있어요.<br>👉 <a href=\"mailto:moahagwon@gmail.com?subject=%5B%EB%AA%A8%EC%95%84%ED%95%99%EC%9B%90%20%EB%AC%B8%EC%9D%98%5D\"><b>moahagwon@gmail.com</b></a> 으로 문의 내용을 보내주시면, 접수된 순서대로 순차적으로 처리해 답변드립니다.<br>학원 이름·연락처와 함께 문의 내용을 적어주시면 더 빠르게 도와드릴 수 있어요.");
+  if (has("고객센터", "전화번호", "전화 번호", "연락처", "문의처", "관리 전화", "관리전화", "관리자 전화", "담당자", "이메일", "메일", "상담전화", "연락", "전화")) return botMsg("📮 <b>고객센터 문의</b><br>📞 전화 <a href=\"tel:010-7385-2657\"><b>010-7385-2657</b></a><br>✉️ 이메일로도 문의를 받고 있어요.<br>👉 <a href=\"mailto:moahagwon@gmail.com?subject=%5B%EB%AA%A8%EC%95%84%ED%95%99%EC%9B%90%20%EB%AC%B8%EC%9D%98%5D\"><b>moahagwon@gmail.com</b></a> 으로 문의 내용을 보내주시면, 접수된 순서대로 순차적으로 처리해 답변드립니다.<br>학원 이름·연락처와 함께 문의 내용을 적어주시면 더 빠르게 도와드릴 수 있어요.");
   if (await botSearch(q)) return;
   await botAI(q); // 규칙으로 안 잡히는 질문은 Gemini가 답변
 }
