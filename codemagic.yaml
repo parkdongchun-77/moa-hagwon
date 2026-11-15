@@ -301,6 +301,8 @@ workflows:
         script: |
           PLIST=ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string '내 주변 학원 검색과 안심 위치 공유, QR 출석 위치 확인에 사용됩니다.'" "$PLIST" || true
+          # 위치 플러그인 코드가 '항상' 권한 API 를 참조해 Apple 이 ITMS-90683 경고를 보낸다(1.0.9 빌드 26). 앱은 '사용 중'만 요청한다.
+          /usr/libexec/PlistBuddy -c "Add :NSLocationAlwaysAndWhenInUseUsageDescription string '내 주변 학원 검색과 안심 위치 공유, QR 출석 위치 확인에 사용됩니다. 앱을 사용하는 동안에만 위치를 확인합니다.'" "$PLIST" || true
           /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string '출석 QR 코드를 스캔할 때 카메라를 사용합니다.'" "$PLIST" || true
           # 앱이 자체 암호화를 구현하지 않고 OS의 HTTPS만 쓰므로 수출 규정 면제 대상이다.
           # 이 키가 없으면 업로드할 때마다 App Store Connect에서 수출 규정 문서를 요구한다.
